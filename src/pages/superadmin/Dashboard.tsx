@@ -1,25 +1,56 @@
 import { AppLayout } from '@/components/layout/AppLayout'
-import { PageHeader } from '@/components/layout/PageHeader'
-import { Card, CardBody } from '@/components/ui/Card'
-import { Table, Column } from '@/components/ui/Table'
-import { Stat } from '@/components/ui/Stat'
 import { Badge } from '@/components/ui/Badge'
 import { Spinner } from '@/components/ui/Spinner'
 import { useGlobalDashboard } from '@/hooks/useDashboard'
 import { useTontines } from '@/hooks/useTontines'
 import { Tontine } from '@/types/tontine'
 import { TontineStatut } from '@/types/common'
-import { Users, TrendingUp, DollarSign, AlertCircle } from 'lucide-react'
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
+import {
+  Users, BookCopy, TrendingUp, AlertTriangle,
+  UserPlus, Activity, PauseCircle,
+} from 'lucide-react'
 
 const statutVariants: Record<TontineStatut, 'success' | 'warning' | 'info' | 'default'> = {
   ACTIVE: 'success',
-  BROUILLON: 'warning',
-  SUSPENDUE: 'info',
+  BROUILLON: 'default',
+  SUSPENDUE: 'warning',
   TERMINEE: 'default',
 }
 
-const PIE_COLORS = ['#22c55e', '#f59e0b', '#3b82f6', '#6b7280']
+function StatCard({
+  label, value, sub, icon, subGreen,
+}: {
+  label: string
+  value: React.ReactNode
+  sub?: string
+  icon: React.ReactNode
+  subGreen?: boolean
+}) {
+  return (
+    <div className="bg-white rounded-2xl border border-neutral-100 p-5 flex items-start justify-between shadow-sm">
+      <div>
+        <p className="text-sm text-neutral-500 mb-2">{label}</p>
+        <p className="text-3xl font-bold text-neutral-900">{value}</p>
+        {sub && (
+          <p className={`text-xs mt-1 ${subGreen ? 'text-primary-600' : 'text-neutral-500'}`}>
+            {sub}
+          </p>
+        )}
+      </div>
+      <div className="w-10 h-10 rounded-full bg-primary-50 flex items-center justify-center text-primary-600 flex-shrink-0">
+        {icon}
+      </div>
+    </div>
+  )
+}
+
+function ProgressBar({ value, color }: { value: number; color: string }) {
+  return (
+    <div className="w-full bg-neutral-100 rounded-full h-2">
+      <div className={`h-2 rounded-full ${color}`} style={{ width: `${value}%` }} />
+    </div>
+  )
+}
 
 export function SuperAdminDashboard() {
   const { data: dashboard, isLoading: dashLoading } = useGlobalDashboard()
@@ -33,113 +64,157 @@ export function SuperAdminDashboard() {
   const f = dashboard?.finances
   const a = dashboard?.activiteRecente
 
-  const pieData = t ? [
-    { name: 'Actives', value: t.actives },
-    { name: 'Brouillon', value: t.brouillon },
-    { name: 'Suspendues', value: t.suspendues },
-    { name: 'Terminées', value: t.terminees },
-  ].filter((d) => d.value > 0) : []
+  const totalTontines = (t?.actives ?? 0) + (t?.brouillon ?? 0) + (t?.suspendues ?? 0) + (t?.terminees ?? 0)
+  const pct = (n: number) => totalTontines > 0 ? Math.round((n / totalTontines) * 100) : 0
 
-  const columns: Column<Tontine>[] = [
-    {
-      key: 'nom',
-      header: 'Nom',
-      render: (row) => <span className="font-semibold">{row.nom}</span>,
-    },
-    {
-      key: 'creePar',
-      header: 'Créateur',
-      render: (row) => `${row.creePar.firstName} ${row.creePar.lastName}`,
-    },
-    {
-      key: 'nombreMembres',
-      header: 'Membres',
-      render: (row) => <span className="text-primary-600 font-semibold">{row.nombreMembresActuels}/{row.nombreMembres}</span>,
-    },
-    {
-      key: 'montant',
-      header: 'Montant',
-      render: (row) => `${row.montant.toLocaleString()} FCFA`,
-    },
-    {
-      key: 'statut',
-      header: 'Statut',
-      render: (row) => <Badge variant={statutVariants[row.statut]}>{row.statut}</Badge>,
-    },
+  const repartition = [
+    { label: 'Actives', value: t?.actives ?? 0, color: 'bg-primary-500' },
+    { label: 'Brouillon', value: t?.brouillon ?? 0, color: 'bg-neutral-300' },
+    { label: 'Suspendues', value: t?.suspendues ?? 0, color: 'bg-orange-400' },
+    { label: 'Terminées', value: t?.terminees ?? 0, color: 'bg-neutral-400' },
   ]
 
   return (
     <AppLayout>
-      <PageHeader
-        title="Tableau de bord"
-        description="Vue globale de la plateforme Dinthialma"
-      />
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-neutral-900">Vue d'ensemble</h1>
+        <p className="text-sm text-neutral-500 mt-1">Indicateurs clés de la plateforme Dinthialma — temps réel.</p>
+      </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <Stat label="Utilisateurs actifs" value={u?.actifs ?? 0} icon={<Users size={32} />} />
-        <Stat label="Tontines actives" value={t?.actives ?? 0} icon={<TrendingUp size={32} />} />
-        <Stat
-          label="Validé ce mois"
-          value={`${(f?.montantValideСeMois ?? 0).toLocaleString()} FCFA`}
-          icon={<DollarSign size={32} />}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+        <StatCard
+          label="Utilisateurs"
+          value={u?.total ?? 0}
+          sub={u?.nouveauxCeMois ? `+${u.nouveauxCeMois} ce mois` : undefined}
+          subGreen
+          icon={<Users size={20} />}
         />
-        <Stat label="Cotisations en attente" value={f?.cotisationsEnAttente ?? 0} icon={<AlertCircle size={32} />} />
+        <StatCard
+          label="Tontines actives"
+          value={<span className="text-primary-600">{t?.actives ?? 0}</span>}
+          sub={totalTontines ? `${totalTontines} au total` : undefined}
+          icon={<BookCopy size={20} />}
+        />
+        <StatCard
+          label="Cotisations / mois"
+          value={`${((f?.montantValideСeMois ?? 0) / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 0 })} FCFA`}
+          sub={f?.variationMoisPrecedent ? `+${f.variationMoisPrecedent}% vs mois dernier` : undefined}
+          subGreen
+          icon={<TrendingUp size={20} />}
+        />
+        <StatCard
+          label="En retard"
+          value={f?.cotisationsEnRetard ?? 0}
+          sub={f?.cotisationsEnAttente ? `${f.cotisationsEnAttente} en attente` : undefined}
+          icon={<AlertTriangle size={20} />}
+        />
       </div>
 
-      {/* Activité 24h */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        <Card>
-          <h3 className="text-sm font-medium text-neutral-500 mb-1">Nouveaux inscrits (24h)</h3>
-          <p className="text-3xl font-bold text-neutral-900">{a?.nouveauxInscrits ?? 0}</p>
-        </Card>
-        <Card>
-          <h3 className="text-sm font-medium text-neutral-500 mb-1">Cotisations enregistrées (24h)</h3>
-          <p className="text-3xl font-bold text-neutral-900">{a?.cotisationsEnregistrees ?? 0}</p>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Pie chart statuts */}
-        <Card className="lg:col-span-1">
-          <h3 className="text-lg font-semibold text-neutral-900 mb-4">Répartition par statut</h3>
-          {pieData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={260}>
-              <PieChart>
-                <Pie data={pieData} cx="50%" cy="50%" innerRadius={55} outerRadius={95} paddingAngle={2} dataKey="value">
-                  {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                </Pie>
-                <Tooltip formatter={(v, n) => [`${v}`, n]} />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="h-[260px] flex items-center justify-center text-neutral-400">Aucune donnée</div>
-          )}
-          <div className="mt-2 space-y-1">
-            {pieData.map((d, i) => (
-              <div key={d.name} className="flex items-center gap-2 text-sm">
-                <span className="w-3 h-3 rounded-full inline-block" style={{ background: PIE_COLORS[i % PIE_COLORS.length] }} />
-                <span className="text-neutral-600">{d.name}</span>
-                <span className="ml-auto font-semibold">{d.value}</span>
+      {/* Répartition + Activité 24h */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 mb-6">
+        {/* Répartition */}
+        <div className="xl:col-span-2 bg-white rounded-2xl border border-neutral-100 p-6 shadow-sm">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <h3 className="font-semibold text-neutral-900">Répartition des tontines</h3>
+              <p className="text-xs text-neutral-500 mt-0.5">Par statut, sur les {totalTontines} tontines.</p>
+            </div>
+          </div>
+          <div className="space-y-4">
+            {repartition.map((r) => (
+              <div key={r.label}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm text-neutral-700">{r.label}</span>
+                  <span className="text-sm text-neutral-500">{r.value} ({pct(r.value)}%)</span>
+                </div>
+                <ProgressBar value={pct(r.value)} color={r.color} />
               </div>
             ))}
           </div>
-        </Card>
+        </div>
 
-        {/* Dernières tontines */}
-        <Card className="lg:col-span-2 noPadding">
-          <div className="p-6 border-b border-neutral-200">
-            <h3 className="text-lg font-semibold text-neutral-900">5 Dernières Tontines</h3>
+        {/* Activité 24h */}
+        <div className="bg-white rounded-2xl border border-neutral-100 p-6 shadow-sm">
+          <h3 className="font-semibold text-neutral-900 mb-1">Activité 24h</h3>
+          <p className="text-xs text-neutral-500 mb-5">Évènements récents.</p>
+          <div className="space-y-5">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-full bg-primary-50 flex items-center justify-center text-primary-600 flex-shrink-0">
+                <UserPlus size={18} />
+              </div>
+              <div>
+                <p className="text-xl font-bold text-neutral-900">{a?.nouveauxInscrits ?? 0}</p>
+                <p className="text-xs text-neutral-500">Nouveaux inscrits</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 flex-shrink-0">
+                <Activity size={18} />
+              </div>
+              <div>
+                <p className="text-xl font-bold text-neutral-900">{a?.cotisationsEnregistrees ?? 0}</p>
+                <p className="text-xs text-neutral-500">Cotisations enregistrées</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center text-orange-500 flex-shrink-0">
+                <PauseCircle size={18} />
+              </div>
+              <div>
+                <p className="text-xl font-bold text-neutral-900">{a?.tontinesSuspendues ?? 0}</p>
+                <p className="text-xs text-neutral-500">Tontines suspendues</p>
+              </div>
+            </div>
           </div>
-          <CardBody>
-            <Table
-              columns={columns}
-              data={tontines}
-              isLoading={tontinesLoading}
-              emptyMessage="Aucune tontine"
-            />
-          </CardBody>
-        </Card>
+        </div>
+      </div>
+
+      {/* Dernières tontines */}
+      <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b border-neutral-100">
+          <h3 className="font-semibold text-neutral-900">Dernières tontines</h3>
+          <p className="text-xs text-neutral-500 mt-0.5">5 plus récentes, tous statuts.</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-neutral-100">
+                {['Nom', 'Créateur', 'Montant', 'Membres', 'Créée le', 'Statut'].map((h) => (
+                  <th key={h} className="px-6 py-3 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {tontinesLoading ? (
+                <tr><td colSpan={6} className="text-center py-8"><Spinner /></td></tr>
+              ) : tontines.length === 0 ? (
+                <tr><td colSpan={6} className="text-center py-8 text-neutral-400">Aucune tontine</td></tr>
+              ) : (
+                tontines.map((t: Tontine) => (
+                  <tr key={t.id} className="border-b border-neutral-50 hover:bg-neutral-50 transition-colors">
+                    <td className="px-6 py-4 font-semibold text-neutral-900">{t.nom}</td>
+                    <td className="px-6 py-4 text-primary-600 font-medium">
+                      {t.creePar.firstName} {t.creePar.lastName}
+                    </td>
+                    <td className="px-6 py-4">{t.montant.toLocaleString('fr-FR')} FCFA</td>
+                    <td className="px-6 py-4">{t.nombreMembresActuels}/{t.nombreMembres}</td>
+                    <td className="px-6 py-4 text-neutral-500">
+                      {new Date(t.createdAt).toLocaleDateString('fr-FR')}
+                    </td>
+                    <td className="px-6 py-4">
+                      <Badge variant={statutVariants[t.statut]}>
+                        {t.statut.charAt(0) + t.statut.slice(1).toLowerCase()}
+                      </Badge>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </AppLayout>
   )

@@ -4,14 +4,12 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { PageHeader } from '@/components/layout/PageHeader'
-import { Card, CardBody } from '@/components/ui/Card'
-import { Table, Column } from '@/components/ui/Table'
-import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
+import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
+import { Spinner } from '@/components/ui/Spinner'
 import { useCotisations, useRecordCotisation } from '@/hooks/useCotisations'
 import { useTontines } from '@/hooks/useTontines'
 import { useCycles } from '@/hooks/useCycles'
@@ -28,13 +26,26 @@ const schema = z.object({
   referenceTransaction: z.string().optional(),
   note: z.string().optional(),
 })
-
 type FormData = z.infer<typeof schema>
 
-const statutVariants: Record<CotisationStatut, 'success' | 'warning' | 'error'> = {
-  EN_ATTENTE: 'warning',
+const STATUT_BADGE: Record<CotisationStatut, 'success' | 'warning' | 'error' | 'default'> = {
   VALIDE: 'success',
+  EN_ATTENTE: 'default',
   EN_RETARD: 'error',
+}
+
+const STATUT_LABEL: Record<CotisationStatut, string> = {
+  VALIDE: 'Validée',
+  EN_ATTENTE: 'En Attente',
+  EN_RETARD: 'Retard',
+}
+
+const METHODE_LABELS: Record<string, string> = {
+  WAVE: 'Wave',
+  ORANGE_MONEY: 'Orange Money',
+  FREE_MONEY: 'Free Money',
+  CASH: 'Espèces',
+  VIREMENT: 'Virement',
 }
 
 export function MesCotisationsPage() {
@@ -42,7 +53,6 @@ export function MesCotisationsPage() {
   const [isOpen, setIsOpen] = useState(false)
   const [selectedTontineId, setSelectedTontineId] = useState('')
 
-  // On affiche les cotisations de la première tontine active par défaut
   const { data: tontinesData } = useTontines(0, 50)
   const tontines = (tontinesData?.content || []).filter((t) => t.statut === TontineStatut.ACTIVE)
   const firstTontineId = tontines[0]?.id || ''
@@ -55,6 +65,11 @@ export function MesCotisationsPage() {
   const cotisations = cotisationsData?.content || []
   const totalPages = cotisationsData?.totalPages || 1
   const cycles = (cyclesData?.content || []).filter((c) => c.statut === 'EN_COURS')
+
+  const totalVerse = cotisations
+    .filter((c: Cotisation) => c.statut === CotisationStatut.VALIDE)
+    .reduce((s: number, c: Cotisation) => s + c.montant, 0)
+  const enAttenteCount = cotisations.filter((c: Cotisation) => c.statut === CotisationStatut.EN_ATTENTE).length
 
   const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -79,11 +94,7 @@ export function MesCotisationsPage() {
         },
       },
       {
-        onSuccess: () => {
-          toast.success('Paiement déclaré — en attente de validation par l\'admin')
-          reset()
-          setIsOpen(false)
-        },
+        onSuccess: () => { toast.success("Paiement déclaré — en attente de validation"); reset(); setIsOpen(false) },
         onError: () => toast.error('Erreur lors de la déclaration du paiement'),
       }
     )
@@ -91,62 +102,95 @@ export function MesCotisationsPage() {
 
   const handleClose = () => { reset(); setIsOpen(false) }
 
-  const columns: Column<Cotisation>[] = [
-    {
-      key: 'membre',
-      header: 'Cycle',
-      render: (row) => <span className="font-semibold">Cycle {row.cycleId.slice(0, 8)}…</span>,
-    },
-    {
-      key: 'montant',
-      header: 'Montant',
-      render: (row) => <span className="text-primary-600 font-semibold">{row.montant.toLocaleString()} FCFA</span>,
-    },
-    { key: 'methodePaiement', header: 'Méthode', render: (row) => row.methodePaiement || '—' },
-    { key: 'referenceTransaction', header: 'Référence', render: (row) => row.referenceTransaction || '—' },
-    {
-      key: 'statut',
-      header: 'Statut',
-      render: (row) => <Badge variant={statutVariants[row.statut]}>{row.statut}</Badge>,
-    },
-    {
-      key: 'validePar',
-      header: 'Validé par',
-      render: (row) => row.validePar ? `${row.validePar.firstName} ${row.validePar.lastName}` : '—',
-    },
-    {
-      key: 'createdAt',
-      header: 'Date',
-      render: (row) => new Date(row.createdAt).toLocaleDateString('fr-FR'),
-    },
-  ]
-
   return (
     <AppLayout>
-      <PageHeader
-        title="Mes Cotisations"
-        description="Historique de vos contributions"
-        action={
-          <Button onClick={() => setIsOpen(true)}>
-            <Plus size={20} /> Déclarer un paiement
-          </Button>
-        }
-      />
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-neutral-900">Mes cotisations</h1>
+          <p className="text-sm text-neutral-500 mt-1">Historique de mes paiements et déclarations.</p>
+        </div>
+        <Button size="sm" onClick={() => setIsOpen(true)}>
+          <Plus size={16} className="mr-1" /> Déclarer un paiement
+        </Button>
+      </div>
 
-      <Card noPadding>
-        <CardBody>
-          <Table
-            columns={columns}
-            data={cotisations}
-            isLoading={isLoading}
-            emptyMessage="Aucune cotisation trouvée"
-            page={page}
-            totalPages={totalPages}
-            onPageChange={setPage}
-          />
-        </CardBody>
-      </Card>
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm p-5">
+          <p className="text-xs text-neutral-500 mb-1">Total versé</p>
+          <p className="text-2xl font-bold text-primary-600">{totalVerse.toLocaleString('fr-FR')} FCFA</p>
+        </div>
+        <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm p-5">
+          <p className="text-xs text-neutral-500 mb-1">En attente de validation</p>
+          <p className="text-2xl font-bold text-neutral-900">{enAttenteCount}</p>
+        </div>
+        <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm p-5">
+          <p className="text-xs text-neutral-500 mb-1">Prochaine échéance</p>
+          <p className="text-sm font-semibold text-neutral-900">
+            {tontines[0] ? `Demain · ${tontines[0].montant.toLocaleString('fr-FR')} FCFA` : '—'}
+          </p>
+        </div>
+      </div>
 
+      {/* Table */}
+      <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-neutral-100">
+                {['Tontine', 'Montant', 'Méthode', 'Référence', 'Date', 'Statut'].map((h) => (
+                  <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr><td colSpan={6} className="text-center py-10"><Spinner /></td></tr>
+              ) : cotisations.length === 0 ? (
+                <tr><td colSpan={6} className="text-center py-10 text-neutral-400">Aucune cotisation trouvée</td></tr>
+              ) : (
+                cotisations.map((c: Cotisation) => {
+                  const tontine = tontines.find((t) => t.id === firstTontineId)
+                  return (
+                    <tr key={c.id} className="border-b border-neutral-50 hover:bg-neutral-50 transition-colors">
+                      <td className="px-5 py-4 font-semibold text-neutral-900">{tontine?.nom || '—'}</td>
+                      <td className="px-5 py-4 font-semibold text-neutral-900">{c.montant.toLocaleString('fr-FR')} FCFA</td>
+                      <td className="px-5 py-4 text-neutral-600">{METHODE_LABELS[c.methodePaiement || ''] || c.methodePaiement || '—'}</td>
+                      <td className="px-5 py-4 text-neutral-500 text-xs font-mono">{c.referenceTransaction || '—'}</td>
+                      <td className="px-5 py-4 text-neutral-500 text-xs">
+                        {new Date(c.createdAt).toLocaleDateString('fr-FR')}
+                      </td>
+                      <td className="px-5 py-4">
+                        <Badge variant={STATUT_BADGE[c.statut]}>
+                          {STATUT_LABEL[c.statut] || c.statut}
+                        </Badge>
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {totalPages > 1 && (
+          <div className="flex justify-center gap-2 py-4 border-t border-neutral-100">
+            {Array.from({ length: totalPages }, (_, i) => (
+              <button
+                key={i}
+                onClick={() => setPage(i)}
+                className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${page === i ? 'bg-primary-600 text-white' : 'text-neutral-600 hover:bg-neutral-100'}`}
+              >
+                {i + 1}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Modal déclaration */}
       <Modal
         isOpen={isOpen}
         onClose={handleClose}

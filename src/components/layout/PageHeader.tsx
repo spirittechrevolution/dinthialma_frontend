@@ -2,8 +2,8 @@ import { ReactNode } from 'react'
 import { clsx } from 'clsx'
 
 interface PageHeaderProps {
-  title: string
-  description?: string
+  title: ReactNode
+  description?: ReactNode
   action?: ReactNode
   className?: string
 }

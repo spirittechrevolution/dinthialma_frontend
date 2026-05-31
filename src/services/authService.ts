@@ -9,6 +9,7 @@ import {
   SendOtpRequest,
   VerifyOtpRequest,
   RegisterCompleteRequest,
+  RegisterCompleteResponse,
   ResetPasswordRequest,
   PinSetupRequest,
   PinResetRequest,
@@ -47,8 +48,8 @@ export const authService = {
   },
 
   // ─── Inscription étape 3/3 : création du compte ────────────────────────────
-  registerComplete: async (request: RegisterCompleteRequest): Promise<LoginResponse> => {
-    const response = await api.post<CustomResponse<LoginResponse>>(
+  registerComplete: async (request: RegisterCompleteRequest): Promise<RegisterCompleteResponse> => {
+    const response = await api.post<CustomResponse<RegisterCompleteResponse>>(
       '/v1/auth/register/complete',
       request
     )

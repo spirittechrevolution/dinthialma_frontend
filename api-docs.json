@@ -75,6 +75,10 @@
       "description": "Référentiels de valeurs persistées (selects frontend)"
     },
     {
+      "name": "Utilisateurs",
+      "description": "Recherche d'utilisateurs Dinthialma"
+    },
+    {
       "name": "Auth",
       "description": "Authentification et gestion du compte utilisateur"
     },
@@ -1040,7 +1044,7 @@
       "post": {
         "tags": ["Membres"],
         "summary": "Ajouter un cotisant",
-        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nAjoute un utilisateur comme cotisant. L'utilisateur doit avoir un compte Dinthialma existant. Il reçoit automatiquement le rôle **DINTHIALMA_MEMBER**.\n\nSi `ordreJackpot` est null, le membre est placé en fin de liste.",
+        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nAjoute un cotisant via son **numéro de téléphone**, son **prénom** et son **nom**.\n\n- Si le numéro est déjà inscrit (ACTIVE) → ajout direct, rôle MEMBER attribué. Le nom fourni est ignoré (l'utilisateur a son propre profil).\n- Si le numéro est inconnu → un compte **pré-inscrit (PRE_ENROLLED)** est créé avec le prénom et nom fournis. Le membre apparaît immédiatement dans la tontine avec son nom. Un SMS d'invitation est envoyé.\n- Si le numéro existe déjà en PRE_ENROLLED (ajouté par un autre admin) et que le nom est encore vide → le nom est complété.\n\nSi `ordreJackpot` est null, le membre est placé en fin de liste.",
         "operationId": "addMembre",
         "parameters": [
           {
@@ -1739,6 +1743,7 @@
       "post": {
         "tags": ["Auth"],
         "summary": "Étape 1/3 – Envoyer un OTP par SMS",
+        "description": "Envoie un code OTP au numéro fourni.\n\n- Numéro inconnu → nouveau compte.\n- Numéro **PRE_ENROLLED** (ajouté à une tontine par un gestionnaire) → OTP envoyé pour activer le compte. HTTP 200 dans les deux cas.\n- Numéro déjà inscrit (ACTIVE) → HTTP 409.",
         "operationId": "sendOtp",
         "requestBody": {
           "content": {
@@ -1758,7 +1763,7 @@
             }
           },
           "409": {
-            "description": "Téléphone déjà utilisé",
+            "description": "Téléphone déjà utilisé par un compte ACTIVE",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/CustomResponse" }
@@ -1772,6 +1777,7 @@
       "post": {
         "tags": ["Auth"],
         "summary": "Étape 3/3 – Finaliser l'inscription",
+        "description": "Crée le compte Keycloak et finalise l'enregistrement local.\n\n**Cas PRE_ENROLLED** : si le numéro appartient à un compte pré-inscrit par un gestionnaire de tontine, cette étape **active** le compte existant (keycloakId, firstName, lastName mis à jour, statut → ACTIVE, rôles USER + MEMBER attribués). Les memberships tontine déjà créés sont conservés.",
         "operationId": "completeRegistration",
         "requestBody": {
           "content": {
@@ -1785,7 +1791,7 @@
         },
         "responses": {
           "201": {
-            "description": "Compte créé avec succès",
+            "description": "Compte créé (nouveau) ou activé (PRE_ENROLLED)",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/CustomResponse" }
@@ -1801,7 +1807,7 @@
             }
           },
           "409": {
-            "description": "Téléphone déjà utilisé",
+            "description": "Téléphone déjà utilisé par un compte ACTIVE",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/CustomResponse" }
@@ -2001,7 +2007,7 @@
       "post": {
         "tags": ["Auth"],
         "summary": "Connexion par téléphone ou email + mot de passe",
-        "description": "L'identifiant peut être le numéro de téléphone (avec ou sans +) ou l'adresse email.",
+        "description": "L'identifiant peut être le numéro de téléphone (avec ou sans +) ou l'adresse email.\n\n**Compte PRE_ENROLLED** : si l'utilisateur a été ajouté à une tontine par un gestionnaire avant de s'inscrire, la connexion retourne HTTP 403 avec un message invitant à s'inscrire sur l'application.",
         "operationId": "login",
         "requestBody": {
           "content": {
@@ -2029,7 +2035,7 @@
             }
           },
           "403": {
-            "description": "Compte désactivé",
+            "description": "Compte désactivé ou compte PRE_ENROLLED non encore activé",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/CustomResponse" }
@@ -2366,6 +2372,51 @@
           },
           "404": {
             "description": "Tontine ou membre introuvable",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+              }
+            }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/v1/users/search": {
+      "get": {
+        "tags": ["Utilisateurs"],
+        "summary": "Rechercher un utilisateur par numéro de téléphone",
+        "description": "🔒 Accès : tout utilisateur authentifié.\n\nRecherche sur **l'ensemble des comptes non supprimés** : `ACTIVE` et `PRE_ENROLLED` sont tous les deux retournés. Les comptes soft-deleted (`deletedAt` non null) sont exclus.\n\nUtilisé par un gestionnaire de tontine avant d'ajouter un membre (flux 2 étapes) :\n\n- **200 / accountStatus = ACTIVE** → utilisateur inscrit, ajout direct possible sans resaisir son nom.\n- **200 / accountStatus = PRE_ENROLLED** → déjà ajouté à une autre tontine par un autre gestionnaire, profil connu, ajout direct possible.\n- **404** → numéro totalement inconnu, l'admin doit saisir firstName et lastName pour créer un compte pré-inscrit.",
+        "operationId": "searchByPhone",
+        "parameters": [
+          {
+            "name": "phone",
+            "in": "query",
+            "description": "Numéro de téléphone (format international, avec ou sans le +)",
+            "required": true,
+            "schema": { "type": "string" },
+            "example": 221770000001
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Utilisateur trouvé",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucun compte avec ce numéro",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "JWT manquant ou expiré",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/CustomResponse" }
@@ -3464,13 +3515,23 @@
       },
       "AddMembreRequest": {
         "type": "object",
-        "description": "Corps de la requête d'ajout d'un cotisant à une tontine. L'utilisateur doit avoir un compte Dinthialma. Il se voit attribuer automatiquement le rôle DINTHIALMA_MEMBER.",
+        "description": "Corps de la requête d'ajout d'un cotisant à une tontine.\n\n**Flux recommandé (2 étapes) :**\n1. `GET /v1/users/search?phone=xxx` pour vérifier si le numéro existe.\n2a. Numéro **trouvé** → envoyer uniquement `phone` (+ `ordreJackpot`). Le nom est déjà connu du système.\n2b. Numéro **introuvable** → envoyer `phone` + `firstName` + `lastName` (+ `ordreJackpot`). Un compte PRE_ENROLLED est créé avec ces informations.",
         "properties": {
-          "userId": {
+          "phone": {
             "type": "string",
-            "format": "uuid",
-            "description": "UUID de l'utilisateur à ajouter (users.id en base). L'utilisateur doit exister.",
-            "example": "550e8400-e29b-41d4-a716-446655440001"
+            "description": "Numéro de téléphone (format international, avec ou sans le +).",
+            "example": 221770000001,
+            "minLength": 1
+          },
+          "firstName": {
+            "type": "string",
+            "description": "Prénom du membre. **Obligatoire uniquement si le numéro est inconnu** (création d'un compte PRE_ENROLLED). Ignoré si le numéro appartient à un compte ACTIVE.",
+            "example": "Fatou"
+          },
+          "lastName": {
+            "type": "string",
+            "description": "Nom de famille du membre. **Obligatoire uniquement si le numéro est inconnu** (création d'un compte PRE_ENROLLED). Ignoré si le numéro appartient à un compte ACTIVE.",
+            "example": "Sow"
           },
           "ordreJackpot": {
             "type": "integer",
@@ -3478,8 +3539,7 @@
             "description": "Position dans la rotation des jackpots (1 = premier bénéficiaire). Optionnel – si null, attribué automatiquement en fin de liste.",
             "example": 5
           }
-        },
-        "required": ["userId"]
+        }
       },
       "MembreResponse": {
         "type": "object",
@@ -3555,6 +3615,11 @@
           "email": {
             "type": "string",
             "description": "Adresse email (peut être null)"
+          },
+          "accountStatus": {
+            "type": "string",
+            "description": "Statut d'activation du compte. PRE_ENROLLED = ajouté par l'admin, pas encore inscrit sur l'application.",
+            "enum": ["ACTIVE", "PRE_ENROLLED"]
           }
         }
       },

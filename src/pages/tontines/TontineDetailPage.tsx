@@ -1,0 +1,885 @@
+import { useState } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { toast } from 'sonner'
+import { AppLayout } from '@/components/layout/AppLayout'
+import { Button } from '@/components/ui/Button'
+import { Badge } from '@/components/ui/Badge'
+import { Modal } from '@/components/ui/Modal'
+import { Input } from '@/components/ui/Input'
+import { Select } from '@/components/ui/Select'
+import { Spinner } from '@/components/ui/Spinner'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { AddMembreModal } from '@/components/shared/AddMembreModal'
+import { useAuth } from '@/hooks/useAuth'
+import {
+  useTontine,
+  useActiverTontine,
+  useSuspendreTontine,
+  useCommissions,
+  useCreateCommission,
+  useDeleteCommission,
+} from '@/hooks/useTontines'
+import { useMembres, useUpdateMembreStatut, useRemoveMembre } from '@/hooks/useMembres'
+import { useCycles, useOpenCycle, useCloturerCycle } from '@/hooks/useCycles'
+import { useCotisations, useValiderCotisation } from '@/hooks/useCotisations'
+import { Membre } from '@/types/membre'
+import { Cycle } from '@/types/cycle'
+import { Cotisation } from '@/types/cotisation'
+import { Commission } from '@/types/tontine'
+import {
+  TontineStatut,
+  CycleStatut,
+  CotisationStatut,
+  MembreStatut,
+  ModeCycle,
+  UserRole,
+  AccountStatus,
+} from '@/types/common'
+import {
+  ArrowLeft,
+  Play,
+  Pause,
+  Plus,
+  RefreshCw,
+  Calendar,
+  Percent,
+  Trash2,
+  CheckCircle,
+  XCircle,
+  UserMinus,
+  UserCheck,
+  User,
+  Lock,
+  Clock,
+} from 'lucide-react'
+
+// ─── Schemas ──────────────────────────────────────────────────────────────────
+
+const openCycleSchema = z.object({
+  numeroCycle: z.coerce.number().int().positive('Requis'),
+  dateDebut: z.string().min(1, 'Requis'),
+  dateFin: z.string().min(1, 'Requis'),
+  beneficiaireId: z.string().uuid().optional().or(z.literal('')),
+})
+
+const commissionSchema = z.object({
+  type: z.enum(['POURCENTAGE_JACKPOT', 'FRAIS_FIXES_PAR_CYCLE', 'FRAIS_ADHESION']),
+  valeur: z.coerce.number().positive('Valeur invalide'),
+  description: z.string().optional(),
+})
+
+type OpenCycleForm = z.infer<typeof openCycleSchema>
+type CommissionForm = z.infer<typeof commissionSchema>
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const STATUT_BADGE: Record<TontineStatut, 'success' | 'warning' | 'info' | 'default'> = {
+  ACTIVE: 'success',
+  BROUILLON: 'default',
+  SUSPENDUE: 'warning',
+  TERMINEE: 'default',
+}
+
+const STATUT_LABEL: Record<TontineStatut, string> = {
+  ACTIVE: 'Active',
+  BROUILLON: 'Brouillon',
+  SUSPENDUE: 'Suspendue',
+  TERMINEE: 'Terminée',
+}
+
+const FREQ_LABELS: Record<string, string> = {
+  JOURNALIERE: 'Journalière',
+  HEBDOMADAIRE: 'Hebdomadaire',
+  BIMENSUEL: 'Bimensuelle',
+  MENSUEL: 'Mensuelle',
+  TRIMESTRIEL: 'Trimestrielle',
+}
+
+const CYCLE_STATUT_COLORS: Record<CycleStatut, string> = {
+  EN_ATTENTE: 'bg-primary-100 text-primary-700',
+  EN_COURS: 'bg-blue-100 text-blue-700',
+  TERMINE: 'bg-purple-100 text-purple-700',
+}
+
+const CYCLE_STATUT_LABELS: Record<CycleStatut, string> = {
+  EN_ATTENTE: 'Ouvert',
+  EN_COURS: 'En Cours',
+  TERMINE: 'Versé',
+}
+
+const COT_BADGE: Record<CotisationStatut, 'success' | 'warning' | 'error' | 'default'> = {
+  VALIDE: 'success',
+  EN_ATTENTE: 'default',
+  EN_RETARD: 'error',
+}
+
+const COT_LABEL: Record<CotisationStatut, string> = {
+  VALIDE: 'Validée',
+  EN_ATTENTE: 'En Attente',
+  EN_RETARD: 'Retard',
+}
+
+const MEMBRE_BADGE: Record<MembreStatut, 'success' | 'warning' | 'error'> = {
+  ACTIF: 'success',
+  SUSPENDU: 'warning',
+  SORTI: 'error',
+}
+
+const METHODE_LABELS: Record<string, string> = {
+  WAVE: 'Wave',
+  ORANGE_MONEY: 'Orange Money',
+  FREE_MONEY: 'Free Money',
+  CASH: 'Espèces',
+  VIREMENT: 'Virement',
+}
+
+function MiniAvatar({ name }: { name: string }) {
+  const initials = name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
+  const idx = name.charCodeAt(0) % 5
+  const colors = ['bg-primary-600', 'bg-blue-500', 'bg-purple-500', 'bg-teal-500', 'bg-orange-500']
+  return (
+    <span className={`w-8 h-8 rounded-full ${colors[idx]} text-white text-xs font-bold flex items-center justify-center flex-shrink-0`}>
+      {initials}
+    </span>
+  )
+}
+
+type Tab = 'infos' | 'membres' | 'cycles' | 'cotisations' | 'commissions'
+
+// ─── Page principale ──────────────────────────────────────────────────────────
+
+export function TontineDetailPage() {
+  const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
+  const { user, hasRole } = useAuth()
+
+  const [activeTab, setActiveTab] = useState<Tab>('infos')
+  const [confirmAction, setConfirmAction] = useState<{ type: 'activer' | 'suspendre' } | null>(null)
+
+  // Modals
+  const [showAddMembre, setShowAddMembre] = useState(false)
+  const [showOpenCycle, setShowOpenCycle] = useState(false)
+  const [showAddCommission, setShowAddCommission] = useState(false)
+  const [cycleToClose, setCycleToClose] = useState<string | null>(null)
+  const [cotisationToValidate, setCotisationToValidate] = useState<string | null>(null)
+  const [membreAction, setMembreAction] = useState<{ type: 'suspendre' | 'activer' | 'retirer'; id: string; nom: string } | null>(null)
+
+  // ─── Data ─────────────────────────────────────────────────────────────────
+  const { data: tontine, isLoading } = useTontine(id || '')
+  const { data: membresData } = useMembres(id || '', 0, 50)
+  const { data: cyclesData } = useCycles(id || '', 0, 50)
+  const { data: cotisationsData } = useCotisations(id || '', undefined, 0, 50)
+  const { data: commissionsData } = useCommissions(id || '', 0, 20)
+
+  // ─── Mutations ────────────────────────────────────────────────────────────
+  const { mutate: activer, isPending: isActivating } = useActiverTontine()
+  const { mutate: suspendre, isPending: isSuspending } = useSuspendreTontine()
+  const { mutate: updateMembreStatut, isPending: isUpdatingMembre } = useUpdateMembreStatut()
+  const { mutate: removeMembre, isPending: isRemovingMembre } = useRemoveMembre()
+  const { mutate: openCycle, isPending: isOpeningCycle } = useOpenCycle()
+  const { mutate: cloturerCycle, isPending: isClosingCycle } = useCloturerCycle()
+  const { mutate: validerCotisation, isPending: isValidating } = useValiderCotisation()
+  const { mutate: createCommission, isPending: isCreatingCommission } = useCreateCommission()
+  const { mutate: deleteCommission } = useDeleteCommission()
+
+  // ─── Forms ────────────────────────────────────────────────────────────────
+  const openCycleForm = useForm<OpenCycleForm>({
+    resolver: zodResolver(openCycleSchema),
+    defaultValues: { numeroCycle: (cyclesData?.content?.length ?? 0) + 1 },
+  })
+  const commissionForm = useForm<CommissionForm>({ resolver: zodResolver(commissionSchema) })
+
+  // ─── Permissions ──────────────────────────────────────────────────────────
+  const isSuperAdmin = hasRole(UserRole.SUPER_ADMIN)
+  const isAdminRole = hasRole(UserRole.ADMIN)
+  const isCreator = tontine && user && tontine.creePar.phone === user.phone
+  const canManage = isCreator && isAdminRole
+
+  const membres = membresData?.content || []
+  const cycles = cyclesData?.content || []
+  const cotisations = cotisationsData?.content || []
+  const commissions = commissionsData?.content || []
+
+  const isManuel = tontine?.modeCycle === ModeCycle.MANUEL
+  const pct = tontine && tontine.nombreMembres > 0
+    ? Math.round((tontine.nombreMembresActuels / tontine.nombreMembres) * 100)
+    : 0
+
+  const cotValidees = cotisations.filter((c) => c.statut === CotisationStatut.VALIDE).length
+  const cotEnAttente = cotisations.filter((c) => c.statut === CotisationStatut.EN_ATTENTE).length
+  const cotEnRetard = cotisations.filter((c) => c.statut === CotisationStatut.EN_RETARD).length
+
+  // ─── Handlers ─────────────────────────────────────────────────────────────
+  const handleConfirmTontine = () => {
+    if (!confirmAction || !id) return
+    if (confirmAction.type === 'activer') {
+      activer(id, {
+        onSuccess: () => { toast.success('Tontine activée'); setConfirmAction(null) },
+        onError: () => toast.error("Erreur lors de l'activation"),
+      })
+    } else {
+      suspendre(id, {
+        onSuccess: () => { toast.success('Tontine suspendue'); setConfirmAction(null) },
+        onError: () => toast.error('Erreur lors de la suspension'),
+      })
+    }
+  }
+
+  const onOpenCycle = (data: OpenCycleForm) => {
+    openCycle(
+      { tontineId: id!, request: { dateDebut: data.dateDebut, dateFin: data.dateFin, beneficiaireId: data.beneficiaireId || undefined } },
+      {
+        onSuccess: () => { toast.success('Cycle ouvert'); openCycleForm.reset(); setShowOpenCycle(false) },
+        onError: () => toast.error("Erreur lors de l'ouverture du cycle"),
+      }
+    )
+  }
+
+  const onCloturerCycle = () => {
+    if (!cycleToClose) return
+    cloturerCycle(
+      { tontineId: id!, cycleId: cycleToClose },
+      {
+        onSuccess: () => { toast.success('Cycle clôturé'); setCycleToClose(null) },
+        onError: () => toast.error('Erreur lors de la clôture'),
+      }
+    )
+  }
+
+  const onValiderCotisation = () => {
+    if (!cotisationToValidate) return
+    validerCotisation(
+      { tontineId: id!, cotisationId: cotisationToValidate },
+      {
+        onSuccess: () => { toast.success('Cotisation validée'); setCotisationToValidate(null) },
+        onError: () => toast.error('Erreur lors de la validation'),
+      }
+    )
+  }
+
+  const handleMembreAction = () => {
+    if (!membreAction || !id) return
+    if (membreAction.type === 'retirer') {
+      removeMembre(
+        { tontineId: id, membreId: membreAction.id },
+        { onSuccess: () => { toast.success('Membre retiré'); setMembreAction(null) }, onError: () => toast.error('Erreur') }
+      )
+    } else {
+      const statut = membreAction.type === 'activer' ? MembreStatut.ACTIF : MembreStatut.SUSPENDU
+      updateMembreStatut(
+        { tontineId: id, membreId: membreAction.id, request: { statut } },
+        { onSuccess: () => { toast.success('Statut mis à jour'); setMembreAction(null) }, onError: () => toast.error('Erreur') }
+      )
+    }
+  }
+
+  const onAddCommission = (data: CommissionForm) => {
+    createCommission(
+      { tontineId: id!, request: data },
+      {
+        onSuccess: () => { toast.success('Commission ajoutée'); commissionForm.reset(); setShowAddCommission(false) },
+        onError: () => toast.error("Erreur lors de l'ajout de la commission"),
+      }
+    )
+  }
+
+  const tabs: { id: Tab; label: string; show: boolean }[] = [
+    { id: 'infos', label: 'Vue générale', show: true },
+    { id: 'membres', label: 'Membres', show: true },
+    { id: 'cycles', label: 'Cycles', show: true },
+    { id: 'cotisations', label: 'Cotisations', show: true },
+    { id: 'commissions', label: 'Commissions', show: !!canManage },
+  ]
+
+  if (isLoading || !tontine) {
+    return (
+      <AppLayout>
+        <div className="flex justify-center py-24">
+          {isLoading ? <Spinner /> : <p className="text-neutral-500">Tontine introuvable.</p>}
+        </div>
+      </AppLayout>
+    )
+  }
+
+  return (
+    <AppLayout>
+      {/* ── En-tête ─────────────────────────────────────────────────────── */}
+      <div className="flex items-start gap-3 mb-5">
+        <button
+          onClick={() => navigate(-1)}
+          className="mt-1 p-2 rounded-xl hover:bg-neutral-100 text-neutral-500 transition-colors flex-shrink-0"
+        >
+          <ArrowLeft size={18} />
+        </button>
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-bold text-neutral-900 truncate">{tontine.nom}</h1>
+            <Badge variant={STATUT_BADGE[tontine.statut]}>
+              {STATUT_LABEL[tontine.statut]}
+            </Badge>
+          </div>
+          {tontine.description && (
+            <p className="text-sm text-neutral-500 mt-0.5">{tontine.description}</p>
+          )}
+        </div>
+
+        {/* Actions (créateur admin uniquement) */}
+        {canManage && (
+          <div className="flex gap-2 flex-shrink-0">
+            {tontine.statut === TontineStatut.BROUILLON && (
+              <Button
+                size="sm"
+                onClick={() => setConfirmAction({ type: 'activer' })}
+                loading={isActivating}
+              >
+                <Play size={14} className="mr-1" /> Activer
+              </Button>
+            )}
+            {tontine.statut === TontineStatut.ACTIVE && (
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => setConfirmAction({ type: 'suspendre' })}
+                loading={isSuspending}
+              >
+                <Pause size={14} className="mr-1" /> Suspendre
+              </Button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── Bande de résumé ──────────────────────────────────────────────── */}
+      <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm p-5 mb-5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4">
+          <div>
+            <p className="text-xs text-neutral-400 mb-1">Montant</p>
+            <p className="font-bold text-primary-600 text-lg">{tontine.montant.toLocaleString('fr-FR')} FCFA</p>
+            <p className="text-xs text-neutral-400">{FREQ_LABELS[tontine.frequence] || tontine.frequence}</p>
+          </div>
+          <div>
+            <p className="text-xs text-neutral-400 mb-1">Membres</p>
+            <p className="font-bold text-neutral-900 text-lg">{tontine.nombreMembresActuels}/{tontine.nombreMembres}</p>
+            <div className="mt-1 w-full bg-neutral-100 rounded-full h-1.5">
+              <div className="h-1.5 rounded-full bg-primary-500" style={{ width: `${pct}%` }} />
+            </div>
+          </div>
+          <div>
+            <p className="text-xs text-neutral-400 mb-1">Mode</p>
+            <p className="font-semibold text-neutral-900 uppercase text-sm">{tontine.modeCycle}</p>
+          </div>
+          <div>
+            <p className="text-xs text-neutral-400 mb-1">Fréquence</p>
+            <p className="font-semibold text-neutral-900 text-sm">{FREQ_LABELS[tontine.frequence] || tontine.frequence}</p>
+          </div>
+          <div>
+            <p className="text-xs text-neutral-400 mb-1">Début</p>
+            <p className="font-semibold text-neutral-900 text-sm">{new Date(tontine.dateDebut).toLocaleDateString('fr-FR')}</p>
+          </div>
+          <div>
+            <p className="text-xs text-neutral-400 mb-1">Créateur</p>
+            <p className="font-semibold text-neutral-900 text-sm">{tontine.creePar.firstName} {tontine.creePar.lastName}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Bandeau lecture seule ─────────────────────────────────────────── */}
+      {!canManage && !isSuperAdmin && (
+        <div className="flex items-center gap-2 px-4 py-2.5 mb-5 bg-blue-50 border border-blue-100 rounded-xl text-sm text-blue-700">
+          <Lock size={14} />
+          <span>Consultation uniquement — vous n'êtes pas le créateur de cette tontine.</span>
+        </div>
+      )}
+      {isSuperAdmin && (
+        <div className="flex items-center gap-2 px-4 py-2.5 mb-5 bg-neutral-50 border border-neutral-200 rounded-xl text-sm text-neutral-600">
+          <Lock size={14} />
+          <span>Vue Super Admin — consultation en lecture seule.</span>
+        </div>
+      )}
+
+      {/* ── Onglets ──────────────────────────────────────────────────────── */}
+      <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-hidden">
+        <div className="flex border-b border-neutral-100 overflow-x-auto">
+          {tabs.filter((t) => t.show).map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-5 py-3.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                activeTab === tab.id
+                  ? 'border-primary-500 text-primary-600'
+                  : 'border-transparent text-neutral-500 hover:text-neutral-700'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="p-5">
+          {/* ── Vue générale ─────────────────────────────────────────────── */}
+          {activeTab === 'infos' && (
+            <div className="space-y-4">
+              {tontine.description && (
+                <div className="p-4 bg-neutral-50 rounded-xl">
+                  <p className="text-xs text-neutral-400 mb-1">Description</p>
+                  <p className="text-sm text-neutral-700">{tontine.description}</p>
+                </div>
+              )}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                {[
+                  { label: 'Ordre bénéficiaire', value: tontine.ordreBeneficiaire },
+                  { label: 'Date de début', value: new Date(tontine.dateDebut).toLocaleDateString('fr-FR') },
+                  { label: 'Créé le', value: new Date(tontine.createdAt).toLocaleDateString('fr-FR') },
+                  { label: 'Modifié le', value: new Date(tontine.updatedAt).toLocaleDateString('fr-FR') },
+                  { label: 'Créateur', value: `${tontine.creePar.firstName} ${tontine.creePar.lastName}` },
+                  { label: 'Téléphone créateur', value: tontine.creePar.phone },
+                ].map(({ label, value }) => (
+                  <div key={label} className="p-3 bg-neutral-50 rounded-xl">
+                    <p className="text-xs text-neutral-400 mb-1">{label}</p>
+                    <p className="text-sm font-semibold text-neutral-800">{value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── Membres ──────────────────────────────────────────────────── */}
+          {activeTab === 'membres' && (
+            <div>
+              {canManage && (
+                <div className="flex justify-end mb-4">
+                  <Button size="sm" onClick={() => setShowAddMembre(true)}>
+                    <Plus size={15} className="mr-1" /> Ajouter un membre
+                  </Button>
+                </div>
+              )}
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-neutral-100">
+                      {['#', 'Membre', 'Téléphone', 'Statut', 'Compte', canManage ? '' : undefined]
+                        .filter(Boolean)
+                        .map((h) => (
+                          <th key={String(h)} className="px-4 py-3 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                            {h}
+                          </th>
+                        ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {membres.length === 0 ? (
+                      <tr><td colSpan={6} className="text-center py-8 text-neutral-400">Aucun membre</td></tr>
+                    ) : (
+                      membres.map((m: Membre) => {
+                        const nom = `${m.user.firstName} ${m.user.lastName}`
+                        const isPreEnrolled = m.user.accountStatus === AccountStatus.PRE_ENROLLED
+                        return (
+                          <tr key={m.id} className="border-b border-neutral-50 hover:bg-neutral-50">
+                            <td className="px-4 py-3 font-semibold text-neutral-500 text-xs">#{m.ordreJackpot}</td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-3">
+                                <MiniAvatar name={nom} />
+                                <div>
+                                  <p className="font-semibold text-neutral-900">{nom}</p>
+                                  <p className="text-xs text-neutral-400">
+                                    Adhésion : {m.dateAdhesion ? new Date(m.dateAdhesion).toLocaleDateString('fr-FR') : '—'}
+                                  </p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-neutral-600 text-xs font-mono">
+                              {m.user.phone}
+                            </td>
+                            <td className="px-4 py-3">
+                              <Badge variant={MEMBRE_BADGE[m.statut]}>
+                                {m.statut === 'ACTIF' ? 'Actif' : m.statut === 'SUSPENDU' ? 'Suspendu' : 'Sorti'}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-3">
+                              {isPreEnrolled ? (
+                                <span
+                                  title="Ce membre n'a pas encore activé son compte sur Dinthialma"
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 cursor-help"
+                                >
+                                  <Clock size={10} /> Non inscrit
+                                </span>
+                              ) : (
+                                <span className="text-neutral-300 text-xs">—</span>
+                              )}
+                            </td>
+                            {canManage && (
+                              <td className="px-4 py-3">
+                                <div className="flex gap-1.5">
+                                  {m.statut === MembreStatut.ACTIF && (
+                                    <button
+                                      onClick={() => setMembreAction({ type: 'suspendre', id: m.id, nom })}
+                                      className="w-7 h-7 rounded-lg bg-orange-50 text-orange-500 flex items-center justify-center hover:bg-orange-100 transition-colors"
+                                      title="Suspendre"
+                                    >
+                                      <UserMinus size={13} />
+                                    </button>
+                                  )}
+                                  {m.statut === MembreStatut.SUSPENDU && (
+                                    <button
+                                      onClick={() => setMembreAction({ type: 'activer', id: m.id, nom })}
+                                      className="w-7 h-7 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center hover:bg-primary-100 transition-colors"
+                                      title="Réactiver"
+                                    >
+                                      <UserCheck size={13} />
+                                    </button>
+                                  )}
+                                  {m.statut !== MembreStatut.SORTI && (
+                                    <button
+                                      onClick={() => setMembreAction({ type: 'retirer', id: m.id, nom })}
+                                      className="w-7 h-7 rounded-lg bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors"
+                                      title="Retirer"
+                                    >
+                                      <Trash2 size={13} />
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            )}
+                          </tr>
+                        )
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ── Cycles ───────────────────────────────────────────────────── */}
+          {activeTab === 'cycles' && (
+            <div>
+              {canManage && isManuel && (
+                <div className="flex justify-end mb-4">
+                  <Button size="sm" onClick={() => setShowOpenCycle(true)}>
+                    <Plus size={15} className="mr-1" /> Nouveau cycle
+                  </Button>
+                </div>
+              )}
+              {cycles.length === 0 ? (
+                <p className="text-center text-neutral-400 py-8">Aucun cycle</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                  {cycles.map((cycle: Cycle) => (
+                    <div key={cycle.id} className="bg-neutral-50 rounded-2xl border border-neutral-100 p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full bg-primary-100 flex items-center justify-center text-primary-600">
+                            <RefreshCw size={12} />
+                          </div>
+                          <span className="font-bold text-neutral-900 text-sm">Cycle #{cycle.numeroCycle}</span>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${CYCLE_STATUT_COLORS[cycle.statut]}`}>
+                          {CYCLE_STATUT_LABELS[cycle.statut]}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 text-xs text-neutral-500 mb-3">
+                        <Calendar size={11} />
+                        <span>{new Date(cycle.dateDebut).toLocaleDateString('fr-FR')} → {new Date(cycle.dateFin).toLocaleDateString('fr-FR')}</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-1.5 mb-3">
+                        {[
+                          { label: 'Jackpot', val: cycle.montantJackpot, green: false },
+                          { label: 'Commission', val: cycle.montantCommission, green: false },
+                          { label: 'Net', val: cycle.montantNet, green: true },
+                        ].map(({ label, val, green }) => (
+                          <div key={label} className={`rounded-lg p-2 text-center ${green ? 'bg-primary-50' : 'bg-white border border-neutral-100'}`}>
+                            <p className={`text-xs mb-0.5 ${green ? 'text-primary-400' : 'text-neutral-400'}`}>{label}</p>
+                            <p className={`font-bold text-xs ${green ? 'text-primary-600' : 'text-neutral-800'}`}>
+                              {val ? `${val.toLocaleString('fr-FR')}` : '—'}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                      {cycle.beneficiaire && (
+                        <div className="flex items-center gap-1.5 text-xs text-neutral-600 mb-3">
+                          <User size={11} className="text-neutral-400" />
+                          <span>Bénéficiaire : <span className="font-semibold">{cycle.beneficiaire.firstName} {cycle.beneficiaire.lastName}</span></span>
+                        </div>
+                      )}
+                      {canManage && cycle.statut === CycleStatut.EN_COURS && (
+                        <button
+                          onClick={() => setCycleToClose(cycle.id)}
+                          className="w-full text-xs font-semibold text-neutral-700 border border-neutral-200 rounded-lg py-1.5 hover:bg-neutral-100 transition-colors"
+                        >
+                          Clôturer ce cycle
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Cotisations ──────────────────────────────────────────────── */}
+          {activeTab === 'cotisations' && (
+            <div>
+              {/* Mini stats */}
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                <div className="bg-primary-50 rounded-xl p-3 text-center">
+                  <p className="text-xs text-primary-500 mb-0.5">Validées</p>
+                  <p className="font-bold text-primary-700 text-lg">{cotValidees}</p>
+                </div>
+                <div className="bg-orange-50 rounded-xl p-3 text-center">
+                  <p className="text-xs text-orange-500 mb-0.5">En attente</p>
+                  <p className="font-bold text-orange-700 text-lg">{cotEnAttente}</p>
+                </div>
+                <div className="bg-red-50 rounded-xl p-3 text-center">
+                  <p className="text-xs text-red-500 mb-0.5">En retard</p>
+                  <p className="font-bold text-red-700 text-lg">{cotEnRetard}</p>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-neutral-100">
+                      {['Membre', 'Montant', 'Méthode', 'Référence', 'Date', 'Statut', canManage ? '' : undefined]
+                        .filter(Boolean)
+                        .map((h) => (
+                          <th key={String(h)} className="px-4 py-3 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                            {h}
+                          </th>
+                        ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cotisations.length === 0 ? (
+                      <tr><td colSpan={7} className="text-center py-8 text-neutral-400">Aucune cotisation</td></tr>
+                    ) : (
+                      cotisations.map((c: Cotisation) => (
+                        <tr key={c.id} className="border-b border-neutral-50 hover:bg-neutral-50">
+                          <td className="px-4 py-3 font-semibold text-neutral-900">{c.membre.firstName} {c.membre.lastName}</td>
+                          <td className="px-4 py-3 font-semibold">{c.montant.toLocaleString('fr-FR')} FCFA</td>
+                          <td className="px-4 py-3 text-neutral-600">{METHODE_LABELS[c.methodePaiement] || c.methodePaiement || '—'}</td>
+                          <td className="px-4 py-3 text-neutral-500 text-xs font-mono">{c.referenceTransaction || '—'}</td>
+                          <td className="px-4 py-3 text-neutral-500 text-xs">{new Date(c.createdAt).toLocaleDateString('fr-FR')}</td>
+                          <td className="px-4 py-3">
+                            <Badge variant={COT_BADGE[c.statut]}>{COT_LABEL[c.statut]}</Badge>
+                          </td>
+                          {canManage && (
+                            <td className="px-4 py-3">
+                              {c.statut === CotisationStatut.EN_ATTENTE && (
+                                <div className="flex gap-1.5">
+                                  <button
+                                    onClick={() => setCotisationToValidate(c.id)}
+                                    className="w-7 h-7 rounded-full bg-primary-50 text-primary-600 flex items-center justify-center hover:bg-primary-100 transition-colors"
+                                    title="Valider"
+                                  >
+                                    <CheckCircle size={13} />
+                                  </button>
+                                  <button
+                                    className="w-7 h-7 rounded-full bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors"
+                                    title="Refuser"
+                                  >
+                                    <XCircle size={13} />
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          )}
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ── Commissions (créateur seulement) ─────────────────────────── */}
+          {activeTab === 'commissions' && canManage && (
+            <div>
+              <div className="flex justify-end mb-4">
+                <Button size="sm" onClick={() => setShowAddCommission(true)}>
+                  <Plus size={15} className="mr-1" /> Ajouter une commission
+                </Button>
+              </div>
+              {commissions.length === 0 ? (
+                <p className="text-center text-neutral-400 py-8">Aucune commission configurée</p>
+              ) : (
+                <div className="space-y-3">
+                  {commissions.map((c: Commission) => (
+                    <div key={c.id} className="flex items-center justify-between p-4 border border-neutral-100 rounded-xl bg-neutral-50">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center text-primary-600">
+                          <Percent size={15} />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-sm text-neutral-800">{c.type.replace(/_/g, ' ')}</p>
+                          {c.description && <p className="text-xs text-neutral-500">{c.description}</p>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <p className="font-bold text-primary-600">
+                          {c.type === 'POURCENTAGE_JACKPOT' ? `${c.valeur}%` : `${c.valeur.toLocaleString('fr-FR')} FCFA`}
+                        </p>
+                        <button
+                          onClick={() => deleteCommission(
+                            { tontineId: id!, commissionId: c.id },
+                            { onSuccess: () => toast.success('Commission supprimée'), onError: () => toast.error('Erreur') }
+                          )}
+                          className="w-7 h-7 rounded-lg bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Modals ───────────────────────────────────────────────────────────── */}
+
+      {/* Activer / Suspendre */}
+      {confirmAction && (
+        <ConfirmDialog
+          isOpen
+          onClose={() => setConfirmAction(null)}
+          onConfirm={handleConfirmTontine}
+          title={confirmAction.type === 'activer' ? 'Activer cette tontine ?' : 'Suspendre cette tontine ?'}
+          message={confirmAction.type === 'activer'
+            ? 'La tontine sera activée et les cycles démarreront selon le mode configuré.'
+            : 'La tontine sera suspendue. Les cotisations en cours seront conservées.'}
+          confirmText={confirmAction.type === 'activer' ? 'Activer' : 'Suspendre'}
+          isDangerous={confirmAction.type === 'suspendre'}
+          isLoading={isActivating || isSuspending}
+        />
+      )}
+
+      {/* Ajouter membre — modal 2 étapes */}
+      <AddMembreModal
+        tontineId={id!}
+        isOpen={showAddMembre}
+        onClose={() => setShowAddMembre(false)}
+      />
+
+      {/* Ouvrir cycle */}
+      <Modal
+        isOpen={showOpenCycle}
+        onClose={() => { openCycleForm.reset(); setShowOpenCycle(false) }}
+        title="Nouveau cycle"
+        size="sm"
+        footer={
+          <div className="flex gap-3 justify-end">
+            <Button variant="ghost" onClick={() => { openCycleForm.reset(); setShowOpenCycle(false) }} disabled={isOpeningCycle}>Annuler</Button>
+            <Button form="open-cycle-form" type="submit" loading={isOpeningCycle}>Ouvrir le cycle</Button>
+          </div>
+        }
+      >
+        <p className="text-sm text-neutral-500 mb-4">Ouvrez un nouveau cycle de cotisation.</p>
+        <form id="open-cycle-form" onSubmit={openCycleForm.handleSubmit(onOpenCycle)} className="space-y-4">
+          <Input
+            label="Numéro de cycle"
+            type="number"
+            error={openCycleForm.formState.errors.numeroCycle?.message}
+            {...openCycleForm.register('numeroCycle')}
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Date de début" type="date" error={openCycleForm.formState.errors.dateDebut?.message} {...openCycleForm.register('dateDebut')} />
+            <Input label="Date de fin" type="date" error={openCycleForm.formState.errors.dateFin?.message} {...openCycleForm.register('dateFin')} />
+          </div>
+        </form>
+      </Modal>
+
+      {/* Clôturer cycle */}
+      <ConfirmDialog
+        isOpen={!!cycleToClose}
+        onClose={() => setCycleToClose(null)}
+        onConfirm={onCloturerCycle}
+        title="Clôturer ce cycle ?"
+        message="Le jackpot sera calculé, les commissions déduites. En mode automatique, le cycle suivant démarrera."
+        confirmText="Clôturer"
+        isDangerous
+        isLoading={isClosingCycle}
+      />
+
+      {/* Valider cotisation */}
+      <ConfirmDialog
+        isOpen={!!cotisationToValidate}
+        onClose={() => setCotisationToValidate(null)}
+        onConfirm={onValiderCotisation}
+        title="Valider ce paiement ?"
+        message="Cette cotisation sera marquée VALIDÉE et prise en compte dans le jackpot à la clôture du cycle."
+        confirmText="Valider"
+        isLoading={isValidating}
+      />
+
+      {/* Action membre */}
+      {membreAction && (
+        <ConfirmDialog
+          isOpen
+          onClose={() => setMembreAction(null)}
+          onConfirm={handleMembreAction}
+          title={
+            membreAction.type === 'retirer' ? 'Retirer ce membre ?' :
+            membreAction.type === 'suspendre' ? 'Suspendre ce membre ?' :
+            'Réactiver ce membre ?'
+          }
+          message={
+            membreAction.type === 'retirer' ? `${membreAction.nom} sera définitivement retiré de la tontine.` :
+            membreAction.type === 'suspendre' ? `${membreAction.nom} sera suspendu temporairement.` :
+            `${membreAction.nom} sera réactivé.`
+          }
+          confirmText={
+            membreAction.type === 'retirer' ? 'Retirer' :
+            membreAction.type === 'suspendre' ? 'Suspendre' : 'Réactiver'
+          }
+          isDangerous={membreAction.type !== 'activer'}
+          isLoading={isUpdatingMembre || isRemovingMembre}
+        />
+      )}
+
+      {/* Ajouter commission */}
+      <Modal
+        isOpen={showAddCommission}
+        onClose={() => { commissionForm.reset(); setShowAddCommission(false) }}
+        title="Ajouter une commission"
+        size="sm"
+        footer={
+          <div className="flex gap-3 justify-end">
+            <Button variant="ghost" onClick={() => { commissionForm.reset(); setShowAddCommission(false) }} disabled={isCreatingCommission}>Annuler</Button>
+            <Button form="commission-form" type="submit" loading={isCreatingCommission}>Ajouter</Button>
+          </div>
+        }
+      >
+        <form id="commission-form" onSubmit={commissionForm.handleSubmit(onAddCommission)} className="space-y-4">
+          <Select
+            label="Type de commission"
+            error={commissionForm.formState.errors.type?.message}
+            options={[
+              { value: 'POURCENTAGE_JACKPOT', label: 'Pourcentage du jackpot' },
+              { value: 'FRAIS_FIXES_PAR_CYCLE', label: 'Frais fixes par cycle' },
+              { value: 'FRAIS_ADHESION', label: "Frais d'adhésion" },
+            ]}
+            {...commissionForm.register('type')}
+          />
+          <Input
+            label="Valeur (% ou FCFA)"
+            type="number"
+            placeholder="4"
+            error={commissionForm.formState.errors.valeur?.message}
+            {...commissionForm.register('valeur')}
+          />
+          <Input
+            label="Description (optionnel)"
+            placeholder="Commission de gestion..."
+            {...commissionForm.register('description')}
+          />
+        </form>
+      </Modal>
+    </AppLayout>
+  )
+}

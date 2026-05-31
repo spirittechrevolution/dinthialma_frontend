@@ -1,119 +1,200 @@
+import { Link } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { PageHeader } from '@/components/layout/PageHeader'
-import { Card, CardBody } from '@/components/ui/Card'
-import { Table, Column } from '@/components/ui/Table'
-import { Stat } from '@/components/ui/Stat'
 import { Badge } from '@/components/ui/Badge'
 import { Spinner } from '@/components/ui/Spinner'
 import { useMyDashboard } from '@/hooks/useDashboard'
+import { useAuth } from '@/hooks/useAuth'
 import { TontineStats } from '@/types/dashboard'
 import { TontineStatut } from '@/types/common'
-import { Users, TrendingUp, DollarSign, AlertCircle } from 'lucide-react'
+import { BookCopy, Users, Clock, AlertTriangle, ArrowRight } from 'lucide-react'
 
-const statutVariants: Record<TontineStatut, 'success' | 'warning' | 'info' | 'default'> = {
+const statutVariants: Record<string, 'success' | 'warning' | 'info' | 'default'> = {
   ACTIVE: 'success',
-  BROUILLON: 'warning',
-  SUSPENDUE: 'info',
+  BROUILLON: 'default',
+  SUSPENDUE: 'warning',
   TERMINEE: 'default',
 }
 
+const FREQ_LABELS: Record<string, string> = {
+  JOURNALIERE: 'journalière',
+  HEBDOMADAIRE: 'hebdomadaire',
+  BIMENSUEL: 'bimensuelle',
+  MENSUEL: 'mensuelle',
+  TRIMESTRIEL: 'trimestrielle',
+}
+
+function StatCard({ label, value, sub, icon }: {
+  label: string
+  value: React.ReactNode
+  sub?: string
+  icon: React.ReactNode
+}) {
+  return (
+    <div className="bg-white rounded-2xl border border-neutral-100 p-5 flex items-start justify-between shadow-sm">
+      <div>
+        <p className="text-sm text-neutral-500 mb-2">{label}</p>
+        <p className="text-3xl font-bold text-neutral-900">{value}</p>
+        {sub && <p className="text-xs text-neutral-400 mt-1">{sub}</p>}
+      </div>
+      <div className="w-10 h-10 rounded-full bg-primary-50 flex items-center justify-center text-primary-600 flex-shrink-0">
+        {icon}
+      </div>
+    </div>
+  )
+}
+
+function ProgressBar({ value, max, color }: { value: number; max: number; color: string }) {
+  const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0
+  return (
+    <div className="flex items-center gap-2">
+      <div className="flex-1 bg-neutral-100 rounded-full h-1.5">
+        <div className={`h-1.5 rounded-full ${color}`} style={{ width: `${pct}%` }} />
+      </div>
+      <span className="text-xs text-neutral-500 w-6 text-right">{value}</span>
+    </div>
+  )
+}
+
 export function AdminDashboard() {
+  const { user } = useAuth()
   const { data: dashboard, isLoading } = useMyDashboard()
 
   if (isLoading) return <AppLayout><div className="flex justify-center py-20"><Spinner /></div></AppLayout>
 
   const tontines = dashboard?.tontines || []
-  const totalEnAttente = tontines.reduce((s, t) => s + t.cotisationsEnAttente, 0)
-  const totalEnRetard = tontines.reduce((s, t) => s + t.cotisationsEnRetard, 0)
-  const totalValide = tontines.reduce((s, t) => s + t.montantTotalValide, 0)
+  const totalMembres = tontines.reduce((s: number, t: TontineStats) => s + (t.nombreMembres || 0), 0)
+  const totalEnAttente = tontines.reduce((s: number, t: TontineStats) => s + t.cotisationsEnAttente, 0)
+  const totalEnRetard = tontines.reduce((s: number, t: TontineStats) => s + t.cotisationsEnRetard, 0)
+  const totalValide = tontines.reduce((s: number, t: TontineStats) => s + t.montantTotalValide, 0)
 
-  const columns: Column<TontineStats>[] = [
-    {
-      key: 'nom',
-      header: 'Tontine',
-      render: (row) => <span className="font-semibold">{row.nom}</span>,
-    },
-    {
-      key: 'statut',
-      header: 'Statut',
-      render: (row) => <Badge variant={statutVariants[row.statut as TontineStatut]}>{row.statut}</Badge>,
-    },
-    {
-      key: 'nombreMembres',
-      header: 'Membres',
-      render: (row) => <span className="text-primary-600 font-semibold">{row.nombreMembres}</span>,
-    },
-    {
-      key: 'cotisationsEnAttente',
-      header: 'En attente',
-      render: (row) => row.cotisationsEnAttente > 0
-        ? <Badge variant="warning">{row.cotisationsEnAttente}</Badge>
-        : <span className="text-neutral-400">0</span>,
-    },
-    {
-      key: 'cotisationsEnRetard',
-      header: 'En retard',
-      render: (row) => row.cotisationsEnRetard > 0
-        ? <Badge variant="error">{row.cotisationsEnRetard}</Badge>
-        : <span className="text-neutral-400">0</span>,
-    },
-    {
-      key: 'montantTotalValide',
-      header: 'Total validé',
-      render: (row) => <span>{row.montantTotalValide.toLocaleString()} FCFA</span>,
-    },
-    {
-      key: 'cycleEnCours',
-      header: 'Cycle en cours',
-      render: (row) => row.cycleEnCours
-        ? <span>Cycle {row.cycleEnCours.numeroCycle} — {row.cycleEnCours.beneficiaireNom || 'Bénéficiaire non désigné'}</span>
-        : <span className="text-neutral-400">Aucun</span>,
-    },
-  ]
+  const validees = tontines.reduce(
+    (s: number, t: TontineStats) => s + Math.round(t.montantTotalValide / (t.montant || 1)),
+    0
+  )
+  const refusees = 0
+  const cycleTotal = validees + totalEnAttente + totalEnRetard + refusees
+
+  const prenom = user?.firstName || 'Admin'
 
   return (
     <AppLayout>
-      <PageHeader
-        title="Tableau de bord"
-        description="Vue d'ensemble de vos tontines"
-      />
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-neutral-900">Bonjour {prenom} 👋</h1>
+        <p className="text-sm text-neutral-500 mt-1">Aperçu de vos tontines et activité récente.</p>
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <Stat
+      {/* KPIs */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+        <StatCard
           label="Tontines gérées"
-          value={dashboard?.nombreTontinesGerees || 0}
-          icon={<TrendingUp size={32} />}
+          value={<span className="text-primary-600">{dashboard?.nombreTontinesGerees || 0}</span>}
+          icon={<BookCopy size={20} />}
         />
-        <Stat
+        <StatCard
+          label="Membres au total"
+          value={totalMembres}
+          icon={<Users size={20} />}
+        />
+        <StatCard
           label="Cotisations en attente"
           value={totalEnAttente}
-          icon={<AlertCircle size={32} />}
+          sub="à valider"
+          icon={<Clock size={20} />}
         />
-        <Stat
-          label="Cotisations en retard"
+        <StatCard
+          label="En retard"
           value={totalEnRetard}
-          icon={<Users size={32} />}
-        />
-        <Stat
-          label="Total validé"
-          value={`${totalValide.toLocaleString()} FCFA`}
-          icon={<DollarSign size={32} />}
+          sub="à relancer"
+          icon={<AlertTriangle size={20} />}
         />
       </div>
 
-      <Card noPadding>
-        <div className="p-6 border-b border-neutral-200">
-          <h3 className="text-lg font-semibold text-neutral-900">Mes Tontines</h3>
+      {/* Mes tontines + Cotisations ce cycle */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        {/* Mes tontines */}
+        <div className="xl:col-span-2 bg-white rounded-2xl border border-neutral-100 shadow-sm p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="font-semibold text-neutral-900">Mes tontines</h3>
+              <p className="text-xs text-neutral-500">Cliquez pour gérer.</p>
+            </div>
+            <Link to="/admin/tontines" className="text-sm font-medium text-primary-600 flex items-center gap-1 hover:underline">
+              Voir tout <ArrowRight size={14} />
+            </Link>
+          </div>
+          <div className="space-y-3">
+            {tontines.length === 0 ? (
+              <p className="text-sm text-neutral-400 text-center py-6">Aucune tontine gérée</p>
+            ) : (
+              tontines.slice(0, 5).map((t: TontineStats) => {
+                const pct = t.nombreMembres > 0
+                  ? Math.round(((t.nombreMembres) / t.nombreMembres) * 100)
+                  : 0
+                return (
+                  <Link key={t.id} to={`/admin/tontines/${t.id}`} className="block p-4 rounded-xl border border-neutral-100 hover:border-primary-200 hover:bg-primary-50/30 transition-colors">
+                    <div className="flex items-start justify-between mb-2">
+                      <p className="font-semibold text-neutral-900">{t.nom}</p>
+                      <Badge variant={statutVariants[t.statut as TontineStatut]}>
+                        {t.statut.charAt(0) + t.statut.slice(1).toLowerCase()}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-neutral-500 mb-2">
+                      {t.montant?.toLocaleString('fr-FR')} FCFA / {FREQ_LABELS[t.frequence || ''] || t.frequence}
+                      {' · '}
+                      {t.nombreMembres} membres
+                      {t.dateDebut && ` · Depuis ${new Date(t.dateDebut).toLocaleDateString('fr-FR')}`}
+                    </p>
+                    <div className="w-full bg-neutral-100 rounded-full h-1.5">
+                      <div className="h-1.5 rounded-full bg-primary-500" style={{ width: `${pct}%` }} />
+                    </div>
+                  </Link>
+                )
+              })
+            )}
+          </div>
         </div>
-        <CardBody>
-          <Table
-            columns={columns}
-            data={tontines}
-            isLoading={isLoading}
-            emptyMessage="Aucune tontine gérée"
-          />
-        </CardBody>
-      </Card>
+
+        {/* Cotisations ce cycle */}
+        <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm p-5">
+          <h3 className="font-semibold text-neutral-900 mb-1">Cotisations ce cycle</h3>
+          <div className="space-y-4 mt-4">
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-neutral-700">Validées</span>
+                <span className="font-medium">{validees}</span>
+              </div>
+              <ProgressBar value={validees} max={cycleTotal || 1} color="bg-primary-500" />
+            </div>
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-neutral-700">En attente</span>
+                <span className="font-medium">{totalEnAttente}</span>
+              </div>
+              <ProgressBar value={totalEnAttente} max={cycleTotal || 1} color="bg-orange-400" />
+            </div>
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-neutral-700">En retard</span>
+                <span className="font-medium">{totalEnRetard}</span>
+              </div>
+              <ProgressBar value={totalEnRetard} max={cycleTotal || 1} color="bg-red-500" />
+            </div>
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-neutral-700">Refusées</span>
+                <span className="font-medium">{refusees}</span>
+              </div>
+              <ProgressBar value={refusees} max={cycleTotal || 1} color="bg-neutral-300" />
+            </div>
+          </div>
+          <div className="mt-6 pt-4 border-t border-neutral-100">
+            <p className="text-xs text-neutral-500 mb-1">Montant validé ce mois</p>
+            <p className="text-2xl font-bold text-primary-600">
+              {totalValide.toLocaleString('fr-FR')} FCFA
+            </p>
+          </div>
+        </div>
+      </div>
     </AppLayout>
   )
 }

@@ -9,7 +9,7 @@ interface CardProps {
 
 export function Card({ children, className, noPadding = false }: CardProps) {
   return (
-    <div className={clsx('bg-white rounded-2xl shadow-sm', !noPadding && 'p-6', className)}>
+    <div className={clsx('bg-white rounded-3xl shadow-md border border-neutral-100 hover:shadow-lg transition-shadow', !noPadding && 'p-8', className)}>
       {children}
     </div>
   )

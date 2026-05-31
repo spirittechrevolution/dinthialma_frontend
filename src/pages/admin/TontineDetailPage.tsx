@@ -55,8 +55,8 @@ export function TontineDetailPage() {
   const { data: commissionsData, isLoading: commissionsLoading } = useCommissions(id || '', 0, 20)
   const { mutate: deleteCommission } = useDeleteCommission()
 
-  if (isLoading) return <AppLayout><div className="flex justify-center py-20"><Spinner /></div></AppLayout>
-  if (!tontine) return <AppLayout><div className="text-center py-12 text-neutral-600">Tontine non trouvée</div></AppLayout>
+  if (isLoading) return <AppLayout><div className="flex justify-center py-20 bg-neutral-50 min-h-screen"><Spinner /></div></AppLayout>
+  if (!tontine) return <AppLayout><div className="text-center py-12 text-neutral-600 bg-neutral-50 min-h-screen">Tontine non trouvée</div></AppLayout>
 
   const handleConfirm = () => {
     if (!confirm || !id) return
@@ -207,139 +207,145 @@ export function TontineDetailPage() {
 
   return (
     <AppLayout>
-      <div className="mb-6 flex items-center gap-4">
-        <Button variant="ghost" onClick={() => navigate(-1)}><ArrowLeft size={20} /></Button>
-        <PageHeader
-          title={tontine.nom}
-          description={tontine.description}
-          action={
-            <div className="flex gap-2">
-              {tontine.statut === TontineStatut.BROUILLON && (
-                <Button onClick={() => setConfirm({ action: 'activer', label: 'Activer cette tontine ?' })}>
-                  <Play size={16} /> Activer
-                </Button>
-              )}
-              {tontine.statut === TontineStatut.ACTIVE && (
-                <Button variant="secondary" onClick={() => setConfirm({ action: 'suspendre', label: 'Suspendre cette tontine ?', danger: true })}>
-                  <Pause size={16} /> Suspendre
-                </Button>
-              )}
-            </div>
-          }
-        />
-      </div>
+      <div className="min-h-screen bg-neutral-50 py-8 px-0 sm:px-4">
+        <div className="max-w-5xl mx-auto">
+          <div className="mb-6 flex items-center gap-4">
+            <Button variant="ghost" onClick={() => navigate(-1)}>
+              <ArrowLeft size={20} />
+            </Button>
+            <PageHeader
+              title={<span className="text-3xl font-extrabold tracking-tight text-neutral-900">{tontine.nom}</span>}
+              description={<span className="text-lg text-neutral-500">{tontine.description}</span>}
+              action={
+                <div className="flex gap-2">
+                  {tontine.statut === TontineStatut.BROUILLON && (
+                    <Button className="rounded-full shadow-md" size="lg" onClick={() => setConfirm({ action: 'activer', label: 'Activer cette tontine ?' })}>
+                      <Play size={18} className="mr-2" /> Activer
+                    </Button>
+                  )}
+                  {tontine.statut === TontineStatut.ACTIVE && (
+                    <Button variant="danger" className="rounded-full shadow-md" size="lg" onClick={() => setConfirm({ action: 'suspendre', label: 'Suspendre cette tontine ?', danger: true })}>
+                      <Pause size={18} className="mr-2" /> Suspendre
+                    </Button>
+                  )}
+                </div>
+              }
+            />
+          </div>
 
-      {/* Résumé */}
-      <Card className="mb-6">
-        <div className="flex flex-wrap gap-8">
-          <div>
-            <p className="text-sm text-neutral-500">Statut</p>
-            <Badge variant={statutVariants[tontine.statut]}>{tontine.statut}</Badge>
-          </div>
-          <div>
-            <p className="text-sm text-neutral-500">Montant</p>
-            <p className="text-xl font-bold text-primary-600">{tontine.montant.toLocaleString()} FCFA</p>
-          </div>
-          <div>
-            <p className="text-sm text-neutral-500">Membres</p>
-            <p className="text-xl font-bold">{tontine.nombreMembresActuels}/{tontine.nombreMembres}</p>
-          </div>
-          <div>
-            <p className="text-sm text-neutral-500">Mode</p>
-            <p className="text-xl font-bold">{tontine.modeCycle}</p>
-          </div>
-          <div>
-            <p className="text-sm text-neutral-500">Fréquence</p>
-            <p className="text-xl font-bold">{tontine.frequence}</p>
-          </div>
-          <div>
-            <p className="text-sm text-neutral-500">Créateur</p>
-            <p className="text-xl font-bold">{tontine.creePar.firstName} {tontine.creePar.lastName}</p>
-          </div>
-        </div>
-      </Card>
-
-      {/* Onglets */}
-      <Card noPadding>
-        <div className="border-b border-neutral-200 flex overflow-x-auto">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-6 py-3 font-medium whitespace-nowrap transition-colors ${
-                activeTab === tab.id
-                  ? 'border-b-2 border-primary-500 text-primary-600'
-                  : 'text-neutral-600 hover:text-neutral-900'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-        <CardBody>
-          {activeTab === 'infos' && (
-            <div className="grid grid-cols-2 gap-6">
-              <div><p className="text-sm text-neutral-500">Date de début</p><p className="font-semibold">{new Date(tontine.dateDebut).toLocaleDateString('fr-FR')}</p></div>
-              <div><p className="text-sm text-neutral-500">Ordre bénéficiaire</p><p className="font-semibold">{tontine.ordreBeneficiaire}</p></div>
-              <div><p className="text-sm text-neutral-500">Créé le</p><p className="font-semibold">{new Date(tontine.createdAt).toLocaleDateString('fr-FR')}</p></div>
-              <div><p className="text-sm text-neutral-500">Modifié le</p><p className="font-semibold">{new Date(tontine.updatedAt).toLocaleDateString('fr-FR')}</p></div>
+          {/* Résumé */}
+          <Card className="mb-8 shadow-lg rounded-3xl bg-white/90 backdrop-blur-sm border border-neutral-100">
+            <div className="flex flex-wrap gap-8 justify-between items-center px-2 py-4 sm:px-8 sm:py-6">
+              <div className="flex flex-col items-center">
+                <span className="text-xs text-neutral-500 mb-1">Statut</span>
+                <Badge variant={statutVariants[tontine.statut]} className="text-base px-4 py-1 rounded-full font-semibold">{tontine.statut}</Badge>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-xs text-neutral-500 mb-1">Montant</span>
+                <span className="text-2xl font-extrabold text-primary-600">{tontine.montant.toLocaleString()} FCFA</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-xs text-neutral-500 mb-1">Membres</span>
+                <span className="text-2xl font-extrabold">{tontine.nombreMembresActuels}/{tontine.nombreMembres}</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-xs text-neutral-500 mb-1">Mode</span>
+                <span className="text-lg font-bold text-neutral-800 uppercase tracking-wide">{tontine.modeCycle}</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-xs text-neutral-500 mb-1">Fréquence</span>
+                <span className="text-lg font-bold text-neutral-800 uppercase tracking-wide">{tontine.frequence}</span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-xs text-neutral-500 mb-1">Créateur</span>
+                <span className="text-lg font-bold text-neutral-800">{tontine.creePar.firstName} {tontine.creePar.lastName}</span>
+              </div>
             </div>
-          )}
-          {activeTab === 'membres' && (
-            <Table columns={membreColumns} data={membresData?.content || []} isLoading={membresLoading} emptyMessage="Aucun membre" />
-          )}
-          {activeTab === 'cycles' && (
-            <Table columns={cycleColumns} data={cyclesData?.content || []} isLoading={cyclesLoading} emptyMessage="Aucun cycle" />
-          )}
-          {activeTab === 'cotisations' && (
-            <Table columns={cotisationColumns} data={cotisationsData?.content || []} isLoading={cotisationsLoading} emptyMessage="Aucune cotisation" />
-          )}
-          {activeTab === 'commissions' && (
-            <div>
-              {commissionsLoading ? <Spinner /> : (
-                <div className="space-y-3">
-                  {(commissionsData?.content || []).map((c) => (
-                    <div key={c.id} className="flex items-center justify-between p-4 border border-neutral-200 rounded-lg">
-                      <div>
-                        <p className="font-semibold">{c.type}</p>
-                        <p className="text-sm text-neutral-500">{c.description}</p>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <p className="font-bold text-primary-600">
-                          {c.type === 'POURCENTAGE_JACKPOT' ? `${c.valeur}%` : `${c.valeur.toLocaleString()} FCFA`}
-                        </p>
-                        <Button variant="danger" size="sm"
-                          onClick={() => deleteCommission(
-                            { tontineId: id!, commissionId: c.id },
-                            { onSuccess: () => toast.success('Commission supprimée'), onError: () => toast.error('Erreur') }
-                          )}>
-                          <Trash2 size={16} />
-                        </Button>
-                      </div>
+          </Card>
+
+          {/* Onglets */}
+          <Card noPadding className="shadow-md rounded-3xl">
+            <div className="border-b border-neutral-200 flex overflow-x-auto bg-white rounded-t-3xl">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-6 py-3 font-medium whitespace-nowrap transition-colors focus:outline-none ${
+                    activeTab === tab.id
+                      ? 'bg-primary-50 border-b-2 border-primary-500 text-primary-600 rounded-t-2xl shadow-sm'
+                      : 'text-neutral-600 hover:text-neutral-900'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            <CardBody className="bg-white rounded-b-3xl">
+              {activeTab === 'infos' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 py-4">
+                  <div><span className="text-xs text-neutral-500">Date de début</span><p className="font-semibold text-lg mt-1">{new Date(tontine.dateDebut).toLocaleDateString('fr-FR')}</p></div>
+                  <div><span className="text-xs text-neutral-500">Ordre bénéficiaire</span><p className="font-semibold text-lg mt-1">{tontine.ordreBeneficiaire}</p></div>
+                  <div><span className="text-xs text-neutral-500">Créé le</span><p className="font-semibold text-lg mt-1">{new Date(tontine.createdAt).toLocaleDateString('fr-FR')}</p></div>
+                  <div><span className="text-xs text-neutral-500">Modifié le</span><p className="font-semibold text-lg mt-1">{new Date(tontine.updatedAt).toLocaleDateString('fr-FR')}</p></div>
+                </div>
+              )}
+              {activeTab === 'membres' && (
+                <Table columns={membreColumns} data={membresData?.content || []} isLoading={membresLoading} emptyMessage="Aucun membre" />
+              )}
+              {activeTab === 'cycles' && (
+                <Table columns={cycleColumns} data={cyclesData?.content || []} isLoading={cyclesLoading} emptyMessage="Aucun cycle" />
+              )}
+              {activeTab === 'cotisations' && (
+                <Table columns={cotisationColumns} data={cotisationsData?.content || []} isLoading={cotisationsLoading} emptyMessage="Aucune cotisation" />
+              )}
+              {activeTab === 'commissions' && (
+                <div>
+                  {commissionsLoading ? <Spinner /> : (
+                    <div className="space-y-3">
+                      {(commissionsData?.content || []).map((c) => (
+                        <div key={c.id} className="flex items-center justify-between p-4 border border-neutral-200 rounded-xl bg-neutral-50">
+                          <div>
+                            <p className="font-semibold text-neutral-800">{c.type}</p>
+                            <p className="text-sm text-neutral-500">{c.description}</p>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <p className="font-bold text-primary-600">
+                              {c.type === 'POURCENTAGE_JACKPOT' ? `${c.valeur}%` : `${c.valeur.toLocaleString()} FCFA`}
+                            </p>
+                            <Button variant="danger" size="sm"
+                              onClick={() => deleteCommission(
+                                { tontineId: id!, commissionId: c.id },
+                                { onSuccess: () => toast.success('Commission supprimée'), onError: () => toast.error('Erreur') }
+                              )}>
+                              <Trash2 size={16} />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                      {(commissionsData?.content || []).length === 0 && (
+                        <p className="text-neutral-500 text-center py-4">Aucune commission configurée</p>
+                      )}
                     </div>
-                  ))}
-                  {(commissionsData?.content || []).length === 0 && (
-                    <p className="text-neutral-500 text-center py-4">Aucune commission configurée</p>
                   )}
                 </div>
               )}
-            </div>
-          )}
-        </CardBody>
-      </Card>
+            </CardBody>
+          </Card>
 
-      {confirm && (
-        <ConfirmDialog
-          isOpen
-          onClose={() => setConfirm(null)}
-          onConfirm={handleConfirm}
-          title={confirm.label}
-          message=""
-          confirmText="Confirmer"
-          isDangerous={confirm.danger}
-          isLoading={isActivating || isSuspending}
-        />
-      )}
+          {confirm && (
+            <ConfirmDialog
+              isOpen
+              onClose={() => setConfirm(null)}
+              onConfirm={handleConfirm}
+              title={confirm.label}
+              message=""
+              confirmText="Confirmer"
+              isDangerous={confirm.danger}
+              isLoading={isActivating || isSuspending}
+            />
+          )}
+        </div>
+      </div>
     </AppLayout>
   )
 }

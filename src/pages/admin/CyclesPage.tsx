@@ -1,61 +1,72 @@
 import { useState } from 'react'
-import { useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { PageHeader } from '@/components/layout/PageHeader'
-import { Card, CardBody } from '@/components/ui/Card'
-import { Table, Column } from '@/components/ui/Table'
 import { Button } from '@/components/ui/Button'
-import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
+import { Select } from '@/components/ui/Select'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { Spinner } from '@/components/ui/Spinner'
+import { useTontines } from '@/hooks/useTontines'
 import { useCycles, useOpenCycle, useCloturerCycle } from '@/hooks/useCycles'
-import { useTontine } from '@/hooks/useTontines'
 import { Cycle } from '@/types/cycle'
-import { CycleStatut, ModeCycle } from '@/types/common'
-import { Plus, Lock } from 'lucide-react'
+import { CycleStatut } from '@/types/common'
+import { Plus, RefreshCw, Calendar, User } from 'lucide-react'
 
 const openCycleSchema = z.object({
+  tontineId: z.string().min(1, 'Requis'),
+  numeroCycle: z.coerce.number().int().positive('Requis'),
   dateDebut: z.string().min(1, 'Requis'),
   dateFin: z.string().min(1, 'Requis'),
   beneficiaireId: z.string().uuid().optional().or(z.literal('')),
 })
-
 type OpenCycleForm = z.infer<typeof openCycleSchema>
 
-const statutVariants: Record<CycleStatut, 'success' | 'warning' | 'info' | 'default'> = {
-  EN_ATTENTE: 'warning',
-  EN_COURS: 'info',
-  TERMINE: 'success',
+const STATUT_LABELS: Record<CycleStatut, string> = {
+  EN_ATTENTE: 'Ouvert',
+  EN_COURS: 'En Cours',
+  TERMINE: 'Versé',
 }
 
-export function CyclesPage() {
-  const { tontineId } = useParams<{ tontineId: string }>()
-  const [page, setPage] = useState(0)
-  const [isOpenModal, setIsOpenModal] = useState(false)
-  const [cycleToClose, setCycleToClose] = useState<string | null>(null)
+const STATUT_COLORS: Record<CycleStatut, string> = {
+  EN_ATTENTE: 'bg-primary-100 text-primary-700',
+  EN_COURS: 'bg-blue-100 text-blue-700',
+  TERMINE: 'bg-purple-100 text-purple-700',
+}
 
-  const { data: tontine } = useTontine(tontineId || '')
-  const { data: cyclesData, isLoading } = useCycles(tontineId || '', page, 20)
+type CycleWithTontine = Cycle & { tontineNom?: string; tontineId?: string }
+
+export function CyclesPage() {
+  const [isOpenModal, setIsOpenModal] = useState(false)
+  const [cycleToClose, setCycleToClose] = useState<{ cycleId: string; tontineId: string } | null>(null)
+  const [selectedTontineId, setSelectedTontineId] = useState('')
+
+  const { data: tontinesData, isLoading: loadingTontines } = useTontines(0, 50)
+  const tontines = tontinesData?.content || []
+
+  const activeTontineId = selectedTontineId || tontines[0]?.id || ''
+  const { data: cyclesData, isLoading: loadingCycles } = useCycles(activeTontineId, 0, 50)
   const { mutate: openCycle, isPending: isOpening } = useOpenCycle()
   const { mutate: cloturerCycle, isPending: isClosing } = useCloturerCycle()
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<OpenCycleForm>({
     resolver: zodResolver(openCycleSchema),
+    defaultValues: { tontineId: activeTontineId, numeroCycle: 1 },
   })
 
-  const cycles = cyclesData?.content || []
-  const totalPages = cyclesData?.totalPages || 1
-  const isManuel = tontine?.modeCycle === ModeCycle.MANUEL
+  const cycles: CycleWithTontine[] = (cyclesData?.content || []).map((c: Cycle) => ({
+    ...c,
+    tontineNom: tontines.find((t) => t.id === activeTontineId)?.nom,
+    tontineId: activeTontineId,
+  }))
 
   const onOpenSubmit = (data: OpenCycleForm) => {
     openCycle(
       {
-        tontineId: tontineId!,
+        tontineId: data.tontineId,
         request: {
           dateDebut: data.dateDebut,
           dateFin: data.dateFin,
@@ -64,15 +75,15 @@ export function CyclesPage() {
       },
       {
         onSuccess: () => { toast.success('Cycle ouvert'); reset(); setIsOpenModal(false) },
-        onError: () => toast.error('Erreur lors de l\'ouverture du cycle'),
+        onError: () => toast.error("Erreur lors de l'ouverture du cycle"),
       }
     )
   }
 
   const handleCloturer = () => {
-    if (!cycleToClose || !tontineId) return
+    if (!cycleToClose) return
     cloturerCycle(
-      { tontineId, cycleId: cycleToClose },
+      { tontineId: cycleToClose.tontineId, cycleId: cycleToClose.cycleId },
       {
         onSuccess: () => { toast.success('Cycle clôturé avec succès'); setCycleToClose(null) },
         onError: () => toast.error('Erreur lors de la clôture'),
@@ -80,98 +91,153 @@ export function CyclesPage() {
     )
   }
 
-  const columns: Column<Cycle>[] = [
-    {
-      key: 'numeroCycle',
-      header: 'Cycle',
-      render: (row) => <span className="font-semibold">Cycle {row.numeroCycle}</span>,
-    },
-    { key: 'dateDebut', header: 'Début', render: (row) => new Date(row.dateDebut).toLocaleDateString('fr-FR') },
-    { key: 'dateFin', header: 'Fin', render: (row) => new Date(row.dateFin).toLocaleDateString('fr-FR') },
-    {
-      key: 'montantJackpot',
-      header: 'Jackpot brut',
-      render: (row) => row.montantJackpot ? `${row.montantJackpot.toLocaleString()} FCFA` : '—',
-    },
-    {
-      key: 'montantNet',
-      header: 'Net bénéficiaire',
-      render: (row) => row.montantNet ? (
-        <span className="text-primary-600 font-semibold">{row.montantNet.toLocaleString()} FCFA</span>
-      ) : '—',
-    },
-    {
-      key: 'beneficiaire',
-      header: 'Bénéficiaire',
-      render: (row) => row.beneficiaire
-        ? `${row.beneficiaire.firstName} ${row.beneficiaire.lastName}`
-        : '—',
-    },
-    {
-      key: 'statut',
-      header: 'Statut',
-      render: (row) => <Badge variant={statutVariants[row.statut]}>{row.statut}</Badge>,
-    },
-    {
-      key: 'id',
-      header: 'Actions',
-      render: (row) => row.statut === CycleStatut.EN_COURS ? (
-        <Button variant="secondary" size="sm" onClick={() => setCycleToClose(row.id)}>
-          <Lock size={16} /> Clôturer
-        </Button>
-      ) : null,
-    },
-  ]
+  if (loadingTontines) return <AppLayout><div className="flex justify-center py-20"><Spinner /></div></AppLayout>
 
   return (
     <AppLayout>
-      <PageHeader
-        title="Cycles"
-        description={isManuel ? 'Mode manuel — ouvrez chaque cycle manuellement' : 'Mode automatique'}
-        action={
-          isManuel ? (
-            <Button onClick={() => setIsOpenModal(true)}>
-              <Plus size={20} /> Ouvrir un cycle
-            </Button>
-          ) : undefined
-        }
-      />
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-neutral-900">Cycles</h1>
+          <p className="text-sm text-neutral-500 mt-1">Ouvrez et clôturez les cycles de cotisation.</p>
+        </div>
+        <Button size="sm" onClick={() => setIsOpenModal(true)}>
+          <Plus size={16} className="mr-1" /> Nouveau cycle
+        </Button>
+      </div>
 
-      <Card noPadding>
-        <CardBody>
-          <Table
-            columns={columns}
-            data={cycles}
-            isLoading={isLoading}
-            emptyMessage="Aucun cycle pour cette tontine"
-            page={page}
-            totalPages={totalPages}
-            onPageChange={setPage}
-          />
-        </CardBody>
-      </Card>
+      {/* Filter par tontine */}
+      {tontines.length > 1 && (
+        <div className="flex items-center gap-1 mb-5 overflow-x-auto pb-1">
+          {tontines.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setSelectedTontineId(t.id)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                activeTontineId === t.id ? 'bg-primary-600 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-100 border border-neutral-200 shadow-sm'
+              }`}
+            >
+              {t.nom}
+            </button>
+          ))}
+        </div>
+      )}
 
-      {/* Modal ouverture cycle manuel */}
+      {/* Cards */}
+      {loadingCycles ? (
+        <div className="flex justify-center py-20"><Spinner /></div>
+      ) : cycles.length === 0 ? (
+        <div className="text-center py-20 text-neutral-400">
+          <p>Aucun cycle pour cette tontine</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {cycles.map((cycle) => (
+            <div key={cycle.id} className="bg-white rounded-2xl border border-neutral-100 shadow-sm p-5">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full bg-primary-50 flex items-center justify-center text-primary-600">
+                    <RefreshCw size={14} />
+                  </div>
+                  <div>
+                    <p className="font-bold text-neutral-900 text-sm">Cycle #{cycle.numeroCycle}</p>
+                    <p className="text-xs text-neutral-500">{cycle.tontineNom}</p>
+                  </div>
+                </div>
+                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${STATUT_COLORS[cycle.statut]}`}>
+                  {STATUT_LABELS[cycle.statut]}
+                </span>
+              </div>
+
+              {/* Date */}
+              <div className="flex items-center gap-1.5 text-xs text-neutral-500 mb-4">
+                <Calendar size={12} />
+                <span>
+                  {new Date(cycle.dateDebut).toLocaleDateString('fr-FR')} → {new Date(cycle.dateFin).toLocaleDateString('fr-FR')}
+                </span>
+              </div>
+
+              {/* Montants */}
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                <div className="text-center">
+                  <p className="text-xs text-neutral-400 uppercase tracking-wide mb-1">Jackpot</p>
+                  <p className="font-bold text-neutral-900 text-sm">
+                    {cycle.montantJackpot ? `${(cycle.montantJackpot / 1000).toFixed(0)} 000` : '—'}
+                  </p>
+                  {cycle.montantJackpot && <p className="text-xs text-neutral-400">FCFA</p>}
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-neutral-400 uppercase tracking-wide mb-1">Commission</p>
+                  <p className="font-bold text-neutral-900 text-sm">
+                    {cycle.montantCommission ? `${cycle.montantCommission.toLocaleString('fr-FR')}` : '—'}
+                  </p>
+                  {cycle.montantCommission && <p className="text-xs text-neutral-400">FCFA</p>}
+                </div>
+                <div className="text-center bg-primary-50 rounded-xl py-1">
+                  <p className="text-xs text-primary-500 uppercase tracking-wide mb-1">Net</p>
+                  <p className="font-bold text-primary-600 text-sm">
+                    {cycle.montantNet ? `${(cycle.montantNet / 1000).toFixed(0)} 000` : '—'}
+                  </p>
+                  {cycle.montantNet && <p className="text-xs text-primary-400">FCFA</p>}
+                </div>
+              </div>
+
+              {/* Bénéficiaire */}
+              {cycle.beneficiaire && (
+                <div className="flex items-center gap-2 text-sm text-neutral-600 mb-4">
+                  <User size={14} className="text-neutral-400" />
+                  <span>Bénéficiaire : <span className="font-semibold">{cycle.beneficiaire.firstName} {cycle.beneficiaire.lastName}</span></span>
+                </div>
+              )}
+
+              {/* Action */}
+              {cycle.statut === CycleStatut.EN_COURS && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => setCycleToClose({ cycleId: cycle.id, tontineId: cycle.tontineId! })}
+                >
+                  Clôturer ce cycle
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Modal nouveau cycle */}
       <Modal
         isOpen={isOpenModal}
         onClose={() => { reset(); setIsOpenModal(false) }}
-        title="Ouvrir un nouveau cycle"
+        title="Nouveau cycle"
         size="sm"
         footer={
           <div className="flex gap-3 justify-end">
             <Button variant="ghost" onClick={() => { reset(); setIsOpenModal(false) }} disabled={isOpening}>Annuler</Button>
-            <Button form="open-cycle-form" type="submit" loading={isOpening}>Ouvrir</Button>
+            <Button form="open-cycle-form" type="submit" loading={isOpening}>Ouvrir le cycle</Button>
           </div>
         }
       >
+        <p className="text-sm text-neutral-500 mb-4">Ouvrez un nouveau cycle de cotisation.</p>
         <form id="open-cycle-form" onSubmit={handleSubmit(onOpenSubmit)} className="space-y-4">
-          <Input label="Date de début" type="date" error={errors.dateDebut?.message} {...register('dateDebut')} />
-          <Input label="Date de fin" type="date" error={errors.dateFin?.message} {...register('dateFin')} />
-          <Input
-            label="UUID du bénéficiaire (optionnel)"
-            placeholder="550e8400-..."
-            {...register('beneficiaireId')}
+          <Select
+            label="Tontine"
+            error={errors.tontineId?.message}
+            options={tontines.map((t) => ({ value: t.id, label: t.nom }))}
+            {...register('tontineId')}
           />
+          <Input
+            label="Numéro de cycle"
+            type="number"
+            placeholder="1"
+            error={errors.numeroCycle?.message}
+            {...register('numeroCycle')}
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Date de début" type="date" error={errors.dateDebut?.message} {...register('dateDebut')} />
+            <Input label="Date de fin" type="date" error={errors.dateFin?.message} {...register('dateFin')} />
+          </div>
         </form>
       </Modal>
 
@@ -181,7 +247,7 @@ export function CyclesPage() {
         onClose={() => setCycleToClose(null)}
         onConfirm={handleCloturer}
         title="Clôturer ce cycle ?"
-        message="Le jackpot sera calculé, les commissions déduites et les cotisations EN_ATTENTE marquées EN_RETARD. En mode automatique, le cycle suivant démarrera automatiquement."
+        message="Le jackpot sera calculé, les commissions déduites et les cotisations EN_ATTENTE marquées EN_RETARD."
         confirmText="Clôturer"
         isDangerous
         isLoading={isClosing}

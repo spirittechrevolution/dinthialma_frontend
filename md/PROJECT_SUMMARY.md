@@ -118,7 +118,7 @@ dinthialma_frontend/
 - ✅ Auth pilotée par les APIs backend (POST /auth/login, /auth/logout, /auth/refresh)
 - ✅ JWT intercepteur Axios automatique (lecture localStorage)
 - ✅ Refresh automatique sur 401 avec file d'attente des requêtes concurrentes
-- ✅ 3 rôles : SUPER_ADMIN, ADMIN, MEMBER — encodés dans le payload JWT
+- ✅ 3 rôles : SUPER_ADMIN, ADMIN, MEMBER , USER — encodés dans le payload JWT
 - ✅ Guards ProtectedRoute (token localStorage) et RoleRoute
 - ✅ Formulaire de connexion téléphone + mot de passe
 

@@ -69,6 +69,12 @@ export enum MembreStatut {
   SORTI = 'SORTI',
 }
 
+// ─── Statut compte utilisateur ────────────────────────────────────────────────
+export enum AccountStatus {
+  ACTIVE = 'ACTIVE',
+  PRE_ENROLLED = 'PRE_ENROLLED',
+}
+
 // ─── Types de commission ──────────────────────────────────────────────────────
 export enum CommissionType {
   POURCENTAGE_JACKPOT = 'POURCENTAGE_JACKPOT',
@@ -105,6 +111,7 @@ export interface UserInfo {
   lastName: string
   phone: string
   email?: string
+  accountStatus?: AccountStatus
 }
 
 export interface MembreInfo {

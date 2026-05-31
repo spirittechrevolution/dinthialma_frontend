@@ -1,8 +1,16 @@
 import api from './api'
-import { AdminUserResponse, UserProfile, UpdateProfileRequest, PhoneChangeRequest, PhoneChangeVerifyRequest, UpdateUserRolesRequest } from '@/types/user'
+import { AdminUserResponse, UserProfile, UpdateProfileRequest, PhoneChangeRequest, PhoneChangeVerifyRequest, UpdateUserRolesRequest, UserSearchResult } from '@/types/user'
 import { PageResponse, CustomResponse } from '@/types/common'
 
 export const userService = {
+  // ─── Recherche utilisateur par numéro de téléphone ───────────────────────────
+  searchByPhone: async (phone: string): Promise<UserSearchResult> => {
+    const response = await api.get<CustomResponse<UserSearchResult>>('/v1/users/search', {
+      params: { phone },
+    })
+    return response.data.data
+  },
+
   // ─── Profil de l'utilisateur connecté ────────────────────────────────────────
   getProfile: async (): Promise<UserProfile> => {
     const response = await api.get<CustomResponse<UserProfile>>('/v1/profile')

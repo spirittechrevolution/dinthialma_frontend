@@ -22,8 +22,29 @@ export interface AdminUserResponse {
   active: boolean
   pinConfigured: boolean
   roles: string[]
+  accountStatus?: string
   createdAt: string
   updatedAt: string
+}
+
+// ─── Résultat recherche utilisateur par téléphone ────────────────────────────
+export interface UserSearchResult {
+  id: string
+  firstName: string
+  lastName: string
+  phone: string
+  accountStatus: string
+}
+
+// ─── Réponse inscription complète ────────────────────────────────────────────
+export interface RegisterCompleteResponse {
+  id: string
+  keycloakId: string
+  phone: string
+  firstName: string
+  lastName: string
+  email?: string
+  role: string
 }
 
 // ─── Profil utilisateur connecté ─────────────────────────────────────────────

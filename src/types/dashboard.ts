@@ -25,11 +25,13 @@ export interface FinancesStats {
   cotisationsEnAttente: number
   cotisationsEnRetard: number
   montantValideСeMois: number
+  variationMoisPrecedent?: number
 }
 
 export interface ActiviteRecente {
   nouveauxInscrits: number
   cotisationsEnregistrees: number
+  tontinesSuspendues?: number
 }
 
 // ─── Dashboard ADMIN (personnel) ─────────────────────────────────────────────
@@ -39,7 +41,7 @@ export interface MyDashboardResponse {
 }
 
 export interface TontineStats {
-  id: string        // alias de tontineId pour compatibilité avec le composant Table
+  id: string
   tontineId: string
   nom: string
   statut: string
@@ -47,6 +49,9 @@ export interface TontineStats {
   cotisationsEnAttente: number
   cotisationsEnRetard: number
   montantTotalValide: number
+  montant?: number
+  frequence?: string
+  dateDebut?: string
   cycleEnCours?: CycleEnCoursInfo
 }
 

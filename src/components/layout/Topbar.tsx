@@ -1,75 +1,90 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
-import { Avatar } from '@/components/ui/Avatar'
-import { ChevronRight, LogOut, User } from 'lucide-react'
+import { UserRole } from '@/types/common'
+import { Bell, LogOut, User, PanelLeftClose } from 'lucide-react'
 import { useState } from 'react'
-import { clsx } from 'clsx'
+
+function getInitials(name: string) {
+  return name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+}
+
+function getRoleLabel(hasRole: (r: UserRole) => boolean) {
+  if (hasRole(UserRole.SUPER_ADMIN)) return 'Super Admin'
+  if (hasRole(UserRole.ADMIN)) return 'Admin'
+  if (hasRole(UserRole.MEMBER)) return 'Membre'
+  return 'Utilisateur'
+}
 
 export function Topbar() {
-  const { user, logout } = useAuth()
-  const [showUserMenu, setShowUserMenu] = useState(false)
-  const location = useLocation()
+  const { user, logout, hasRole } = useAuth()
   const navigate = useNavigate()
+  const [showMenu, setShowMenu] = useState(false)
 
-  const breadcrumbs = location.pathname.split('/').filter(Boolean)
   const displayName = user ? `${user.firstName} ${user.lastName}` : 'Utilisateur'
+  const initials = getInitials(displayName)
+  const roleLabel = getRoleLabel(hasRole)
 
   return (
-    <header className="sticky top-0 z-20 bg-white border-b border-neutral-200 shadow-sm">
-      <div className="md:ml-64 px-6 py-4 flex items-center justify-between">
-        {/* Breadcrumb */}
-        <nav className="flex items-center gap-2 text-sm">
-          <Link to="/" className="text-neutral-600 hover:text-neutral-900">
-            Accueil
-          </Link>
-          {breadcrumbs.map((crumb, index) => (
-            <div key={crumb} className="flex items-center gap-2">
-              <ChevronRight size={16} className="text-neutral-400" />
-              <span className={clsx(index === breadcrumbs.length - 1 ? 'text-neutral-900 font-medium' : 'text-neutral-600')}>
-                {crumb.charAt(0).toUpperCase() + crumb.slice(1).replace(/-/g, ' ')}
-              </span>
-            </div>
-          ))}
-        </nav>
+    <header className="sticky top-0 z-20 bg-white border-b border-neutral-200 h-14 flex items-center">
+      <div className="flex-1 flex items-center justify-between px-6">
+        {/* Toggle sidebar (decoratif sur desktop) */}
+        <button className="text-neutral-400 hover:text-neutral-600 transition-colors">
+          <PanelLeftClose size={20} />
+        </button>
 
-        {/* User menu */}
-        <div className="relative">
-          <button
-            onClick={() => setShowUserMenu(!showUserMenu)}
-            className="flex items-center gap-3 hover:bg-neutral-100 rounded-lg p-2 transition-colors"
-          >
-            <Avatar name={displayName} size="sm" />
-            <span className="text-sm font-medium text-neutral-900">{displayName}</span>
+        {/* Right */}
+        <div className="flex items-center gap-4">
+          {/* Cloche */}
+          <button className="relative text-neutral-500 hover:text-neutral-700 transition-colors">
+            <Bell size={20} />
           </button>
 
-          {showUserMenu && (
-            <>
-              <div className="fixed inset-0 z-10" onClick={() => setShowUserMenu(false)} />
-              <div className="absolute right-0 mt-2 w-52 bg-white rounded-lg shadow-lg border border-neutral-200 z-20">
-                <div className="px-4 py-3 border-b border-neutral-200">
-                  <p className="text-sm font-medium text-neutral-900">{displayName}</p>
-                  <p className="text-xs text-neutral-500">{user?.email}</p>
-                </div>
-                <button
-                  onClick={() => { setShowUserMenu(false); navigate('/profile') }}
-                  className="w-full flex items-center gap-2 px-4 py-3 text-neutral-700 hover:bg-neutral-50 transition-colors text-sm font-medium"
-                >
-                  <User size={16} />
-                  Mon profil
-                </button>
-                <button
-                  onClick={async () => {
-                    setShowUserMenu(false)
-                    await logout()
-                  }}
-                  className="w-full flex items-center gap-2 px-4 py-3 text-red-600 hover:bg-neutral-50 transition-colors text-sm font-medium border-t border-neutral-100"
-                >
-                  <LogOut size={16} />
-                  Déconnexion
-                </button>
+          {/* User */}
+          <div className="relative">
+            <button
+              onClick={() => setShowMenu(!showMenu)}
+              className="flex items-center gap-2.5 hover:bg-neutral-50 rounded-lg px-2 py-1.5 transition-colors"
+            >
+              <span className="w-8 h-8 rounded-full bg-primary-600 text-white text-sm font-bold flex items-center justify-center flex-shrink-0">
+                {initials}
+              </span>
+              <div className="text-left hidden sm:block">
+                <p className="text-sm font-semibold text-neutral-900 leading-tight">{displayName}</p>
+                <p className="text-xs text-neutral-500 leading-tight">{roleLabel}</p>
               </div>
-            </>
-          )}
+            </button>
+
+            {showMenu && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
+                <div className="absolute right-0 mt-1 w-52 bg-white rounded-xl shadow-lg border border-neutral-200 z-20 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-neutral-100">
+                    <p className="text-sm font-semibold text-neutral-900">{displayName}</p>
+                    <p className="text-xs text-neutral-500">{roleLabel}</p>
+                  </div>
+                  <button
+                    onClick={() => { setShowMenu(false); navigate('/profile') }}
+                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
+                  >
+                    <User size={15} />
+                    Mon profil
+                  </button>
+                  <button
+                    onClick={async () => { setShowMenu(false); await logout() }}
+                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-neutral-50 transition-colors border-t border-neutral-100"
+                  >
+                    <LogOut size={15} />
+                    Déconnexion
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </header>

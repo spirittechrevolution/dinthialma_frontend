@@ -1,187 +1,272 @@
 import { useState } from 'react'
-import { useParams } from 'react-router-dom'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
 import { toast } from 'sonner'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { PageHeader } from '@/components/layout/PageHeader'
-import { Card, CardBody } from '@/components/ui/Card'
-import { Table, Column } from '@/components/ui/Table'
-import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
-import { Modal } from '@/components/ui/Modal'
-import { Input } from '@/components/ui/Input'
+import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { useMembres, useAddMembre, useUpdateMembreStatut, useRemoveMembre } from '@/hooks/useMembres'
+import { AddMembreModal } from '@/components/shared/AddMembreModal'
+import { Spinner } from '@/components/ui/Spinner'
+import { useTontines } from '@/hooks/useTontines'
+import { useMembres, useUpdateMembreStatut, useRemoveMembre } from '@/hooks/useMembres'
 import { Membre } from '@/types/membre'
-import { MembreStatut } from '@/types/common'
-import { Plus, UserMinus, UserCheck, Trash2 } from 'lucide-react'
+import { MembreStatut, AccountStatus } from '@/types/common'
+import { Plus, MoreHorizontal, Search, Clock } from 'lucide-react'
 
-const addMembreSchema = z.object({
-  userId: z.string().uuid('UUID invalide'),
-  ordreJackpot: z.coerce.number().int().positive().optional(),
-})
+type MembreAction = { type: 'suspendre' | 'activer' | 'retirer'; membreId: string; nom: string; tontineId: string } | null
 
-type AddMembreForm = z.infer<typeof addMembreSchema>
-
-type MembreAction = {
-  type: 'suspendre' | 'activer' | 'retirer'
-  membreId: string
-  nom: string
-} | null
-
-const statutVariants: Record<MembreStatut, 'success' | 'warning' | 'error'> = {
+const STATUT_VARIANT: Record<MembreStatut, 'success' | 'warning' | 'error'> = {
   ACTIF: 'success',
   SUSPENDU: 'warning',
   SORTI: 'error',
 }
 
+function MiniAvatar({ name }: { name: string }) {
+  const initials = name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
+  const colors = ['bg-primary-600', 'bg-blue-500', 'bg-purple-500', 'bg-teal-500', 'bg-orange-500']
+  const idx = name.charCodeAt(0) % colors.length
+  return (
+    <span className={`w-8 h-8 rounded-full ${colors[idx]} text-white text-xs font-bold flex items-center justify-center flex-shrink-0`}>
+      {initials}
+    </span>
+  )
+}
+
+function MembreActionsMenu({ membre, tontineId, onAction }: {
+  membre: Membre
+  tontineId: string
+  onAction: (a: MembreAction) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const nom = `${membre.user.firstName} ${membre.user.lastName}`
+
+  return (
+    <div className="relative">
+      <button onClick={() => setOpen(!open)} className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-400 transition-colors">
+        <MoreHorizontal size={16} />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-lg border border-neutral-200 z-20 overflow-hidden text-sm">
+            {membre.statut === MembreStatut.ACTIF && (
+              <button
+                onClick={() => { setOpen(false); onAction({ type: 'suspendre', membreId: membre.id, nom, tontineId }) }}
+                className="w-full flex items-center px-4 py-2.5 hover:bg-neutral-50 text-orange-600 transition-colors"
+              >
+                Suspendre
+              </button>
+            )}
+            {membre.statut === MembreStatut.SUSPENDU && (
+              <button
+                onClick={() => { setOpen(false); onAction({ type: 'activer', membreId: membre.id, nom, tontineId }) }}
+                className="w-full flex items-center px-4 py-2.5 hover:bg-neutral-50 text-primary-600 transition-colors"
+              >
+                Réactiver
+              </button>
+            )}
+            {membre.statut !== MembreStatut.SORTI && (
+              <button
+                onClick={() => { setOpen(false); onAction({ type: 'retirer', membreId: membre.id, nom, tontineId }) }}
+                className="w-full flex items-center px-4 py-2.5 hover:bg-neutral-50 text-red-600 transition-colors border-t border-neutral-100"
+              >
+                Retirer
+              </button>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 export function MembresPage() {
-  const { tontineId } = useParams<{ tontineId: string }>()
+  const [selectedTontineId, setSelectedTontineId] = useState('')
   const [page, setPage] = useState(0)
+  const [search, setSearch] = useState('')
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [action, setAction] = useState<MembreAction>(null)
 
-  const { data: membresData, isLoading } = useMembres(tontineId || '', page, 20)
-  const { mutate: addMembre, isPending: isAdding } = useAddMembre()
+  const { data: tontinesData, isLoading: loadingTontines } = useTontines(0, 50)
+  const tontines = tontinesData?.content || []
+
+  const activeTontineId = selectedTontineId || tontines[0]?.id || ''
+
+  const { data: membresData, isLoading: loadingMembres } = useMembres(activeTontineId, page, 20)
   const { mutate: updateStatut, isPending: isUpdating } = useUpdateMembreStatut()
   const { mutate: removeMembre, isPending: isRemoving } = useRemoveMembre()
-
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<AddMembreForm>({
-    resolver: zodResolver(addMembreSchema),
-  })
 
   const membres = membresData?.content || []
   const totalPages = membresData?.totalPages || 1
 
-  const onAddSubmit = (data: AddMembreForm) => {
-    addMembre(
-      { tontineId: tontineId!, request: { userId: data.userId, ordreJackpot: data.ordreJackpot } },
-      {
-        onSuccess: () => { toast.success('Membre ajouté'); reset(); setIsAddOpen(false) },
-        onError: () => toast.error('Erreur lors de l\'ajout'),
-      }
-    )
-  }
+  const filtered = membres.filter((m: Membre) => {
+    const q = search.toLowerCase()
+    return !q ||
+      `${m.user.firstName} ${m.user.lastName}`.toLowerCase().includes(q) ||
+      m.user.phone.includes(q)
+  })
 
   const handleConfirmAction = () => {
-    if (!action || !tontineId) return
+    if (!action) return
     if (action.type === 'retirer') {
       removeMembre(
-        { tontineId, membreId: action.membreId },
+        { tontineId: action.tontineId, membreId: action.membreId },
         { onSuccess: () => { toast.success('Membre retiré'); setAction(null) }, onError: () => toast.error('Erreur') }
       )
     } else {
       const statut = action.type === 'activer' ? MembreStatut.ACTIF : MembreStatut.SUSPENDU
       updateStatut(
-        { tontineId, membreId: action.membreId, request: { statut } },
+        { tontineId: action.tontineId, membreId: action.membreId, request: { statut } },
         { onSuccess: () => { toast.success('Statut mis à jour'); setAction(null) }, onError: () => toast.error('Erreur') }
       )
     }
   }
 
-  const columns: Column<Membre>[] = [
-    {
-      key: 'user',
-      header: 'Nom',
-      render: (row) => <span className="font-semibold">{row.user.firstName} {row.user.lastName}</span>,
-    },
-    { key: 'user', header: 'Téléphone', render: (row) => row.user.phone },
-    { key: 'user', header: 'Email', render: (row) => row.user.email || '—' },
-    { key: 'ordreJackpot', header: 'Ordre Jackpot' },
-    {
-      key: 'statut',
-      header: 'Statut',
-      render: (row) => <Badge variant={statutVariants[row.statut]}>{row.statut}</Badge>,
-    },
-    {
-      key: 'id',
-      header: 'Actions',
-      render: (row) => (
-        <div className="flex gap-2">
-          {row.statut === MembreStatut.SUSPENDU && (
-            <Button variant="secondary" size="sm" title="Réactiver"
-              onClick={() => setAction({ type: 'activer', membreId: row.id, nom: `${row.user.firstName} ${row.user.lastName}` })}>
-              <UserCheck size={16} />
-            </Button>
-          )}
-          {row.statut === MembreStatut.ACTIF && (
-            <Button variant="secondary" size="sm" title="Suspendre"
-              onClick={() => setAction({ type: 'suspendre', membreId: row.id, nom: `${row.user.firstName} ${row.user.lastName}` })}>
-              <UserMinus size={16} />
-            </Button>
-          )}
-          {row.statut !== MembreStatut.SORTI && (
-            <Button variant="danger" size="sm" title="Retirer"
-              onClick={() => setAction({ type: 'retirer', membreId: row.id, nom: `${row.user.firstName} ${row.user.lastName}` })}>
-              <Trash2 size={16} />
-            </Button>
-          )}
-        </div>
-      ),
-    },
-  ]
-
   const confirmConfig = action ? {
     suspendre: { title: 'Suspendre ce membre ?', message: `${action.nom} sera suspendu temporairement.`, danger: true, confirmText: 'Suspendre' },
     activer: { title: 'Réactiver ce membre ?', message: `${action.nom} sera réactivé.`, danger: false, confirmText: 'Réactiver' },
-    retirer: { title: 'Retirer ce membre ?', message: `${action.nom} sera définitivement retiré de la tontine.`, danger: true, confirmText: 'Retirer' },
+    retirer: { title: 'Retirer ce membre ?', message: `${action.nom} sera définitivement retiré.`, danger: true, confirmText: 'Retirer' },
   }[action.type] : null
+
+  if (loadingTontines) return <AppLayout><div className="flex justify-center py-20"><Spinner /></div></AppLayout>
 
   return (
     <AppLayout>
-      <PageHeader
-        title="Membres"
-        description="Gérez les cotisants de cette tontine"
-        action={
-          <Button onClick={() => setIsAddOpen(true)}>
-            <Plus size={20} /> Ajouter un membre
-          </Button>
-        }
-      />
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-neutral-900">Membres</h1>
+          <p className="text-sm text-neutral-500 mt-1">Gérez les participants de vos tontines.</p>
+        </div>
+        <Button size="sm" onClick={() => setIsAddOpen(true)} disabled={!activeTontineId}>
+          <Plus size={16} className="mr-1" /> Ajouter
+        </Button>
+      </div>
 
-      <Card noPadding>
-        <CardBody>
-          <Table
-            columns={columns}
-            data={membres}
-            isLoading={isLoading}
-            emptyMessage="Aucun membre dans cette tontine"
-            page={page}
-            totalPages={totalPages}
-            onPageChange={setPage}
-          />
-        </CardBody>
-      </Card>
-
-      <Modal
-        isOpen={isAddOpen}
-        onClose={() => { reset(); setIsAddOpen(false) }}
-        title="Ajouter un membre"
-        size="sm"
-        footer={
-          <div className="flex gap-3 justify-end">
-            <Button variant="ghost" onClick={() => { reset(); setIsAddOpen(false) }} disabled={isAdding}>Annuler</Button>
-            <Button form="add-membre-form" type="submit" loading={isAdding}>Ajouter</Button>
+      <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-hidden">
+        {/* Filter tabs by tontine */}
+        <div className="px-5 pt-4 pb-0 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="relative flex-1 max-w-sm">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Rechercher un membre..."
+              className="w-full pl-9 pr-4 py-2 text-sm border border-neutral-200 rounded-xl bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-primary-300"
+            />
           </div>
-        }
-      >
-        <form id="add-membre-form" onSubmit={handleSubmit(onAddSubmit)} className="space-y-4">
-          <Input
-            label="UUID de l'utilisateur"
-            placeholder="550e8400-e29b-41d4-a716-446655440000"
-            error={errors.userId?.message}
-            {...register('userId')}
-          />
-          <Input
-            label="Ordre jackpot (optionnel)"
-            type="number"
-            placeholder="Laissez vide pour placer en fin de liste"
-            {...register('ordreJackpot')}
-          />
-        </form>
-      </Modal>
+          <div className="flex items-center gap-1 overflow-x-auto pb-1">
+            <button
+              onClick={() => { setSelectedTontineId(''); setPage(0) }}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                selectedTontineId === '' ? 'bg-primary-600 text-white' : 'text-neutral-600 hover:bg-neutral-100'
+              }`}
+            >
+              Tous
+            </button>
+            {tontines.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => { setSelectedTontineId(t.id); setPage(0) }}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                  selectedTontineId === t.id ? 'bg-primary-600 text-white' : 'text-neutral-600 hover:bg-neutral-100'
+                }`}
+              >
+                {t.nom.length > 20 ? t.nom.slice(0, 20) + '…' : t.nom}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Table */}
+        <div className="overflow-x-auto mt-3">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-neutral-100">
+                {['Membre', 'Tontine', 'Ordre', 'Adhésion', 'Statut', 'Compte', ''].map((h) => (
+                  <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {loadingMembres ? (
+                <tr><td colSpan={6} className="text-center py-10"><Spinner /></td></tr>
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan={6} className="text-center py-10 text-neutral-400">Aucun membre dans cette tontine</td></tr>
+              ) : (
+                filtered.map((m: Membre) => {
+                  const nom = `${m.user.firstName} ${m.user.lastName}`
+                  const tontine = tontines.find((t) => t.id === activeTontineId)
+                  const isPreEnrolled = m.user.accountStatus === AccountStatus.PRE_ENROLLED
+                  return (
+                    <tr key={m.id} className="border-b border-neutral-50 hover:bg-neutral-50 transition-colors">
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-3">
+                          <MiniAvatar name={nom} />
+                          <div>
+                            <p className="font-semibold text-neutral-900">{nom}</p>
+                            <p className="text-xs text-neutral-500">{m.user.phone}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 text-neutral-700">{tontine?.nom || '—'}</td>
+                      <td className="px-5 py-4 text-neutral-700">#{m.ordreJackpot || '—'}</td>
+                      <td className="px-5 py-4 text-neutral-500 text-xs">
+                        {m.dateAdhesion ? new Date(m.dateAdhesion).toLocaleDateString('fr-FR') : '—'}
+                      </td>
+                      <td className="px-5 py-4">
+                        <Badge variant={STATUT_VARIANT[m.statut]}>
+                          {m.statut === 'ACTIF' ? 'Actif' : m.statut === 'SUSPENDU' ? 'Suspendu' : 'Sorti'}
+                        </Badge>
+                      </td>
+                      <td className="px-5 py-4">
+                        {isPreEnrolled ? (
+                          <span
+                            title="Ce membre n'a pas encore activé son compte sur Dinthialma"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 cursor-help"
+                          >
+                            <Clock size={10} /> Non inscrit
+                          </span>
+                        ) : (
+                          <span className="text-neutral-300 text-xs">—</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-4">
+                        <MembreActionsMenu
+                          membre={m}
+                          tontineId={activeTontineId}
+                          onAction={setAction}
+                        />
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {totalPages > 1 && (
+          <div className="flex justify-center gap-2 py-4 border-t border-neutral-100">
+            {Array.from({ length: totalPages }, (_, i) => (
+              <button
+                key={i}
+                onClick={() => setPage(i)}
+                className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${page === i ? 'bg-primary-600 text-white' : 'text-neutral-600 hover:bg-neutral-100'}`}
+              >
+                {i + 1}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Modal ajouter membre — 2 étapes (scoped sur la tontine active) */}
+      <AddMembreModal
+        tontineId={activeTontineId}
+        isOpen={isAddOpen}
+        onClose={() => setIsAddOpen(false)}
+      />
 
       {action && confirmConfig && (
         <ConfirmDialog

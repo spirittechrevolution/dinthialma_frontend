@@ -14,7 +14,9 @@ export interface Membre {
 
 // ─── Requête ajout membre ─────────────────────────────────────────────────────
 export interface AddMembreRequest {
-  userId: string
+  phone: string
+  firstName?: string
+  lastName?: string
   ordreJackpot?: number
 }
 

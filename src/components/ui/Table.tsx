@@ -48,67 +48,69 @@ export function Table<T extends { id?: string | number }>({
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full">
-        <thead>
-          <tr className="border-b border-neutral-200 bg-neutral-50">
-            {columns.map((column) => (
-              <th
-                key={String(column.key)}
-                className={clsx(
-                  'px-6 py-3 text-left text-sm font-semibold text-neutral-700',
-                  column.className
-                )}
-              >
-                {column.header}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((row, index) => (
-            <tr
-              key={row.id || index}
-              className={clsx(
-                'border-b border-neutral-200 hover:bg-neutral-50 transition-colors',
-                onRowClick && 'cursor-pointer',
-                rowClassName
-              )}
-              onClick={() => onRowClick?.(row)}
-            >
-              {columns.map((column) => {
-                const value = (row as any)[column.key]
-                return (
-                  <td
-                    key={String(column.key)}
-                    className={clsx('px-6 py-4 text-sm text-neutral-700', column.className)}
-                  >
-                    {column.render ? column.render(row, value) : value}
-                  </td>
-                )
-              })}
+    <div className="overflow-hidden rounded-2xl border border-neutral-200">
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-neutral-200 bg-neutral-100">
+              {columns.map((column) => (
+                <th
+                  key={String(column.key)}
+                  className={clsx(
+                    'px-6 py-4 text-left text-sm font-bold text-neutral-800',
+                    column.className
+                  )}
+                >
+                  {column.header}
+                </th>
+              ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {data.map((row, index) => (
+              <tr
+                key={row.id || index}
+                className={clsx(
+                  'border-b border-neutral-200 hover:bg-primary-50 transition-colors',
+                  onRowClick && 'cursor-pointer',
+                  rowClassName
+                )}
+                onClick={() => onRowClick?.(row)}
+              >
+                {columns.map((column) => {
+                  const value = (row as any)[column.key]
+                  return (
+                    <td
+                      key={String(column.key)}
+                      className={clsx('px-6 py-4 text-sm text-neutral-800', column.className)}
+                    >
+                      {column.render ? column.render(row, value) : value}
+                    </td>
+                  )
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       {totalPages > 1 && onPageChange && (
-        <div className="flex items-center justify-between px-6 py-4 border-t border-neutral-200">
-          <div className="text-sm text-neutral-600">
+        <div className="flex items-center justify-between px-6 py-4 border-t border-neutral-200 bg-neutral-50">
+          <div className="text-sm font-medium text-neutral-700">
             Page {page + 1} sur {totalPages}
           </div>
           <div className="flex gap-2">
             <button
               onClick={() => onPageChange(page - 1)}
               disabled={page === 0}
-              className="px-4 py-2 rounded-lg border border-neutral-300 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neutral-50"
+              className="px-4 py-2 rounded-xl border border-neutral-300 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary-100 hover:text-primary-700 transition-colors"
             >
               Précédent
             </button>
             <button
               onClick={() => onPageChange(page + 1)}
               disabled={page >= totalPages - 1}
-              className="px-4 py-2 rounded-lg border border-neutral-300 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-neutral-50"
+              className="px-4 py-2 rounded-xl border border-neutral-300 text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary-100 hover:text-primary-700 transition-colors"
             >
               Suivant
             </button>

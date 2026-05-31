@@ -5,17 +5,14 @@ import { z } from 'zod'
 import { toast } from 'sonner'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { PageHeader } from '@/components/layout/PageHeader'
-import { Card, CardBody } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { Spinner } from '@/components/ui/Spinner'
 import { userService } from '@/services/userService'
 import { authService } from '@/services/authService'
-import { User, Lock, Phone, KeyRound } from 'lucide-react'
+import { Mail, Phone, Lock, KeyRound, Shield } from 'lucide-react'
 
-// ─── Schémas ──────────────────────────────────────────────────────────────────
 const profileSchema = z.object({
   firstName: z.string().min(2, 'Au moins 2 caractères'),
   lastName: z.string().min(2, 'Au moins 2 caractères'),
@@ -24,7 +21,7 @@ const profileSchema = z.object({
 
 const passwordSchema = z.object({
   phone: z.string().min(8, 'Numéro requis'),
-  code: z.string().length(6, 'Code à 6 chiffres').regex(/^\d{6}$/),
+  code: z.string().length(6, '6 chiffres').regex(/^\d{6}$/),
   newPassword: z.string().min(8, 'Au moins 8 caractères'),
   confirmPassword: z.string(),
 }).refine((d) => d.newPassword === d.confirmPassword, {
@@ -32,27 +29,30 @@ const passwordSchema = z.object({
   path: ['confirmPassword'],
 })
 
-const phoneSchema = z.object({
-  newPhone: z.string().min(8, 'Numéro invalide'),
-})
-
-const phoneVerifySchema = z.object({
-  code: z.string().length(6, 'Code à 6 chiffres').regex(/^\d{6}$/),
-})
-
+const phoneSchema = z.object({ newPhone: z.string().min(8, 'Invalide') })
+const phoneVerifySchema = z.object({ code: z.string().length(6, '6 chiffres').regex(/^\d{6}$/) })
 const pinSchema = z.object({
-  pin: z.string().length(6, 'PIN à 6 chiffres').regex(/^\d{6}$/),
+  pin: z.string().length(6, '6 chiffres').regex(/^\d{6}$/),
   confirmPin: z.string(),
-}).refine((d) => d.pin === d.confirmPin, {
-  message: 'Les PIN ne correspondent pas',
-  path: ['confirmPin'],
-})
+}).refine((d) => d.pin === d.confirmPin, { message: 'Les PIN ne correspondent pas', path: ['confirmPin'] })
 
 type ProfileData = z.infer<typeof profileSchema>
 type PasswordData = z.infer<typeof passwordSchema>
 type PhoneData = z.infer<typeof phoneSchema>
 type PhoneVerifyData = z.infer<typeof phoneVerifySchema>
 type PinData = z.infer<typeof pinSchema>
+
+function getRoleLabel(roles: string[]) {
+  const normalized = roles.map((r) => r.replace('DINTHIALMA_', ''))
+  if (normalized.includes('SUPER_ADMIN')) return 'Super Admin'
+  if (normalized.includes('ADMIN')) return 'Admin'
+  if (normalized.includes('MEMBER')) return 'Membre'
+  return 'Utilisateur'
+}
+
+function getInitials(firstName: string, lastName: string) {
+  return `${firstName[0] || ''}${lastName[0] || ''}`.toUpperCase()
+}
 
 export function ProfilePage() {
   const queryClient = useQueryClient()
@@ -63,30 +63,20 @@ export function ProfilePage() {
   const [newPhoneValue, setNewPhoneValue] = useState('')
   const [otpSent, setOtpSent] = useState(false)
 
-  // ─── Chargement du profil ─────────────────────────────────────────────────
   const { data: profile, isLoading } = useQuery({
     queryKey: ['profile'],
     queryFn: () => userService.getProfile(),
   })
 
-  // ─── Mise à jour du profil ────────────────────────────────────────────────
   const { mutate: updateProfile, isPending: isUpdating } = useMutation({
     mutationFn: (data: ProfileData) => userService.updateProfile(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['profile'] })
-      toast.success('Profil mis à jour')
-    },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['profile'] }); toast.success('Profil mis à jour') },
     onError: () => toast.error('Erreur lors de la mise à jour'),
   })
 
-  // ─── Formulaires ──────────────────────────────────────────────────────────
   const profileForm = useForm<ProfileData>({
     resolver: zodResolver(profileSchema),
-    values: profile ? {
-      firstName: profile.firstName,
-      lastName: profile.lastName,
-      email: profile.email ?? '',
-    } : undefined,
+    values: profile ? { firstName: profile.firstName, lastName: profile.lastName, email: profile.email ?? '' } : undefined,
   })
 
   const passwordForm = useForm<PasswordData>({ resolver: zodResolver(passwordSchema) })
@@ -94,7 +84,6 @@ export function ProfilePage() {
   const phoneVerifyForm = useForm<PhoneVerifyData>({ resolver: zodResolver(phoneVerifySchema) })
   const pinForm = useForm<PinData>({ resolver: zodResolver(pinSchema) })
 
-  // ─── Reset mot de passe (depuis profil) ───────────────────────────────────
   const onResetPassword = async (data: PasswordData) => {
     try {
       if (!otpSent) {
@@ -113,7 +102,6 @@ export function ProfilePage() {
     }
   }
 
-  // ─── Changement de numéro ─────────────────────────────────────────────────
   const onRequestPhoneChange = async ({ newPhone }: PhoneData) => {
     try {
       await userService.requestPhoneChange({ newPhone })
@@ -121,7 +109,7 @@ export function ProfilePage() {
       setPhoneStep(2)
       toast.success('Code OTP envoyé sur le nouveau numéro')
     } catch {
-      toast.error('Erreur lors de la demande de changement')
+      toast.error('Erreur lors de la demande')
     }
   }
 
@@ -136,7 +124,6 @@ export function ProfilePage() {
     }
   }
 
-  // ─── Configuration PIN ────────────────────────────────────────────────────
   const onSetupPin = async ({ pin, confirmPin }: PinData) => {
     try {
       await authService.setupPin({ pin, confirmPin })
@@ -151,99 +138,115 @@ export function ProfilePage() {
 
   if (isLoading) return <AppLayout><div className="flex justify-center py-20"><Spinner /></div></AppLayout>
 
+  const initials = profile ? getInitials(profile.firstName, profile.lastName) : '?'
+  const roleLabel = profile ? getRoleLabel(profile.roles ?? []) : ''
+
   return (
     <AppLayout>
-      <PageHeader title="Mon Profil" description="Gérez vos informations personnelles et la sécurité de votre compte" />
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-neutral-900">Mon profil</h1>
+        <p className="text-sm text-neutral-500 mt-1">Gérez vos informations personnelles et votre sécurité.</p>
+      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-        {/* ─── Infos personnelles ─────────────────────────────────────────── */}
-        <Card className="lg:col-span-2">
-          <h2 className="text-lg font-semibold text-neutral-900 mb-6 flex items-center gap-2">
-            <User size={20} /> Informations personnelles
-          </h2>
-          <form onSubmit={profileForm.handleSubmit((d) => updateProfile(d))} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                label="Prénom"
-                error={profileForm.formState.errors.firstName?.message}
-                {...profileForm.register('firstName')}
-              />
-              <Input
-                label="Nom"
-                error={profileForm.formState.errors.lastName?.message}
-                {...profileForm.register('lastName')}
-              />
+      {/* Infos personnelles */}
+      <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm p-6 mb-4">
+        {/* Avatar + nom */}
+        <div className="flex items-center gap-4 mb-6 pb-5 border-b border-neutral-100">
+          <div className="w-14 h-14 rounded-full bg-primary-600 text-white text-xl font-bold flex items-center justify-center flex-shrink-0">
+            {initials}
+          </div>
+          <div>
+            <p className="text-lg font-bold text-neutral-900">{profile?.firstName} {profile?.lastName}</p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <Shield size={13} className="text-neutral-400" />
+              <span className="text-sm text-neutral-500">{roleLabel}</span>
             </div>
+          </div>
+        </div>
+
+        {/* Formulaire */}
+        <form onSubmit={profileForm.handleSubmit((d) => updateProfile(d))} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
             <Input
-              label="Email (optionnel)"
-              type="email"
-              error={profileForm.formState.errors.email?.message}
-              {...profileForm.register('email')}
+              label="Prénom"
+              error={profileForm.formState.errors.firstName?.message}
+              {...profileForm.register('firstName')}
             />
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">Téléphone</label>
-              <div className="flex gap-2">
-                <input
-                  value={profile?.phone ?? ''}
-                  disabled
-                  className="flex-1 px-3 py-2 border border-neutral-200 rounded-lg bg-neutral-50 text-neutral-500 text-sm"
-                />
-                <Button type="button" variant="secondary" size="sm" onClick={() => setShowPhoneModal(true)}>
-                  <Phone size={16} /> Modifier
-                </Button>
-              </div>
-            </div>
-            <div className="flex justify-end">
-              <Button type="submit" loading={isUpdating}>Enregistrer</Button>
-            </div>
-          </form>
-        </Card>
+            <Input
+              label="Nom"
+              error={profileForm.formState.errors.lastName?.message}
+              {...profileForm.register('lastName')}
+            />
+          </div>
 
-        {/* ─── Sécurité ───────────────────────────────────────────────────── */}
-        <div className="space-y-4">
-          <Card>
-            <h2 className="text-lg font-semibold text-neutral-900 mb-4 flex items-center gap-2">
-              <Lock size={20} /> Sécurité
-            </h2>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 border border-neutral-200 rounded-lg">
-                <div>
-                  <p className="font-medium text-sm">Mot de passe</p>
-                  <p className="text-xs text-neutral-500">Modifier votre mot de passe</p>
-                </div>
-                <Button variant="secondary" size="sm" onClick={() => setShowPasswordModal(true)}>
-                  Modifier
-                </Button>
-              </div>
-              <div className="flex items-center justify-between p-3 border border-neutral-200 rounded-lg">
-                <div>
-                  <p className="font-medium text-sm">Code PIN</p>
-                  <p className="text-xs text-neutral-500">
-                    {profile?.pinConfigured ? 'PIN configuré ✓' : 'Non configuré'}
-                  </p>
-                </div>
-                <Button variant="secondary" size="sm" onClick={() => setShowPinModal(true)}>
-                  {profile?.pinConfigured ? 'Modifier' : 'Configurer'}
-                </Button>
-              </div>
-            </div>
-          </Card>
+          <Input
+            label="Email"
+            type="email"
+            icon={<Mail size={15} />}
+            placeholder="email@exemple.com"
+            error={profileForm.formState.errors.email?.message}
+            {...profileForm.register('email')}
+          />
 
-          <Card>
-            <h2 className="text-sm font-semibold text-neutral-700 mb-3">Rôles</h2>
-            <div className="flex flex-wrap gap-2">
-              {(profile?.roles ?? []).map((r) => (
-                <span key={r} className="px-2 py-1 bg-primary-50 text-primary-700 text-xs font-medium rounded-full">
-                  {r.replace('DINTHIALMA_', '')}
-                </span>
-              ))}
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-1.5">Téléphone</label>
+            <div className="flex items-center gap-2 px-3 py-2.5 border border-neutral-200 rounded-xl bg-neutral-50 text-neutral-500 text-sm">
+              <Phone size={15} className="flex-shrink-0" />
+              <span>{profile?.phone ?? '—'}</span>
             </div>
-          </Card>
+            <p className="text-xs text-primary-600 mt-1.5">
+              Le changement de téléphone nécessite une vérification OTP.
+            </p>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <Button type="button" variant="ghost" onClick={() => profileForm.reset()}>
+              Annuler
+            </Button>
+            <Button type="submit" loading={isUpdating}>
+              Enregistrer
+            </Button>
+          </div>
+        </form>
+      </div>
+
+      {/* Sécurité */}
+      <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm p-6">
+        <h2 className="font-semibold text-neutral-900 mb-1">Sécurité</h2>
+        <p className="text-sm text-neutral-500 mb-4">Gérez votre mot de passe et votre code PIN.</p>
+
+        <div className="space-y-3">
+          <div className="flex items-center gap-4 p-4 border border-neutral-100 rounded-xl">
+            <div className="w-10 h-10 rounded-full bg-primary-50 flex items-center justify-center text-primary-600 flex-shrink-0">
+              <Lock size={18} />
+            </div>
+            <div className="flex-1">
+              <p className="font-medium text-sm text-neutral-900">Mot de passe</p>
+              <p className="text-xs text-neutral-500">Modifié il y a quelques jours</p>
+            </div>
+            <Button variant="secondary" size="sm" onClick={() => setShowPasswordModal(true)}>
+              Modifier
+            </Button>
+          </div>
+
+          <div className="flex items-center gap-4 p-4 border border-neutral-100 rounded-xl">
+            <div className="w-10 h-10 rounded-full bg-primary-50 flex items-center justify-center text-primary-600 flex-shrink-0">
+              <KeyRound size={18} />
+            </div>
+            <div className="flex-1">
+              <p className="font-medium text-sm text-neutral-900">Code PIN</p>
+              <p className="text-xs text-neutral-500">
+                {profile?.pinConfigured ? 'PIN configuré ✓' : 'Non configuré'}
+              </p>
+            </div>
+            <Button variant="secondary" size="sm" onClick={() => setShowPinModal(true)}>
+              {profile?.pinConfigured ? 'Modifier' : 'Configurer'}
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* ─── Modal mot de passe ─────────────────────────────────────────────── */}
+      {/* Modal mot de passe */}
       <Modal
         isOpen={showPasswordModal}
         onClose={() => { setShowPasswordModal(false); setOtpSent(false); passwordForm.reset() }}
@@ -251,9 +254,7 @@ export function ProfilePage() {
         size="sm"
         footer={
           <div className="flex gap-3 justify-end">
-            <Button variant="ghost" onClick={() => { setShowPasswordModal(false); setOtpSent(false); passwordForm.reset() }}>
-              Annuler
-            </Button>
+            <Button variant="ghost" onClick={() => { setShowPasswordModal(false); setOtpSent(false); passwordForm.reset() }}>Annuler</Button>
             <Button form="password-form" type="submit" loading={passwordForm.formState.isSubmitting}>
               {otpSent ? 'Réinitialiser' : 'Envoyer le code'}
             </Button>
@@ -261,46 +262,22 @@ export function ProfilePage() {
         }
       >
         <form id="password-form" onSubmit={passwordForm.handleSubmit(onResetPassword)} className="space-y-4">
-          <Input
-            label="Numéro de téléphone"
-            type="tel"
-            placeholder="+221 77 000 00 00"
-            icon={<Phone size={16} />}
-            error={passwordForm.formState.errors.phone?.message}
-            {...passwordForm.register('phone')}
-          />
+          <Input label="Numéro de téléphone" type="tel" placeholder="+221 77 000 00 00" icon={<Phone size={16} />}
+            error={passwordForm.formState.errors.phone?.message} {...passwordForm.register('phone')} />
           {otpSent && (
             <>
-              <Input
-                label="Code OTP reçu par SMS"
-                type="text"
-                placeholder="123456"
-                maxLength={6}
-                icon={<KeyRound size={16} />}
-                error={passwordForm.formState.errors.code?.message}
-                {...passwordForm.register('code')}
-              />
-              <Input
-                label="Nouveau mot de passe"
-                type="password"
-                placeholder="••••••••"
-                icon={<Lock size={16} />}
-                error={passwordForm.formState.errors.newPassword?.message}
-                {...passwordForm.register('newPassword')}
-              />
-              <Input
-                label="Confirmer le mot de passe"
-                type="password"
-                placeholder="••••••••"
-                error={passwordForm.formState.errors.confirmPassword?.message}
-                {...passwordForm.register('confirmPassword')}
-              />
+              <Input label="Code OTP reçu par SMS" type="text" placeholder="123456" maxLength={6} icon={<KeyRound size={16} />}
+                error={passwordForm.formState.errors.code?.message} {...passwordForm.register('code')} />
+              <Input label="Nouveau mot de passe" type="password" placeholder="••••••••" icon={<Lock size={16} />}
+                error={passwordForm.formState.errors.newPassword?.message} {...passwordForm.register('newPassword')} />
+              <Input label="Confirmer le mot de passe" type="password" placeholder="••••••••"
+                error={passwordForm.formState.errors.confirmPassword?.message} {...passwordForm.register('confirmPassword')} />
             </>
           )}
         </form>
       </Modal>
 
-      {/* ─── Modal changement de numéro ─────────────────────────────────────── */}
+      {/* Modal changement numéro */}
       <Modal
         isOpen={showPhoneModal}
         onClose={() => { setShowPhoneModal(false); setPhoneStep(1); phoneForm.reset(); phoneVerifyForm.reset() }}
@@ -309,11 +286,8 @@ export function ProfilePage() {
         footer={
           <div className="flex gap-3 justify-end">
             <Button variant="ghost" onClick={() => { setShowPhoneModal(false); setPhoneStep(1) }}>Annuler</Button>
-            <Button
-              form={phoneStep === 1 ? 'phone-form' : 'phone-verify-form'}
-              type="submit"
-              loading={phoneForm.formState.isSubmitting || phoneVerifyForm.formState.isSubmitting}
-            >
+            <Button form={phoneStep === 1 ? 'phone-form' : 'phone-verify-form'} type="submit"
+              loading={phoneForm.formState.isSubmitting || phoneVerifyForm.formState.isSubmitting}>
               {phoneStep === 1 ? 'Envoyer le code' : 'Confirmer'}
             </Button>
           </div>
@@ -321,33 +295,20 @@ export function ProfilePage() {
       >
         {phoneStep === 1 ? (
           <form id="phone-form" onSubmit={phoneForm.handleSubmit(onRequestPhoneChange)} className="space-y-4">
-            <p className="text-sm text-neutral-500">Un code OTP sera envoyé sur le nouveau numéro pour confirmer qu'il vous appartient.</p>
-            <Input
-              label="Nouveau numéro"
-              type="tel"
-              placeholder="+221 77 000 00 00"
-              icon={<Phone size={16} />}
-              error={phoneForm.formState.errors.newPhone?.message}
-              {...phoneForm.register('newPhone')}
-            />
+            <p className="text-sm text-neutral-500">Un code OTP sera envoyé sur le nouveau numéro.</p>
+            <Input label="Nouveau numéro" type="tel" placeholder="+221 77 000 00 00" icon={<Phone size={16} />}
+              error={phoneForm.formState.errors.newPhone?.message} {...phoneForm.register('newPhone')} />
           </form>
         ) : (
           <form id="phone-verify-form" onSubmit={phoneVerifyForm.handleSubmit(onVerifyPhoneChange)} className="space-y-4">
             <p className="text-sm text-neutral-500">Code envoyé au <strong>{newPhoneValue}</strong></p>
-            <Input
-              label="Code OTP"
-              type="text"
-              placeholder="123456"
-              maxLength={6}
-              icon={<KeyRound size={16} />}
-              error={phoneVerifyForm.formState.errors.code?.message}
-              {...phoneVerifyForm.register('code')}
-            />
+            <Input label="Code OTP" type="text" placeholder="123456" maxLength={6} icon={<KeyRound size={16} />}
+              error={phoneVerifyForm.formState.errors.code?.message} {...phoneVerifyForm.register('code')} />
           </form>
         )}
       </Modal>
 
-      {/* ─── Modal PIN ──────────────────────────────────────────────────────── */}
+      {/* Modal PIN */}
       <Modal
         isOpen={showPinModal}
         onClose={() => { setShowPinModal(false); pinForm.reset() }}
@@ -362,23 +323,10 @@ export function ProfilePage() {
       >
         <form id="pin-form" onSubmit={pinForm.handleSubmit(onSetupPin)} className="space-y-4">
           <p className="text-sm text-neutral-500">Le PIN à 6 chiffres permet une connexion rapide.</p>
-          <Input
-            label="Code PIN"
-            type="password"
-            placeholder="••••••"
-            maxLength={6}
-            icon={<KeyRound size={16} />}
-            error={pinForm.formState.errors.pin?.message}
-            {...pinForm.register('pin')}
-          />
-          <Input
-            label="Confirmer le PIN"
-            type="password"
-            placeholder="••••••"
-            maxLength={6}
-            error={pinForm.formState.errors.confirmPin?.message}
-            {...pinForm.register('confirmPin')}
-          />
+          <Input label="Code PIN" type="password" placeholder="••••••" maxLength={6} icon={<KeyRound size={16} />}
+            error={pinForm.formState.errors.pin?.message} {...pinForm.register('pin')} />
+          <Input label="Confirmer le PIN" type="password" placeholder="••••••" maxLength={6}
+            error={pinForm.formState.errors.confirmPin?.message} {...pinForm.register('confirmPin')} />
         </form>
       </Modal>
     </AppLayout>
