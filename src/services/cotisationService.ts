@@ -1,0 +1,45 @@
+import api from './api'
+import { Cotisation, RecordCotisationRequest } from '@/types/cotisation'
+import { PageResponse, CustomResponse } from '@/types/common'
+
+export const cotisationService = {
+  // ─── Lister les cotisations d'une tontine ────────────────────────────────────
+  // SUPER_ADMIN et créateur voient tout, MEMBER voit les siennes uniquement
+  listCotisations: async (
+    tontineId: string,
+    cycleId?: string,
+    page = 0,
+    size = 20
+  ): Promise<PageResponse<Cotisation>> => {
+    const response = await api.get<CustomResponse<PageResponse<Cotisation>>>(
+      `/v1/tontines/${tontineId}/cotisations`,
+      { params: { page, size, sort: 'createdAt,desc', ...(cycleId ? { cycleId } : {}) } }
+    )
+    return response.data.data
+  },
+
+  // ─── Récupérer une cotisation ─────────────────────────────────────────────────
+  getCotisation: async (tontineId: string, cotisationId: string): Promise<Cotisation> => {
+    const response = await api.get<CustomResponse<Cotisation>>(
+      `/v1/tontines/${tontineId}/cotisations/${cotisationId}`
+    )
+    return response.data.data
+  },
+
+  // ─── Enregistrer une cotisation (par le membre) ───────────────────────────────
+  recordCotisation: async (tontineId: string, request: RecordCotisationRequest): Promise<Cotisation> => {
+    const response = await api.post<CustomResponse<Cotisation>>(
+      `/v1/tontines/${tontineId}/cotisations`,
+      request
+    )
+    return response.data.data
+  },
+
+  // ─── Valider une cotisation (par l'admin) ─────────────────────────────────────
+  validerCotisation: async (tontineId: string, cotisationId: string): Promise<Cotisation> => {
+    const response = await api.put<CustomResponse<Cotisation>>(
+      `/v1/tontines/${tontineId}/cotisations/${cotisationId}/valider`
+    )
+    return response.data.data
+  },
+}
