@@ -1,4 +1,4 @@
-import { Navigate } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 import { getAccessToken, isTokenExpired } from '@/lib/tokenStorage'
 import { ReactNode } from 'react'
 
@@ -7,11 +7,13 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
+  const location = useLocation()
   const token = getAccessToken()
   const isValid = token && !isTokenExpired(token)
 
   if (!isValid) {
-    return <Navigate to="/login" replace />
+    // Sauvegarde la page demandée pour rediriger après login
+    return <Navigate to="/login" state={{ from: location }} replace />
   }
 
   return <>{children}</>

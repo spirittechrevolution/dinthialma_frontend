@@ -3,7 +3,14 @@ import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 import { useAuth } from '@/hooks/useAuth'
 import { UserRole } from '@/types/common'
-import { LayoutDashboard, Users, Building2, LogOut } from 'lucide-react'
+import {
+  LayoutDashboard,
+  Users,
+  Building2,
+  CreditCard,
+  RefreshCw,
+  UserCircle,
+} from 'lucide-react'
 
 interface AppLayoutProps {
   children: ReactNode
@@ -12,43 +19,44 @@ interface AppLayoutProps {
 export function AppLayout({ children }: AppLayoutProps) {
   const { hasRole } = useAuth()
 
-  // Define navigation based on user role
   const getNavLinks = () => {
-    const commonLinks = [
-      { label: 'Tableau de bord', path: '/dashboard', icon: <LayoutDashboard size={20} /> },
-    ]
-
     if (hasRole(UserRole.SUPER_ADMIN)) {
       return [
-        ...commonLinks,
+        { label: 'Tableau de bord', path: '/dashboard', icon: <LayoutDashboard size={20} /> },
         { label: 'Utilisateurs', path: '/superadmin/users', icon: <Users size={20} /> },
         { label: 'Toutes les tontines', path: '/superadmin/tontines', icon: <Building2 size={20} /> },
+        { label: 'Mon profil', path: '/profile', icon: <UserCircle size={20} /> },
       ]
     }
 
     if (hasRole(UserRole.ADMIN)) {
       return [
-        ...commonLinks,
+        { label: 'Tableau de bord', path: '/admin/dashboard', icon: <LayoutDashboard size={20} /> },
         { label: 'Mes tontines', path: '/admin/tontines', icon: <Building2 size={20} /> },
-        { label: 'Cotisations', path: '/admin/cotisations', icon: <LogOut size={20} /> },
+        { label: 'Mon profil', path: '/profile', icon: <UserCircle size={20} /> },
       ]
     }
 
     if (hasRole(UserRole.MEMBER)) {
       return [
-        ...commonLinks,
+        { label: 'Tableau de bord', path: '/member/dashboard', icon: <LayoutDashboard size={20} /> },
         { label: 'Mes tontines', path: '/member/tontines', icon: <Building2 size={20} /> },
-        { label: 'Mes cotisations', path: '/member/cotisations', icon: <LogOut size={20} /> },
+        { label: 'Mes cotisations', path: '/member/cotisations', icon: <CreditCard size={20} /> },
+        { label: 'Mon profil', path: '/profile', icon: <UserCircle size={20} /> },
       ]
     }
 
-    return commonLinks
+    // USER de base (pas encore MEMBER ni ADMIN)
+    return [
+      { label: 'Tableau de bord', path: '/member/dashboard', icon: <LayoutDashboard size={20} /> },
+      { label: 'Mon profil', path: '/profile', icon: <UserCircle size={20} /> },
+    ]
   }
 
   return (
     <div className="flex h-screen bg-neutral-50">
       <Sidebar links={getNavLinks()} />
-      <div className="flex-1 flex flex-col overflow-hidden md:ml-0">
+      <div className="flex-1 flex flex-col overflow-hidden">
         <Topbar />
         <main className="flex-1 overflow-y-auto">
           <div className="mx-auto max-w-7xl px-6 py-8">{children}</div>

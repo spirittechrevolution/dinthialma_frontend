@@ -49,9 +49,15 @@ export interface LoginRequest {
   deviceInfo?: string
 }
 
+// ─── Réponse login (Keycloak snake_case) ─────────────────────────────────────
 export interface LoginResponse {
-  accessToken: string
-  refreshToken: string
+  access_token: string
+  refresh_token: string
+  expires_in: number
+  refresh_expires_in: number
+  token_type: string
+  session_state: string
+  scope: string
 }
 
 export interface PinLoginRequest {

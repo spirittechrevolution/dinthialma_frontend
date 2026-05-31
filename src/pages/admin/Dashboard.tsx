@@ -4,23 +4,39 @@ import { Card, CardBody } from '@/components/ui/Card'
 import { Table, Column } from '@/components/ui/Table'
 import { Stat } from '@/components/ui/Stat'
 import { Badge } from '@/components/ui/Badge'
-import { useAdminTontines, useTontineStatistics } from '@/hooks/useTontines'
-import { Tontine } from '@/types/tontine'
-import { TontineStatus } from '@/types/common'
-import { Users, TrendingUp, DollarSign } from 'lucide-react'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { Spinner } from '@/components/ui/Spinner'
+import { useMyDashboard } from '@/hooks/useDashboard'
+import { TontineStats } from '@/types/dashboard'
+import { TontineStatut } from '@/types/common'
+import { Users, TrendingUp, DollarSign, AlertCircle } from 'lucide-react'
+
+const statutVariants: Record<TontineStatut, 'success' | 'warning' | 'info' | 'default'> = {
+  ACTIVE: 'success',
+  BROUILLON: 'warning',
+  SUSPENDUE: 'info',
+  TERMINEE: 'default',
+}
 
 export function AdminDashboard() {
-  const { data: stats } = useTontineStatistics()
-  const { data: tontinesData, isLoading: tontinesLoading } = useAdminTontines(0, 5)
+  const { data: dashboard, isLoading } = useMyDashboard()
 
-  const tontines = tontinesData?.content || []
+  if (isLoading) return <AppLayout><div className="flex justify-center py-20"><Spinner /></div></AppLayout>
 
-  const columns: Column<Tontine>[] = [
+  const tontines = dashboard?.tontines || []
+  const totalEnAttente = tontines.reduce((s, t) => s + t.cotisationsEnAttente, 0)
+  const totalEnRetard = tontines.reduce((s, t) => s + t.cotisationsEnRetard, 0)
+  const totalValide = tontines.reduce((s, t) => s + t.montantTotalValide, 0)
+
+  const columns: Column<TontineStats>[] = [
     {
       key: 'nom',
-      header: 'Nom',
+      header: 'Tontine',
       render: (row) => <span className="font-semibold">{row.nom}</span>,
+    },
+    {
+      key: 'statut',
+      header: 'Statut',
+      render: (row) => <Badge variant={statutVariants[row.statut as TontineStatut]}>{row.statut}</Badge>,
     },
     {
       key: 'nombreMembres',
@@ -28,31 +44,31 @@ export function AdminDashboard() {
       render: (row) => <span className="text-primary-600 font-semibold">{row.nombreMembres}</span>,
     },
     {
-      key: 'montant',
-      header: 'Montant',
-      render: (row) => <span>{row.montant.toLocaleString()} FCFA</span>,
+      key: 'cotisationsEnAttente',
+      header: 'En attente',
+      render: (row) => row.cotisationsEnAttente > 0
+        ? <Badge variant="warning">{row.cotisationsEnAttente}</Badge>
+        : <span className="text-neutral-400">0</span>,
     },
     {
-      key: 'statut',
-      header: 'Statut',
-      render: (row) => {
-        const variants: Record<TontineStatus, 'success' | 'warning' | 'error' | 'default' | 'info'> = {
-          ACTIVE: 'success',
-          EN_ATTENTE: 'warning',
-          EN_PAUSE: 'warning',
-          TERMINEE: 'default',
-          ANNULEE: 'error',
-        }
-        return <Badge variant={variants[row.statut]}>{row.statut}</Badge>
-      },
+      key: 'cotisationsEnRetard',
+      header: 'En retard',
+      render: (row) => row.cotisationsEnRetard > 0
+        ? <Badge variant="error">{row.cotisationsEnRetard}</Badge>
+        : <span className="text-neutral-400">0</span>,
     },
-  ]
-
-  const chartData = [
-    { cycle: 'Cycle 1', cotisations: 450000 },
-    { cycle: 'Cycle 2', cotisations: 520000 },
-    { cycle: 'Cycle 3', cotisations: 480000 },
-    { cycle: 'Cycle 4', cotisations: 600000 },
+    {
+      key: 'montantTotalValide',
+      header: 'Total validé',
+      render: (row) => <span>{row.montantTotalValide.toLocaleString()} FCFA</span>,
+    },
+    {
+      key: 'cycleEnCours',
+      header: 'Cycle en cours',
+      render: (row) => row.cycleEnCours
+        ? <span>Cycle {row.cycleEnCours.numeroCycle} — {row.cycleEnCours.beneficiaireNom || 'Bénéficiaire non désigné'}</span>
+        : <span className="text-neutral-400">Aucun</span>,
+    },
   ]
 
   return (
@@ -62,60 +78,42 @@ export function AdminDashboard() {
         description="Vue d'ensemble de vos tontines"
       />
 
-      {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <Stat
-          label="Tontines Actives"
-          value={stats?.tontinesByStatus?.ACTIVE || 0}
+          label="Tontines gérées"
+          value={dashboard?.nombreTontinesGerees || 0}
           icon={<TrendingUp size={32} />}
         />
         <Stat
-          label="Membres"
-          value={stats?.totalMembers || 0}
+          label="Cotisations en attente"
+          value={totalEnAttente}
+          icon={<AlertCircle size={32} />}
+        />
+        <Stat
+          label="Cotisations en retard"
+          value={totalEnRetard}
           icon={<Users size={32} />}
         />
         <Stat
-          label="Collectés ce mois"
-          value={`${(stats?.totalContributionsCollected || 0).toLocaleString()} FCFA`}
+          label="Total validé"
+          value={`${totalValide.toLocaleString()} FCFA`}
           icon={<DollarSign size={32} />}
         />
-        <Stat
-          label="En attente"
-          value="5"
-          icon={<TrendingUp size={32} />}
-        />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Bar Chart */}
-        <Card className="lg:col-span-1">
-          <h3 className="text-lg font-semibold text-neutral-900 mb-4">Cotisations par cycle</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="cycle" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="cotisations" fill="#22c55e" />
-            </BarChart>
-          </ResponsiveContainer>
-        </Card>
-
-        {/* Mes Tontines */}
-        <Card className="lg:col-span-2 noPadding">
-          <div className="p-6 border-b border-neutral-200">
-            <h3 className="text-lg font-semibold text-neutral-900">Mes Tontines</h3>
-          </div>
-          <CardBody>
-            <Table
-              columns={columns}
-              data={tontines}
-              isLoading={tontinesLoading}
-              emptyMessage="Aucune tontine créée"
-            />
-          </CardBody>
-        </Card>
-      </div>
+      <Card noPadding>
+        <div className="p-6 border-b border-neutral-200">
+          <h3 className="text-lg font-semibold text-neutral-900">Mes Tontines</h3>
+        </div>
+        <CardBody>
+          <Table
+            columns={columns}
+            data={tontines}
+            isLoading={isLoading}
+            emptyMessage="Aucune tontine gérée"
+          />
+        </CardBody>
+      </Card>
     </AppLayout>
   )
 }

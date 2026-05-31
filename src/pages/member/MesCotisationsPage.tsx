@@ -12,56 +12,75 @@ import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
-import { FilterBar } from '@/components/shared/FilterBar'
-import { useMyContributions, useCreateContribution } from '@/hooks/useCotisations'
-import { useMemberTontines } from '@/hooks/useTontines'
-import { useAuth } from '@/hooks/useAuth'
-import { CotisationWithDetails } from '@/types/cotisation'
-import { ContributionStatus } from '@/types/common'
+import { useCotisations, useRecordCotisation } from '@/hooks/useCotisations'
+import { useTontines } from '@/hooks/useTontines'
+import { useCycles } from '@/hooks/useCycles'
+import { useCodeList } from '@/hooks/useCodeList'
+import { Cotisation } from '@/types/cotisation'
+import { CotisationStatut, TontineStatut } from '@/types/common'
 import { Plus } from 'lucide-react'
 
 const schema = z.object({
   tontineId: z.string().min(1, 'Sélectionnez une tontine'),
-  cycleId: z.string().min(1, 'L\'identifiant du cycle est requis'),
+  cycleId: z.string().min(1, 'Sélectionnez un cycle'),
   montant: z.coerce.number().positive('Montant invalide'),
-  methodePaiement: z.enum(['MOBILE_MONEY', 'ESPECES', 'VIREMENT', 'AUTRE']),
-  referenceTransaction: z.string().optional().default(''),
+  methodePaiement: z.string().min(1, 'Sélectionnez une méthode'),
+  referenceTransaction: z.string().optional(),
   note: z.string().optional(),
 })
 
 type FormData = z.infer<typeof schema>
 
+const statutVariants: Record<CotisationStatut, 'success' | 'warning' | 'error'> = {
+  EN_ATTENTE: 'warning',
+  VALIDE: 'success',
+  EN_RETARD: 'error',
+}
+
 export function MesCotisationsPage() {
-  const { user } = useAuth()
   const [page, setPage] = useState(0)
-  const [statusFilter, setStatusFilter] = useState('')
   const [isOpen, setIsOpen] = useState(false)
+  const [selectedTontineId, setSelectedTontineId] = useState('')
 
-  const { data: cotisationsData, isLoading } = useMyContributions(page, 20)
-  const { data: tontines = [] } = useMemberTontines()
-  const { mutate: createContribution, isPending } = useCreateContribution()
+  // On affiche les cotisations de la première tontine active par défaut
+  const { data: tontinesData } = useTontines(0, 50)
+  const tontines = (tontinesData?.content || []).filter((t) => t.statut === TontineStatut.ACTIVE)
+  const firstTontineId = tontines[0]?.id || ''
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
-    resolver: zodResolver(schema),
-    defaultValues: { methodePaiement: 'MOBILE_MONEY', referenceTransaction: '' },
-  })
+  const { data: cotisationsData, isLoading } = useCotisations(firstTontineId, undefined, page, 20)
+  const { data: cyclesData } = useCycles(selectedTontineId, 0, 50)
+  const { data: methodesPaiement = [] } = useCodeList('METHODE_PAIEMENT')
+  const { mutate: recordCotisation, isPending } = useRecordCotisation()
 
   const cotisations = cotisationsData?.content || []
   const totalPages = cotisationsData?.totalPages || 1
-  const filtered = statusFilter
-    ? cotisations.filter((c) => c.statut === statusFilter)
-    : cotisations
+  const cycles = (cyclesData?.content || []).filter((c) => c.statut === 'EN_COURS')
+
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<FormData>({
+    resolver: zodResolver(schema),
+  })
+
+  const watchedTontineId = watch('tontineId')
+  if (watchedTontineId && watchedTontineId !== selectedTontineId) {
+    setSelectedTontineId(watchedTontineId)
+    setValue('cycleId', '')
+  }
 
   const onSubmit = (data: FormData) => {
-    createContribution(
+    recordCotisation(
       {
-        ...data,
-        membreId: user?.sub ?? '',
-        referenceTransaction: data.referenceTransaction ?? '',
+        tontineId: data.tontineId,
+        request: {
+          cycleId: data.cycleId,
+          montant: data.montant,
+          methodePaiement: data.methodePaiement,
+          referenceTransaction: data.referenceTransaction,
+          note: data.note,
+        },
       },
       {
         onSuccess: () => {
-          toast.success('Paiement déclaré avec succès — en attente de validation')
+          toast.success('Paiement déclaré — en attente de validation par l\'admin')
           reset()
           setIsOpen(false)
         },
@@ -70,42 +89,35 @@ export function MesCotisationsPage() {
     )
   }
 
-  const handleClose = () => {
-    reset()
-    setIsOpen(false)
-  }
+  const handleClose = () => { reset(); setIsOpen(false) }
 
-  const columns: Column<CotisationWithDetails>[] = [
+  const columns: Column<Cotisation>[] = [
     {
-      key: 'tontineNom',
-      header: 'Tontine',
-      render: (row) => <span className="font-semibold">{row.tontineNom}</span>,
-    },
-    {
-      key: 'numeroCycle',
+      key: 'membre',
       header: 'Cycle',
-      render: (row) => <span>Cycle {row.numeroCycle || '—'}</span>,
+      render: (row) => <span className="font-semibold">Cycle {row.cycleId.slice(0, 8)}…</span>,
     },
     {
       key: 'montant',
       header: 'Montant',
-      render: (row) => (
-        <span className="text-primary-600 font-semibold">{row.montant.toLocaleString()} FCFA</span>
-      ),
+      render: (row) => <span className="text-primary-600 font-semibold">{row.montant.toLocaleString()} FCFA</span>,
     },
-    { key: 'methodePaiement', header: 'Méthode' },
-    { key: 'referenceTransaction', header: 'Référence' },
+    { key: 'methodePaiement', header: 'Méthode', render: (row) => row.methodePaiement || '—' },
+    { key: 'referenceTransaction', header: 'Référence', render: (row) => row.referenceTransaction || '—' },
     {
       key: 'statut',
       header: 'Statut',
-      render: (row) => {
-        const variants: Record<ContributionStatus, 'success' | 'warning' | 'error' | 'default' | 'info'> = {
-          EN_ATTENTE: 'warning',
-          VALIDEE: 'success',
-          REJETEE: 'error',
-        }
-        return <Badge variant={variants[row.statut]}>{row.statut}</Badge>
-      },
+      render: (row) => <Badge variant={statutVariants[row.statut]}>{row.statut}</Badge>,
+    },
+    {
+      key: 'validePar',
+      header: 'Validé par',
+      render: (row) => row.validePar ? `${row.validePar.firstName} ${row.validePar.lastName}` : '—',
+    },
+    {
+      key: 'createdAt',
+      header: 'Date',
+      render: (row) => new Date(row.createdAt).toLocaleDateString('fr-FR'),
     },
   ]
 
@@ -113,40 +125,19 @@ export function MesCotisationsPage() {
     <AppLayout>
       <PageHeader
         title="Mes Cotisations"
-        description="Historique de toutes vos contributions"
+        description="Historique de vos contributions"
         action={
           <Button onClick={() => setIsOpen(true)}>
-            <Plus size={20} />
-            Déclarer un paiement
+            <Plus size={20} /> Déclarer un paiement
           </Button>
         }
       />
 
       <Card noPadding>
-        <div className="p-6 border-b border-neutral-200">
-          <FilterBar
-            filters={[
-              {
-                key: 'statut',
-                label: 'Statut',
-                type: 'select',
-                value: statusFilter,
-                onChange: setStatusFilter,
-                options: [
-                  { value: '', label: 'Tous' },
-                  { value: 'EN_ATTENTE', label: 'En attente' },
-                  { value: 'VALIDEE', label: 'Validée' },
-                  { value: 'REJETEE', label: 'Rejetée' },
-                ],
-              },
-            ]}
-            onClear={() => setStatusFilter('')}
-          />
-        </div>
         <CardBody>
           <Table
             columns={columns}
-            data={filtered}
+            data={cotisations}
             isLoading={isLoading}
             emptyMessage="Aucune cotisation trouvée"
             page={page}
@@ -163,33 +154,34 @@ export function MesCotisationsPage() {
         size="md"
         footer={
           <div className="flex gap-3 justify-end">
-            <Button variant="ghost" onClick={handleClose} disabled={isPending}>
-              Annuler
-            </Button>
-            <Button form="declare-paiement-form" type="submit" loading={isPending}>
-              Déclarer
-            </Button>
+            <Button variant="ghost" onClick={handleClose} disabled={isPending}>Annuler</Button>
+            <Button form="declare-form" type="submit" loading={isPending}>Déclarer</Button>
           </div>
         }
       >
-        <form id="declare-paiement-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form id="declare-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <Select
             label="Tontine"
-            placeholder="Sélectionnez une tontine"
             error={errors.tontineId?.message}
-            options={tontines.map((t) => ({ value: t.id, label: t.nom }))}
+            options={[
+              { value: '', label: 'Sélectionnez une tontine' },
+              ...tontines.map((t) => ({ value: t.id, label: t.nom })),
+            ]}
             {...register('tontineId')}
           />
-          <Input
-            label="ID du cycle"
-            placeholder="Identifiant du cycle actif"
+          <Select
+            label="Cycle en cours"
             error={errors.cycleId?.message}
+            options={[
+              { value: '', label: cycles.length ? 'Sélectionnez un cycle' : 'Aucun cycle en cours' },
+              ...cycles.map((c) => ({ value: c.id, label: `Cycle ${c.numeroCycle} (${new Date(c.dateDebut).toLocaleDateString('fr-FR')} → ${new Date(c.dateFin).toLocaleDateString('fr-FR')})` })),
+            ]}
             {...register('cycleId')}
           />
           <Input
             label="Montant (FCFA)"
             type="number"
-            placeholder="50000"
+            placeholder="5000"
             error={errors.montant?.message}
             {...register('montant')}
           />
@@ -197,16 +189,14 @@ export function MesCotisationsPage() {
             label="Méthode de paiement"
             error={errors.methodePaiement?.message}
             options={[
-              { value: 'MOBILE_MONEY', label: 'Mobile Money' },
-              { value: 'ESPECES', label: 'Espèces' },
-              { value: 'VIREMENT', label: 'Virement bancaire' },
-              { value: 'AUTRE', label: 'Autre' },
+              { value: '', label: 'Sélectionnez une méthode' },
+              ...methodesPaiement.map((m) => ({ value: m.value, label: m.description })),
             ]}
             {...register('methodePaiement')}
           />
           <Input
-            label="Référence de transaction"
-            placeholder="ex. OM-123456789"
+            label="Référence de transaction (optionnel)"
+            placeholder="WAVE-TXN-20240701-XYZ123"
             {...register('referenceTransaction')}
           />
           <Input

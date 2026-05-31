@@ -1,52 +1,46 @@
 import { Badge } from '@/components/ui/Badge'
-import { TontineStatus, MemberStatus, ContributionStatus, CycleStatus } from '@/types/common'
+import { TontineStatut, MembreStatut, CotisationStatut, CycleStatut } from '@/types/common'
 
 interface StatusBadgeProps {
-  status: TontineStatus | MemberStatus | ContributionStatus | CycleStatus | string
+  status: TontineStatut | MembreStatut | CotisationStatut | CycleStatut | string
 }
 
 const statusColorMap: Record<string, 'default' | 'success' | 'warning' | 'error' | 'info'> = {
-  // Tontine statuses
-  EN_ATTENTE: 'warning',
+  // Tontine
+  BROUILLON: 'warning',
   ACTIVE: 'success',
-  ACTIF: 'success',
-  EN_PAUSE: 'warning',
+  SUSPENDUE: 'info',
   TERMINEE: 'default',
-  TERMINE: 'default',
-  ANNULEE: 'error',
-  ANNULE: 'error',
-
-  // Member statuses
+  // Membre
+  ACTIF: 'success',
   SUSPENDU: 'warning',
-  EXCLU: 'error',
-
-  // Contribution statuses
-  VALIDEE: 'success',
-  REJETEE: 'error',
-
-  // Cycle statuses
+  SORTI: 'error',
+  // Cotisation
+  EN_ATTENTE: 'warning',
+  VALIDE: 'success',
+  EN_RETARD: 'error',
+  // Cycle
   EN_COURS: 'info',
+  TERMINE: 'default',
 }
 
 const statusLabelMap: Record<string, string> = {
-  EN_ATTENTE: 'En attente',
-  ACTIVE: 'Actif',
+  BROUILLON: 'Brouillon',
+  ACTIVE: 'Active',
+  SUSPENDUE: 'Suspendue',
+  TERMINEE: 'Terminée',
   ACTIF: 'Actif',
-  EN_PAUSE: 'En pause',
-  TERMINEE: 'Terminé',
-  TERMINE: 'Terminé',
-  ANNULEE: 'Annulé',
-  ANNULE: 'Annulé',
   SUSPENDU: 'Suspendu',
-  EXCLU: 'Exclu',
-  VALIDEE: 'Validée',
-  REJETEE: 'Rejetée',
+  SORTI: 'Sorti',
+  EN_ATTENTE: 'En attente',
+  VALIDE: 'Validée',
+  EN_RETARD: 'En retard',
   EN_COURS: 'En cours',
+  TERMINE: 'Terminé',
 }
 
 export function StatusBadge({ status }: StatusBadgeProps) {
-  const variant = statusColorMap[status] || 'default'
-  const label = statusLabelMap[status] || status
-
+  const variant = statusColorMap[status] ?? 'default'
+  const label = statusLabelMap[status] ?? status
   return <Badge variant={variant}>{label}</Badge>
 }

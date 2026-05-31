@@ -1,7 +1,4 @@
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
 import { toast } from 'sonner'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AppLayout } from '@/components/layout/AppLayout'
@@ -11,77 +8,154 @@ import { Table, Column } from '@/components/ui/Table'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
-import { Input } from '@/components/ui/Input'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { userService } from '@/services/userService'
-import { User, CreateUserRequest } from '@/types/user'
-import { Plus } from 'lucide-react'
+import { AdminUserResponse, UpdateUserRolesRequest } from '@/types/user'
+import { UserCheck, UserX, Edit2 } from 'lucide-react'
 
-const schema = z.object({
-  firstName: z.string().min(2, 'Au moins 2 caractères'),
-  lastName: z.string().min(2, 'Au moins 2 caractères'),
-  email: z.string().email('Email invalide'),
-  phone: z.string().min(8, 'Numéro invalide'),
-  password: z.string().min(6, 'Au moins 6 caractères'),
-})
+type UserAction = { type: 'enable' | 'disable'; userId: string; nom: string } | null
+type RolesAction = { userId: string; nom: string; currentRoles: string[] } | null
 
-type FormData = z.infer<typeof schema>
+const ALL_ROLES = ['USER', 'MEMBER', 'ADMIN', 'SUPER_ADMIN']
 
 export function UsersPage() {
   const [page, setPage] = useState(0)
-  const [isOpen, setIsOpen] = useState(false)
+  const [userAction, setUserAction] = useState<UserAction>(null)
+  const [rolesAction, setRolesAction] = useState<RolesAction>(null)
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([])
   const queryClient = useQueryClient()
 
   const { data: usersData, isLoading } = useQuery({
-    queryKey: ['users', page],
-    queryFn: () => userService.getAllUsers(page, 20),
+    queryKey: ['adminUsers', page],
+    queryFn: () => userService.listUsers(page, 20),
   })
 
-  const { mutate: createUser, isPending } = useMutation({
-    mutationFn: (request: CreateUserRequest) => userService.createUser(request),
+  const { mutate: enableUser, isPending: isEnabling } = useMutation({
+    mutationFn: (userId: string) => userService.enableUser(userId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] })
-      toast.success('Utilisateur créé avec succès')
-      reset()
-      setIsOpen(false)
+      queryClient.invalidateQueries({ queryKey: ['adminUsers'] })
+      toast.success('Compte réactivé')
+      setUserAction(null)
     },
-    onError: () => toast.error('Erreur lors de la création de l\'utilisateur'),
+    onError: () => toast.error('Erreur lors de la réactivation'),
   })
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
-    resolver: zodResolver(schema),
+  const { mutate: disableUser, isPending: isDisabling } = useMutation({
+    mutationFn: (userId: string) => userService.disableUser(userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adminUsers'] })
+      toast.success('Compte désactivé')
+      setUserAction(null)
+    },
+    onError: () => toast.error('Erreur lors de la désactivation'),
+  })
+
+  const { mutate: updateRoles, isPending: isUpdatingRoles } = useMutation({
+    mutationFn: ({ userId, request }: { userId: string; request: UpdateUserRolesRequest }) =>
+      userService.updateUserRoles(userId, request),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adminUsers'] })
+      toast.success('Rôles mis à jour')
+      setRolesAction(null)
+    },
+    onError: () => toast.error('Erreur lors de la mise à jour des rôles'),
   })
 
   const users = usersData?.content || []
   const totalPages = usersData?.totalPages || 1
 
-  const onSubmit = (data: FormData) => {
-    createUser(data)
+  const openRolesModal = (user: AdminUserResponse) => {
+    // Normalise les rôles (l'API renvoie "DINTHIALMA_ADMIN" → on extrait la partie après "_")
+    const normalized = user.roles.map((r) => r.replace('DINTHIALMA_', ''))
+    setSelectedRoles(normalized)
+    setRolesAction({ userId: user.id, nom: `${user.firstName} ${user.lastName}`, currentRoles: normalized })
   }
 
-  const handleClose = () => {
-    reset()
-    setIsOpen(false)
+  const handleConfirmAction = () => {
+    if (!userAction) return
+    if (userAction.type === 'enable') enableUser(userAction.userId)
+    else disableUser(userAction.userId)
   }
 
-  const columns: Column<User>[] = [
+  const handleSaveRoles = () => {
+    if (!rolesAction) return
+    updateRoles({ userId: rolesAction.userId, request: { roles: selectedRoles } })
+  }
+
+  const toggleRole = (role: string) => {
+    if (role === 'USER') return // USER ne peut pas être retiré
+    setSelectedRoles((prev) =>
+      prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]
+    )
+  }
+
+  const columns: Column<AdminUserResponse>[] = [
     {
       key: 'firstName',
       header: 'Nom',
+      render: (row) => <span className="font-semibold">{row.firstName} {row.lastName}</span>,
+    },
+    { key: 'phone', header: 'Téléphone' },
+    { key: 'email', header: 'Email', render: (row) => row.email || '—' },
+    {
+      key: 'roles',
+      header: 'Rôles',
       render: (row) => (
-        <span className="font-semibold">
-          {row.firstName} {row.lastName}
-        </span>
+        <div className="flex flex-wrap gap-1">
+          {row.roles.map((r) => (
+            <Badge key={r} variant="default" className="text-xs">
+              {r.replace('DINTHIALMA_', '')}
+            </Badge>
+          ))}
+        </div>
       ),
     },
-    { key: 'email', header: 'Email' },
-    { key: 'phone', header: 'Téléphone' },
     {
-      key: 'isActive',
+      key: 'active',
       header: 'Statut',
       render: (row) => (
-        <Badge variant={row.isActive ? 'success' : 'error'}>
-          {row.isActive ? 'Actif' : 'Inactif'}
+        <Badge variant={row.active ? 'success' : 'error'}>
+          {row.active ? 'Actif' : 'Inactif'}
         </Badge>
+      ),
+    },
+    {
+      key: 'pinConfigured',
+      header: 'PIN',
+      render: (row) => (
+        <Badge variant={row.pinConfigured ? 'info' : 'default'}>
+          {row.pinConfigured ? 'Configuré' : 'Non configuré'}
+        </Badge>
+      ),
+    },
+    {
+      key: 'id',
+      header: 'Actions',
+      render: (row) => (
+        <div className="flex gap-2">
+          <Button variant="secondary" size="sm" title="Modifier les rôles" onClick={() => openRolesModal(row)}>
+            <Edit2 size={16} />
+          </Button>
+          {row.active ? (
+            <Button
+              variant="danger"
+              size="sm"
+              title="Désactiver"
+              onClick={() => setUserAction({ type: 'disable', userId: row.id, nom: `${row.firstName} ${row.lastName}` })}
+            >
+              <UserX size={16} />
+            </Button>
+          ) : (
+            <Button
+              variant="secondary"
+              size="sm"
+              title="Réactiver"
+              onClick={() => setUserAction({ type: 'enable', userId: row.id, nom: `${row.firstName} ${row.lastName}` })}
+            >
+              <UserCheck size={16} />
+            </Button>
+          )}
+        </div>
       ),
     },
   ]
@@ -90,13 +164,7 @@ export function UsersPage() {
     <AppLayout>
       <PageHeader
         title="Gestion des Utilisateurs"
-        description="Gérer les utilisateurs et leurs rôles"
-        action={
-          <Button onClick={() => setIsOpen(true)}>
-            <Plus size={20} />
-            Nouvel Utilisateur
-          </Button>
-        }
+        description="Gérez les comptes et les rôles de tous les utilisateurs"
       />
 
       <Card noPadding>
@@ -113,60 +181,57 @@ export function UsersPage() {
         </CardBody>
       </Card>
 
+      {/* Modal modification des rôles */}
       <Modal
-        isOpen={isOpen}
-        onClose={handleClose}
-        title="Créer un nouvel utilisateur"
-        size="md"
+        isOpen={!!rolesAction}
+        onClose={() => setRolesAction(null)}
+        title={`Rôles de ${rolesAction?.nom}`}
+        size="sm"
         footer={
           <div className="flex gap-3 justify-end">
-            <Button variant="ghost" onClick={handleClose} disabled={isPending}>
-              Annuler
-            </Button>
-            <Button form="create-user-form" type="submit" loading={isPending}>
-              Créer
-            </Button>
+            <Button variant="ghost" onClick={() => setRolesAction(null)} disabled={isUpdatingRoles}>Annuler</Button>
+            <Button onClick={handleSaveRoles} loading={isUpdatingRoles}>Enregistrer</Button>
           </div>
         }
       >
-        <form id="create-user-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="Prénom"
-              placeholder="Jean"
-              error={errors.firstName?.message}
-              {...register('firstName')}
-            />
-            <Input
-              label="Nom"
-              placeholder="Dupont"
-              error={errors.lastName?.message}
-              {...register('lastName')}
-            />
-          </div>
-          <Input
-            label="Email"
-            type="email"
-            placeholder="jean.dupont@example.com"
-            error={errors.email?.message}
-            {...register('email')}
-          />
-          <Input
-            label="Téléphone"
-            type="tel"
-            placeholder="+221 77 000 00 00"
-            error={errors.phone?.message}
-            {...register('phone')}
-          />
-          <Input
-            label="Mot de passe"
-            type="password"
-            placeholder="••••••••"
-            error={errors.password?.message}
-            {...register('password')}
-          />
-        </form>
+        <div className="space-y-3">
+          <p className="text-sm text-neutral-500">
+            Sélectionnez les rôles. Le rôle USER est toujours conservé.
+          </p>
+          {ALL_ROLES.map((role) => (
+            <label key={role} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+              selectedRoles.includes(role) ? 'border-primary-500 bg-primary-50' : 'border-neutral-200 hover:border-neutral-300'
+            } ${role === 'USER' ? 'opacity-60 cursor-not-allowed' : ''}`}>
+              <input
+                type="checkbox"
+                checked={selectedRoles.includes(role)}
+                onChange={() => toggleRole(role)}
+                disabled={role === 'USER'}
+                className="w-4 h-4 accent-primary-500"
+              />
+              <span className="font-medium">{role}</span>
+            </label>
+          ))}
+        </div>
       </Modal>
+
+      {/* Confirmation activation/désactivation */}
+      {userAction && (
+        <ConfirmDialog
+          isOpen
+          onClose={() => setUserAction(null)}
+          onConfirm={handleConfirmAction}
+          title={userAction.type === 'disable' ? 'Désactiver ce compte ?' : 'Réactiver ce compte ?'}
+          message={
+            userAction.type === 'disable'
+              ? `${userAction.nom} ne pourra plus se connecter à la plateforme.`
+              : `${userAction.nom} pourra à nouveau se connecter.`
+          }
+          confirmText={userAction.type === 'disable' ? 'Désactiver' : 'Réactiver'}
+          isDangerous={userAction.type === 'disable'}
+          isLoading={isEnabling || isDisabling}
+        />
+      )}
     </AppLayout>
   )
 }

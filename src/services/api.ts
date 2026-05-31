@@ -70,10 +70,10 @@ api.interceptors.response.use(
           `${API_BASE_URL}/api/v1/auth/refresh`,
           { refreshToken }
         )
-        const { accessToken, refreshToken: newRefreshToken } = data.data
-        setTokens(accessToken, newRefreshToken)
-        processQueue(null, accessToken)
-        originalRequest.headers!.Authorization = `Bearer ${accessToken}`
+        const { access_token, refresh_token } = data.data
+        setTokens(access_token, refresh_token)
+        processQueue(null, access_token)
+        originalRequest.headers!.Authorization = `Bearer ${access_token}`
         return api(originalRequest)
       } catch (refreshError) {
         processQueue(refreshError, null)

@@ -1,19 +1,37 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, ReactNode } from 'react'
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
 import { Spinner } from '@/components/ui/Spinner'
 import { ProtectedRoute } from './ProtectedRoute'
 import { RoleRoute } from './RoleRoute'
 import { UserRole } from '@/types/common'
 
-// Lazy load pages
-const LoginPage = lazy(() => import('@/pages/auth/LoginPage').then(m => ({ default: m.LoginPage })))
+// ─── Helper : toutes les pages lazy doivent être dans un Suspense ─────────────
+function S({ children }: { children: ReactNode }) {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <Spinner />
+      </div>
+    }>
+      {children}
+    </Suspense>
+  )
+}
 
-// Super Admin pages
+// ─── Pages publiques ──────────────────────────────────────────────────────────
+const LoginPage = lazy(() => import('@/pages/auth/LoginPage').then(m => ({ default: m.LoginPage })))
+const RegisterPage = lazy(() => import('@/pages/auth/RegisterPage').then(m => ({ default: m.RegisterPage })))
+const ForgotPasswordPage = lazy(() => import('@/pages/auth/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })))
+
+// ─── Pages protégées ─────────────────────────────────────────────────────────
+const ProfilePage = lazy(() => import('@/pages/profile/ProfilePage').then(m => ({ default: m.ProfilePage })))
+
+// Super Admin
 const SuperAdminDashboard = lazy(() => import('@/pages/superadmin/Dashboard').then(m => ({ default: m.SuperAdminDashboard })))
 const UsersPage = lazy(() => import('@/pages/superadmin/UsersPage').then(m => ({ default: m.UsersPage })))
 const AllTontinesPage = lazy(() => import('@/pages/superadmin/AllTontinesPage').then(m => ({ default: m.AllTontinesPage })))
 
-// Admin pages
+// Admin
 const AdminDashboard = lazy(() => import('@/pages/admin/Dashboard').then(m => ({ default: m.AdminDashboard })))
 const TontinesPage = lazy(() => import('@/pages/admin/TontinesPage').then(m => ({ default: m.TontinesPage })))
 const TontineDetailPage = lazy(() => import('@/pages/admin/TontineDetailPage').then(m => ({ default: m.TontineDetailPage })))
@@ -21,63 +39,47 @@ const MembresPage = lazy(() => import('@/pages/admin/MembresPage').then(m => ({ 
 const CyclesPage = lazy(() => import('@/pages/admin/CyclesPage').then(m => ({ default: m.CyclesPage })))
 const CotisationsPage = lazy(() => import('@/pages/admin/CotisationsPage').then(m => ({ default: m.CotisationsPage })))
 
-// Member pages
+// Member
 const MemberDashboard = lazy(() => import('@/pages/member/Dashboard').then(m => ({ default: m.MemberDashboard })))
 const MesTontinesPage = lazy(() => import('@/pages/member/MesTontinesPage').then(m => ({ default: m.MesTontinesPage })))
 const MesCotisationsPage = lazy(() => import('@/pages/member/MesCotisationsPage').then(m => ({ default: m.MesCotisationsPage })))
 
+// ─── Router ───────────────────────────────────────────────────────────────────
 const router = createBrowserRouter([
+  // ── Publiques ──────────────────────────────────────────────────────────────
   {
     path: '/login',
-    element: <LoginPage />,
+    element: <S><LoginPage /></S>,
   },
   {
-    path: '/',
-    element: (
-      <Suspense fallback={<Spinner />}>
-        <Navigate to="/dashboard" replace />
-      </Suspense>
-    ),
+    path: '/register',
+    element: <S><RegisterPage /></S>,
   },
+  {
+    path: '/forgot-password',
+    element: <S><ForgotPasswordPage /></S>,
+  },
+
+  // ── Redirection racine ─────────────────────────────────────────────────────
+  {
+    path: '/',
+    element: <Navigate to="/dashboard" replace />,
+  },
+
+  // ── Super Admin ────────────────────────────────────────────────────────────
   {
     path: '/dashboard',
     element: (
       <ProtectedRoute>
-        <Suspense fallback={<Spinner />}>
-          <SuperAdminDashboard />
-        </Suspense>
+        <S><SuperAdminDashboard /></S>
       </ProtectedRoute>
     ),
   },
   {
-    path: '/admin/dashboard',
-    element: (
-      <RoleRoute requiredRoles={[UserRole.ADMIN]}>
-        <Suspense fallback={<Spinner />}>
-          <AdminDashboard />
-        </Suspense>
-      </RoleRoute>
-    ),
-  },
-  {
-    path: '/member/dashboard',
-    element: (
-      <RoleRoute requiredRoles={[UserRole.MEMBER]}>
-        <Suspense fallback={<Spinner />}>
-          <MemberDashboard />
-        </Suspense>
-      </RoleRoute>
-    ),
-  },
-
-  // Super Admin routes
-  {
     path: '/superadmin/users',
     element: (
       <RoleRoute requiredRoles={[UserRole.SUPER_ADMIN]}>
-        <Suspense fallback={<Spinner />}>
-          <UsersPage />
-        </Suspense>
+        <S><UsersPage /></S>
       </RoleRoute>
     ),
   },
@@ -85,21 +87,25 @@ const router = createBrowserRouter([
     path: '/superadmin/tontines',
     element: (
       <RoleRoute requiredRoles={[UserRole.SUPER_ADMIN]}>
-        <Suspense fallback={<Spinner />}>
-          <AllTontinesPage />
-        </Suspense>
+        <S><AllTontinesPage /></S>
       </RoleRoute>
     ),
   },
 
-  // Admin routes
+  // ── Admin ──────────────────────────────────────────────────────────────────
+  {
+    path: '/admin/dashboard',
+    element: (
+      <RoleRoute requiredRoles={[UserRole.ADMIN]}>
+        <S><AdminDashboard /></S>
+      </RoleRoute>
+    ),
+  },
   {
     path: '/admin/tontines',
     element: (
       <RoleRoute requiredRoles={[UserRole.ADMIN]}>
-        <Suspense fallback={<Spinner />}>
-          <TontinesPage />
-        </Suspense>
+        <S><TontinesPage /></S>
       </RoleRoute>
     ),
   },
@@ -107,9 +113,7 @@ const router = createBrowserRouter([
     path: '/admin/tontines/:id',
     element: (
       <RoleRoute requiredRoles={[UserRole.ADMIN]}>
-        <Suspense fallback={<Spinner />}>
-          <TontineDetailPage />
-        </Suspense>
+        <S><TontineDetailPage /></S>
       </RoleRoute>
     ),
   },
@@ -117,9 +121,7 @@ const router = createBrowserRouter([
     path: '/admin/tontines/:tontineId/membres',
     element: (
       <RoleRoute requiredRoles={[UserRole.ADMIN]}>
-        <Suspense fallback={<Spinner />}>
-          <MembresPage />
-        </Suspense>
+        <S><MembresPage /></S>
       </RoleRoute>
     ),
   },
@@ -127,9 +129,7 @@ const router = createBrowserRouter([
     path: '/admin/tontines/:tontineId/cycles',
     element: (
       <RoleRoute requiredRoles={[UserRole.ADMIN]}>
-        <Suspense fallback={<Spinner />}>
-          <CyclesPage />
-        </Suspense>
+        <S><CyclesPage /></S>
       </RoleRoute>
     ),
   },
@@ -137,21 +137,25 @@ const router = createBrowserRouter([
     path: '/admin/tontines/:tontineId/cotisations',
     element: (
       <RoleRoute requiredRoles={[UserRole.ADMIN]}>
-        <Suspense fallback={<Spinner />}>
-          <CotisationsPage />
-        </Suspense>
+        <S><CotisationsPage /></S>
       </RoleRoute>
     ),
   },
 
-  // Member routes
+  // ── Member ─────────────────────────────────────────────────────────────────
+  {
+    path: '/member/dashboard',
+    element: (
+      <RoleRoute requiredRoles={[UserRole.MEMBER]}>
+        <S><MemberDashboard /></S>
+      </RoleRoute>
+    ),
+  },
   {
     path: '/member/tontines',
     element: (
       <RoleRoute requiredRoles={[UserRole.MEMBER]}>
-        <Suspense fallback={<Spinner />}>
-          <MesTontinesPage />
-        </Suspense>
+        <S><MesTontinesPage /></S>
       </RoleRoute>
     ),
   },
@@ -159,17 +163,25 @@ const router = createBrowserRouter([
     path: '/member/cotisations',
     element: (
       <RoleRoute requiredRoles={[UserRole.MEMBER]}>
-        <Suspense fallback={<Spinner />}>
-          <MesCotisationsPage />
-        </Suspense>
+        <S><MesCotisationsPage /></S>
       </RoleRoute>
     ),
   },
 
-  // Catch all
+  // ── Profil (tout utilisateur authentifié) ──────────────────────────────────
+  {
+    path: '/profile',
+    element: (
+      <ProtectedRoute>
+        <S><ProfilePage /></S>
+      </ProtectedRoute>
+    ),
+  },
+
+  // ── Catch-all ──────────────────────────────────────────────────────────────
   {
     path: '*',
-    element: <Navigate to="/dashboard" replace />,
+    element: <Navigate to="/login" replace />,
   },
 ])
 

@@ -13,141 +13,109 @@ import { Badge } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import {
-  useTontineMembers,
-  useAddMemberToTontine,
-  useValidateMember,
-  useSuspendMember,
-  useExcludeMember,
-} from '@/hooks/useMembres'
-import { TontineMembre } from '@/types/membre'
-import { MemberStatus } from '@/types/common'
-import { Plus, UserCheck, UserX, UserMinus } from 'lucide-react'
+import { useMembres, useAddMembre, useUpdateMembreStatut, useRemoveMembre } from '@/hooks/useMembres'
+import { Membre } from '@/types/membre'
+import { MembreStatut } from '@/types/common'
+import { Plus, UserMinus, UserCheck, Trash2 } from 'lucide-react'
 
-const addMemberSchema = z.object({
-  userId: z.string().min(1, 'L\'identifiant utilisateur est requis'),
+const addMembreSchema = z.object({
+  userId: z.string().uuid('UUID invalide'),
+  ordreJackpot: z.coerce.number().int().positive().optional(),
 })
 
-type AddMemberForm = z.infer<typeof addMemberSchema>
+type AddMembreForm = z.infer<typeof addMembreSchema>
 
-type MemberAction = {
-  type: 'validate' | 'suspend' | 'exclude'
-  memberId: string
-  memberName: string
+type MembreAction = {
+  type: 'suspendre' | 'activer' | 'retirer'
+  membreId: string
+  nom: string
 } | null
+
+const statutVariants: Record<MembreStatut, 'success' | 'warning' | 'error'> = {
+  ACTIF: 'success',
+  SUSPENDU: 'warning',
+  SORTI: 'error',
+}
 
 export function MembresPage() {
   const { tontineId } = useParams<{ tontineId: string }>()
   const [page, setPage] = useState(0)
   const [isAddOpen, setIsAddOpen] = useState(false)
-  const [action, setAction] = useState<MemberAction>(null)
+  const [action, setAction] = useState<MembreAction>(null)
 
-  const { data: membersData, isLoading } = useTontineMembers(tontineId || '', page, 20)
-  const { mutate: addMember, isPending: isAdding } = useAddMemberToTontine()
-  const { mutate: validateMember, isPending: isValidating } = useValidateMember()
-  const { mutate: suspendMember, isPending: isSuspending } = useSuspendMember()
-  const { mutate: excludeMember, isPending: isExcluding } = useExcludeMember()
+  const { data: membresData, isLoading } = useMembres(tontineId || '', page, 20)
+  const { mutate: addMembre, isPending: isAdding } = useAddMembre()
+  const { mutate: updateStatut, isPending: isUpdating } = useUpdateMembreStatut()
+  const { mutate: removeMembre, isPending: isRemoving } = useRemoveMembre()
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<AddMemberForm>({
-    resolver: zodResolver(addMemberSchema),
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<AddMembreForm>({
+    resolver: zodResolver(addMembreSchema),
   })
 
-  const members = membersData?.content || []
-  const totalPages = membersData?.totalPages || 1
+  const membres = membresData?.content || []
+  const totalPages = membresData?.totalPages || 1
 
-  const onAddSubmit = (data: AddMemberForm) => {
-    addMember(
-      { tontineId: tontineId || '', request: { userId: data.userId } },
+  const onAddSubmit = (data: AddMembreForm) => {
+    addMembre(
+      { tontineId: tontineId!, request: { userId: data.userId, ordreJackpot: data.ordreJackpot } },
       {
-        onSuccess: () => {
-          toast.success('Membre ajouté avec succès')
-          reset()
-          setIsAddOpen(false)
-        },
-        onError: () => toast.error('Erreur lors de l\'ajout du membre'),
+        onSuccess: () => { toast.success('Membre ajouté'); reset(); setIsAddOpen(false) },
+        onError: () => toast.error('Erreur lors de l\'ajout'),
       }
     )
   }
 
   const handleConfirmAction = () => {
     if (!action || !tontineId) return
-
-    const params = { tontineId, memberId: action.memberId }
-    const callbacks = {
-      onSuccess: () => {
-        const labels = {
-          validate: 'Membre validé avec succès',
-          suspend: 'Membre suspendu avec succès',
-          exclude: 'Membre exclu avec succès',
-        }
-        toast.success(labels[action.type])
-        setAction(null)
-      },
-      onError: () => toast.error('Une erreur est survenue'),
+    if (action.type === 'retirer') {
+      removeMembre(
+        { tontineId, membreId: action.membreId },
+        { onSuccess: () => { toast.success('Membre retiré'); setAction(null) }, onError: () => toast.error('Erreur') }
+      )
+    } else {
+      const statut = action.type === 'activer' ? MembreStatut.ACTIF : MembreStatut.SUSPENDU
+      updateStatut(
+        { tontineId, membreId: action.membreId, request: { statut } },
+        { onSuccess: () => { toast.success('Statut mis à jour'); setAction(null) }, onError: () => toast.error('Erreur') }
+      )
     }
-
-    if (action.type === 'validate') validateMember(params, callbacks)
-    else if (action.type === 'suspend') suspendMember(params, callbacks)
-    else excludeMember(params, callbacks)
   }
 
-  const isActionPending = isValidating || isSuspending || isExcluding
-
-  const columns: Column<TontineMembre>[] = [
+  const columns: Column<Membre>[] = [
     {
-      key: 'userFullName',
+      key: 'user',
       header: 'Nom',
-      render: (row) => <span className="font-semibold">{row.userFullName}</span>,
+      render: (row) => <span className="font-semibold">{row.user.firstName} {row.user.lastName}</span>,
     },
-    { key: 'userEmail', header: 'Email' },
-    { key: 'userPhone', header: 'Téléphone' },
+    { key: 'user', header: 'Téléphone', render: (row) => row.user.phone },
+    { key: 'user', header: 'Email', render: (row) => row.user.email || '—' },
     { key: 'ordreJackpot', header: 'Ordre Jackpot' },
     {
       key: 'statut',
       header: 'Statut',
-      render: (row) => {
-        const variants: Record<MemberStatus, 'success' | 'warning' | 'error' | 'default' | 'info'> = {
-          EN_ATTENTE: 'warning',
-          ACTIF: 'success',
-          SUSPENDU: 'warning',
-          EXCLU: 'error',
-        }
-        return <Badge variant={variants[row.statut]}>{row.statut}</Badge>
-      },
+      render: (row) => <Badge variant={statutVariants[row.statut]}>{row.statut}</Badge>,
     },
     {
       key: 'id',
       header: 'Actions',
       render: (row) => (
         <div className="flex gap-2">
-          {row.statut === MemberStatus.EN_ATTENTE && (
-            <Button
-              variant="secondary"
-              size="sm"
-              title="Valider"
-              onClick={() => setAction({ type: 'validate', memberId: row.id, memberName: row.userFullName || '' })}
-            >
+          {row.statut === MembreStatut.SUSPENDU && (
+            <Button variant="secondary" size="sm" title="Réactiver"
+              onClick={() => setAction({ type: 'activer', membreId: row.id, nom: `${row.user.firstName} ${row.user.lastName}` })}>
               <UserCheck size={16} />
             </Button>
           )}
-          {row.statut === MemberStatus.ACTIF && (
-            <Button
-              variant="secondary"
-              size="sm"
-              title="Suspendre"
-              onClick={() => setAction({ type: 'suspend', memberId: row.id, memberName: row.userFullName || '' })}
-            >
+          {row.statut === MembreStatut.ACTIF && (
+            <Button variant="secondary" size="sm" title="Suspendre"
+              onClick={() => setAction({ type: 'suspendre', membreId: row.id, nom: `${row.user.firstName} ${row.user.lastName}` })}>
               <UserMinus size={16} />
             </Button>
           )}
-          {row.statut !== MemberStatus.EXCLU && (
-            <Button
-              variant="danger"
-              size="sm"
-              title="Exclure"
-              onClick={() => setAction({ type: 'exclude', memberId: row.id, memberName: row.userFullName || '' })}
-            >
-              <UserX size={16} />
+          {row.statut !== MembreStatut.SORTI && (
+            <Button variant="danger" size="sm" title="Retirer"
+              onClick={() => setAction({ type: 'retirer', membreId: row.id, nom: `${row.user.firstName} ${row.user.lastName}` })}>
+              <Trash2 size={16} />
             </Button>
           )}
         </div>
@@ -155,37 +123,20 @@ export function MembresPage() {
     },
   ]
 
-  const confirmConfig = action
-    ? {
-        validate: {
-          title: 'Valider ce membre ?',
-          message: `Confirmer la validation de ${action.memberName} dans cette tontine.`,
-          isDangerous: false,
-          confirmText: 'Valider',
-        },
-        suspend: {
-          title: 'Suspendre ce membre ?',
-          message: `${action.memberName} sera suspendu et ne pourra plus participer temporairement.`,
-          isDangerous: true,
-          confirmText: 'Suspendre',
-        },
-        exclude: {
-          title: 'Exclure ce membre ?',
-          message: `${action.memberName} sera définitivement exclu de cette tontine. Cette action est irréversible.`,
-          isDangerous: true,
-          confirmText: 'Exclure',
-        },
-      }[action.type]
-    : null
+  const confirmConfig = action ? {
+    suspendre: { title: 'Suspendre ce membre ?', message: `${action.nom} sera suspendu temporairement.`, danger: true, confirmText: 'Suspendre' },
+    activer: { title: 'Réactiver ce membre ?', message: `${action.nom} sera réactivé.`, danger: false, confirmText: 'Réactiver' },
+    retirer: { title: 'Retirer ce membre ?', message: `${action.nom} sera définitivement retiré de la tontine.`, danger: true, confirmText: 'Retirer' },
+  }[action.type] : null
 
   return (
     <AppLayout>
       <PageHeader
         title="Membres"
+        description="Gérez les cotisants de cette tontine"
         action={
           <Button onClick={() => setIsAddOpen(true)}>
-            <Plus size={20} />
-            Ajouter un membre
+            <Plus size={20} /> Ajouter un membre
           </Button>
         }
       />
@@ -194,7 +145,7 @@ export function MembresPage() {
         <CardBody>
           <Table
             columns={columns}
-            data={members}
+            data={membres}
             isLoading={isLoading}
             emptyMessage="Aucun membre dans cette tontine"
             page={page}
@@ -211,21 +162,23 @@ export function MembresPage() {
         size="sm"
         footer={
           <div className="flex gap-3 justify-end">
-            <Button variant="ghost" onClick={() => { reset(); setIsAddOpen(false) }} disabled={isAdding}>
-              Annuler
-            </Button>
-            <Button form="add-member-form" type="submit" loading={isAdding}>
-              Ajouter
-            </Button>
+            <Button variant="ghost" onClick={() => { reset(); setIsAddOpen(false) }} disabled={isAdding}>Annuler</Button>
+            <Button form="add-membre-form" type="submit" loading={isAdding}>Ajouter</Button>
           </div>
         }
       >
-        <form id="add-member-form" onSubmit={handleSubmit(onAddSubmit)} className="space-y-4">
+        <form id="add-membre-form" onSubmit={handleSubmit(onAddSubmit)} className="space-y-4">
           <Input
-            label="ID utilisateur"
-            placeholder="Identifiant de l'utilisateur"
+            label="UUID de l'utilisateur"
+            placeholder="550e8400-e29b-41d4-a716-446655440000"
             error={errors.userId?.message}
             {...register('userId')}
+          />
+          <Input
+            label="Ordre jackpot (optionnel)"
+            type="number"
+            placeholder="Laissez vide pour placer en fin de liste"
+            {...register('ordreJackpot')}
           />
         </form>
       </Modal>
@@ -238,8 +191,8 @@ export function MembresPage() {
           title={confirmConfig.title}
           message={confirmConfig.message}
           confirmText={confirmConfig.confirmText}
-          isDangerous={confirmConfig.isDangerous}
-          isLoading={isActionPending}
+          isDangerous={confirmConfig.danger}
+          isLoading={isUpdating || isRemoving}
         />
       )}
     </AppLayout>

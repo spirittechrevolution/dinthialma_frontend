@@ -39,6 +39,7 @@ export interface MyDashboardResponse {
 }
 
 export interface TontineStats {
+  id: string        // alias de tontineId pour compatibilité avec le composant Table
   tontineId: string
   nom: string
   statut: string

@@ -36,9 +36,7 @@ export const authService = {
   refreshToken: async (request: RefreshTokenRequest): Promise<LoginResponse> => {
     const response = await api.post<CustomResponse<LoginResponse>>('/v1/auth/refresh', request)
     return response.data.data
-  },
-
-  // ─── Inscription étape 1/3 : envoi OTP ─────────────────────────────────────
+  },  // ─── Inscription étape 1/3 : envoi OTP ─────────────────────────────────────
   sendRegisterOtp: async (request: SendOtpRequest): Promise<void> => {
     await api.post('/v1/auth/register/send-otp', request)
   },
