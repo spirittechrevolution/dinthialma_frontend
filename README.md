@@ -15,9 +15,6 @@ npm install
 
 ```env
 VITE_API_URL=http://localhost:8080
-VITE_KEYCLOAK_URL=http://localhost:8081
-VITE_KEYCLOAK_REALM=dinthialma
-VITE_KEYCLOAK_CLIENT_ID=dinthialma-frontend
 ```
 
 ## Développement
@@ -65,4 +62,3 @@ L'authentification est gérée via Keycloak SSO. Les utilisateurs sont automatiq
 - TanStack Query
 - React Router v6
 - Tailwind CSS
-- Keycloak.js
