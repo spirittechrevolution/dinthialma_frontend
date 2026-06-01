@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { UserRole } from '@/types/common'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { PhoneInput } from '@/components/ui/PhoneInput'
 
 interface LoginFormData {
   username: string
@@ -37,7 +38,9 @@ export function LoginPage() {
     ? 'Mot de passe réinitialisé. Connectez-vous.'
     : null
 
-  const { register, handleSubmit, formState: { isSubmitting } } = useForm<LoginFormData>()
+  const { control, register, handleSubmit, formState: { isSubmitting } } = useForm<LoginFormData>({
+    defaultValues: { username: '+221' },
+  })
 
   const redirectAfterLogin = (roles: UserRole[]) => {
     if (roles.includes(UserRole.SUPER_ADMIN)) navigate('/dashboard', { replace: true })
@@ -116,12 +119,14 @@ export function LoginPage() {
               )}
 
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                <Input
+                <PhoneInput
+                  name="username"
+                  control={control}
                   label="Téléphone"
-                  type="text"
-                  placeholder="+221 77 000 00 00"
+                  type="tel"
+                  placeholder="77 000 00 00"
                   icon={<Phone size={16} />}
-                  {...register('username', { required: true })}
+                  error={undefined}
                 />
                 <Input
                   label="Mot de passe"

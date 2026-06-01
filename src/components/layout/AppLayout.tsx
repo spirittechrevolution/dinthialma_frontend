@@ -9,6 +9,7 @@ import {
   BookCopy,
   CreditCard,
   RefreshCw,
+  List,
 } from 'lucide-react'
 
 interface AppLayoutProps {
@@ -24,6 +25,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         { label: 'Tableau de bord', path: '/dashboard', icon: <LayoutDashboard size={20} /> },
         { label: 'Utilisateurs', path: '/superadmin/users', icon: <Users size={20} /> },
         { label: 'Toutes les tontines', path: '/superadmin/tontines', icon: <BookCopy size={20} /> },
+        { label: 'Référentiels', path: '/superadmin/code-list', icon: <List size={20} /> },
       ]
     }
 

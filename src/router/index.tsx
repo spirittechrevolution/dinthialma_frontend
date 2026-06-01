@@ -29,6 +29,7 @@ const ProfilePage = lazy(() => import('@/pages/profile/ProfilePage').then(m => (
 const SuperAdminDashboard = lazy(() => import('@/pages/superadmin/Dashboard').then(m => ({ default: m.SuperAdminDashboard })))
 const UsersPage = lazy(() => import('@/pages/superadmin/UsersPage').then(m => ({ default: m.UsersPage })))
 const AllTontinesPage = lazy(() => import('@/pages/superadmin/AllTontinesPage').then(m => ({ default: m.AllTontinesPage })))
+const CodeListPage = lazy(() => import('@/pages/superadmin/CodeListPage').then(m => ({ default: m.CodeListPage })))
 
 // Page détail tontine unifiée (SuperAdmin + Admin + Membre)
 const TontineDetailPage = lazy(() => import('@/pages/tontines/TontineDetailPage').then(m => ({ default: m.TontineDetailPage })))
@@ -68,6 +69,10 @@ const router = createBrowserRouter([
   {
     path: '/superadmin/tontines/:id',
     element: <RoleRoute requiredRoles={[UserRole.SUPER_ADMIN]}><S><TontineDetailPage /></S></RoleRoute>,
+  },
+  {
+    path: '/superadmin/code-list',
+    element: <RoleRoute requiredRoles={[UserRole.SUPER_ADMIN]}><S><CodeListPage /></S></RoleRoute>,
   },
 
   // Admin

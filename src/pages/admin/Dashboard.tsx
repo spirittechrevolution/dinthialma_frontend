@@ -75,11 +75,12 @@ export function AdminDashboard() {
   const cycleTotal = validees + totalEnAttente + totalEnRetard + refusees
 
   const prenom = user?.firstName || 'Admin'
+  const nom = user?.lastName || 'Admin'
 
   return (
     <AppLayout>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-neutral-900">Bonjour {prenom} 👋</h1>
+        <h1 className="text-2xl font-bold text-neutral-900">Bonjour {prenom} {nom}</h1>
         <p className="text-sm text-neutral-500 mt-1">Aperçu de vos tontines et activité récente.</p>
       </div>
 

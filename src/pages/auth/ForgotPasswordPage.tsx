@@ -7,6 +7,7 @@ import { Phone, KeyRound, Lock, Check } from 'lucide-react'
 import { authService } from '@/services/authService'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { PhoneInput } from '@/components/ui/PhoneInput'
 
 const step1Schema = z.object({
   phone: z.string().min(8, 'Numéro invalide'),
@@ -51,7 +52,10 @@ export function ForgotPasswordPage() {
   const [otpCode, setOtpCode] = useState('')
   const [error, setError] = useState<string | null>(null)
 
-  const form1 = useForm<Step1Data>({ resolver: zodResolver(step1Schema) })
+  const form1 = useForm<Step1Data>({
+    resolver: zodResolver(step1Schema),
+    defaultValues: { phone: '+221' },
+  })
   const form2 = useForm<Step2Data>({ resolver: zodResolver(step2Schema) })
   const form3 = useForm<Step3Data>({ resolver: zodResolver(step3Schema) })
 
@@ -162,13 +166,14 @@ export function ForgotPasswordPage() {
           {/* Étape 1 — Téléphone */}
           {step === 1 && (
             <form onSubmit={form1.handleSubmit(onStep1)} className="space-y-4">
-              <Input
+              <PhoneInput
+                name="phone"
+                control={form1.control}
                 label="Numéro de téléphone"
                 type="tel"
-                placeholder="+221 77 000 00 00"
+                placeholder="77 000 00 00"
                 icon={<Phone size={16} />}
                 error={form1.formState.errors.phone?.message}
-                {...form1.register('phone')}
               />
               {error && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">

@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { PhoneInput } from '@/components/ui/PhoneInput'
 import { Modal } from '@/components/ui/Modal'
 import { Spinner } from '@/components/ui/Spinner'
 import { userService } from '@/services/userService'
@@ -79,8 +80,14 @@ export function ProfilePage() {
     values: profile ? { firstName: profile.firstName, lastName: profile.lastName, email: profile.email ?? '' } : undefined,
   })
 
-  const passwordForm = useForm<PasswordData>({ resolver: zodResolver(passwordSchema) })
-  const phoneForm = useForm<PhoneData>({ resolver: zodResolver(phoneSchema) })
+  const passwordForm = useForm<PasswordData>({
+    resolver: zodResolver(passwordSchema),
+    defaultValues: { phone: '+221' },
+  })
+  const phoneForm = useForm<PhoneData>({
+    resolver: zodResolver(phoneSchema),
+    defaultValues: { newPhone: '+221' },
+  })
   const phoneVerifyForm = useForm<PhoneVerifyData>({ resolver: zodResolver(phoneVerifySchema) })
   const pinForm = useForm<PinData>({ resolver: zodResolver(pinSchema) })
 
@@ -262,8 +269,15 @@ export function ProfilePage() {
         }
       >
         <form id="password-form" onSubmit={passwordForm.handleSubmit(onResetPassword)} className="space-y-4">
-          <Input label="Numéro de téléphone" type="tel" placeholder="+221 77 000 00 00" icon={<Phone size={16} />}
-            error={passwordForm.formState.errors.phone?.message} {...passwordForm.register('phone')} />
+          <PhoneInput
+            name="phone"
+            control={passwordForm.control}
+            label="Numéro de téléphone"
+            type="tel"
+            placeholder="77 000 00 00"
+            icon={<Phone size={16} />}
+            error={passwordForm.formState.errors.phone?.message}
+          />
           {otpSent && (
             <>
               <Input label="Code OTP reçu par SMS" type="text" placeholder="123456" maxLength={6} icon={<KeyRound size={16} />}
@@ -296,8 +310,15 @@ export function ProfilePage() {
         {phoneStep === 1 ? (
           <form id="phone-form" onSubmit={phoneForm.handleSubmit(onRequestPhoneChange)} className="space-y-4">
             <p className="text-sm text-neutral-500">Un code OTP sera envoyé sur le nouveau numéro.</p>
-            <Input label="Nouveau numéro" type="tel" placeholder="+221 77 000 00 00" icon={<Phone size={16} />}
-              error={phoneForm.formState.errors.newPhone?.message} {...phoneForm.register('newPhone')} />
+            <PhoneInput
+              name="newPhone"
+              control={phoneForm.control}
+              label="Nouveau numéro"
+              type="tel"
+              placeholder="77 000 00 00"
+              icon={<Phone size={16} />}
+              error={phoneForm.formState.errors.newPhone?.message}
+            />
           </form>
         ) : (
           <form id="phone-verify-form" onSubmit={phoneVerifyForm.handleSubmit(onVerifyPhoneChange)} className="space-y-4">

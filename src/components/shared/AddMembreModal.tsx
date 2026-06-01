@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { PhoneInput } from '@/components/ui/PhoneInput'
 import { useAddMembre } from '@/hooks/useMembres'
 import { userService } from '@/services/userService'
 import { UserSearchResult } from '@/types/user'
@@ -76,7 +77,10 @@ export function AddMembreModal({ tontineId, isOpen, onClose }: AddMembreModalPro
 
   const { mutate: addMembre, isPending: isAdding } = useAddMembre()
 
-  const searchForm = useForm<SearchForm>({ resolver: zodResolver(searchSchema) })
+  const searchForm = useForm<SearchForm>({
+    resolver: zodResolver(searchSchema),
+    defaultValues: { phone: '+221' },
+  })
   const positionForm = useForm<PositionForm>({ resolver: zodResolver(positionSchema) })
   const newMembreForm = useForm<NewMembreForm>({ resolver: zodResolver(newMembreSchema) })
 
@@ -179,13 +183,14 @@ export function AddMembreModal({ tontineId, isOpen, onClose }: AddMembreModalPro
           <p className="text-sm text-neutral-500">
             Entrez le numéro de téléphone du membre à ajouter.
           </p>
-          <Input
+          <PhoneInput
+            name="phone"
+            control={searchForm.control}
             label="Numéro de téléphone *"
             type="tel"
-            placeholder="+221 77 000 00 00"
+            placeholder="77 000 00 00"
             icon={<Phone size={16} />}
             error={searchForm.formState.errors.phone?.message}
-            {...searchForm.register('phone')}
           />
           {searchError && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
