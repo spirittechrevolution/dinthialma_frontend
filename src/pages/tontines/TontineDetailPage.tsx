@@ -24,7 +24,7 @@ import {
   useDeleteCommission,
 } from '@/hooks/useTontines'
 import { useMembres, useUpdateMembreStatut, useRemoveMembre } from '@/hooks/useMembres'
-import { useCycles, useOpenCycle, useCloturerCycle } from '@/hooks/useCycles'
+import { useCycles, useOpenCycle, useCloturerCycle, useDesignerBeneficiaire } from '@/hooks/useCycles'
 import { useCotisations, useValiderCotisation } from '@/hooks/useCotisations'
 import { Membre } from '@/types/membre'
 import { Cycle } from '@/types/cycle'
@@ -55,6 +55,8 @@ import {
   User,
   Lock,
   Clock,
+  Star,
+  Shuffle,
 } from 'lucide-react'
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
@@ -188,6 +190,9 @@ export function TontineDetailPage() {
   const [cotisationToValidate, setCotisationToValidate] = useState<string | null>(null)
   const [membreAction, setMembreAction] = useState<{ type: 'suspendre' | 'activer' | 'retirer'; id: string; nom: string } | null>(null)
   const [adminPayModal, setAdminPayModal] = useState<{ membreId: string; membreNom: string } | null>(null)
+  const [beneficiaireModal, setBeneficiaireModal] = useState<{ cycleId: string; cycleNum: number } | null>(null)
+  const [selectedMembreJackpot, setSelectedMembreJackpot] = useState('')
+  const [randomJackpotCycle, setRandomJackpotCycle] = useState<string | null>(null)
 
   // ─── Data ─────────────────────────────────────────────────────────────────
   const { data: tontine, isLoading } = useTontine(id || '')
@@ -206,6 +211,7 @@ export function TontineDetailPage() {
   const { mutate: validerCotisation, isPending: isValidating } = useValiderCotisation()
   const { mutate: createCommission, isPending: isCreatingCommission } = useCreateCommission()
   const { mutate: deleteCommission } = useDeleteCommission()
+  const { mutate: designerBeneficiaire, isPending: isDesignating } = useDesignerBeneficiaire()
 
   // ─── Forms ────────────────────────────────────────────────────────────────
   const openCycleForm = useForm<OpenCycleForm>({
@@ -237,8 +243,19 @@ export function TontineDetailPage() {
   const currentCycle = cycles.find((c: Cycle) => c.statut === CycleStatut.EN_COURS)
   const cotisationsCurrentCycle = cotisations.filter((c: Cotisation) => currentCycle && c.cycleId === currentCycle.id)
   const paidMembreIds = new Set(cotisationsCurrentCycle.map((c: Cotisation) => c.membre.membreId))
+  // Inclut ACTIF et PRE_ENROLLED — seul moyen pour un PRE_ENROLLED de déclarer
   const membresWithoutCotisation = membres.filter(
-    (m: Membre) => m.statut === MembreStatut.ACTIF && !paidMembreIds.has(m.id)
+    (m: Membre) =>
+      m.statut !== MembreStatut.SORTI &&
+      m.statut !== MembreStatut.SUSPENDU &&
+      !paidMembreIds.has(m.id)
+  )
+  // Exclut les membres qui ont déjà reçu un jackpot (aRecuJackpot true ou undefined=jamais reçu)
+  const membresEligiblesJackpot = membres.filter(
+    (m: Membre) =>
+      m.statut !== MembreStatut.SORTI &&
+      m.statut !== MembreStatut.SUSPENDU &&
+      m.aRecuJackpot !== true
   )
 
   // ─── Handlers ─────────────────────────────────────────────────────────────
@@ -311,6 +328,41 @@ export function TontineDetailPage() {
       {
         onSuccess: () => { toast.success('Commission ajoutée'); commissionForm.reset(); setShowAddCommission(false) },
         onError: () => toast.error("Erreur lors de l'ajout de la commission"),
+      }
+    )
+  }
+
+  const handleDesignerManuel = () => {
+    if (!beneficiaireModal || !selectedMembreJackpot) return
+    designerBeneficiaire(
+      { tontineId: id!, cycleId: beneficiaireModal.cycleId, membreId: selectedMembreJackpot },
+      {
+        onSuccess: () => {
+          toast.success('Bénéficiaire désigné avec succès')
+          setBeneficiaireModal(null)
+          setSelectedMembreJackpot('')
+        },
+        onError: (err: unknown) => {
+          const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Erreur lors de la désignation'
+          toast.error(msg)
+        },
+      }
+    )
+  }
+
+  const handleDesignerAleatoire = () => {
+    if (!randomJackpotCycle) return
+    designerBeneficiaire(
+      { tontineId: id!, cycleId: randomJackpotCycle },
+      {
+        onSuccess: () => {
+          toast.success('Bénéficiaire sélectionné aléatoirement')
+          setRandomJackpotCycle(null)
+        },
+        onError: (err: unknown) => {
+          const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Aucun membre éligible ou erreur'
+          toast.error(msg)
+        },
       }
     )
   }
@@ -512,7 +564,17 @@ export function TontineDetailPage() {
                               <div className="flex items-center gap-3">
                                 <MiniAvatar name={nom} />
                                 <div>
-                                  <p className="font-semibold text-neutral-900">{nom}</p>
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-semibold text-neutral-900">{nom}</p>
+                                    {m.aRecuJackpot && (
+                                      <span
+                                        title={m.dateJackpot ? `Jackpot reçu le ${new Date(m.dateJackpot).toLocaleDateString('fr-FR')}` : 'Jackpot reçu'}
+                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 cursor-help"
+                                      >
+                                        <Star size={9} /> Jackpot
+                                      </span>
+                                    )}
+                                  </div>
                                   <p className="text-xs text-neutral-400">
                                     Adhésion : {m.dateAdhesion ? new Date(m.dateAdhesion).toLocaleDateString('fr-FR') : '—'}
                                   </p>
@@ -627,11 +689,39 @@ export function TontineDetailPage() {
                           </div>
                         ))}
                       </div>
-                      {cycle.beneficiaire && (
+                      {cycle.beneficiaire?.firstName ? (
                         <div className="flex items-center gap-1.5 text-xs text-neutral-600 mb-3">
                           <User size={11} className="text-neutral-400" />
-                          <span>Bénéficiaire : <span className="font-semibold">{cycle.beneficiaire.firstName} {cycle.beneficiaire.lastName}</span></span>
+                          <span>
+                            Bénéficiaire :{' '}
+                            <span className="font-semibold text-primary-700">
+                              {cycle.beneficiaire.firstName} {cycle.beneficiaire.lastName}
+                            </span>
+                            <span className="ml-2 px-1.5 py-0.5 rounded-full text-xs font-semibold bg-primary-100 text-primary-700">
+                              Jackpot remis
+                            </span>
+                          </span>
                         </div>
+                      ) : (
+                        (canManage || isSuperAdmin) && isManuel && cycle.statut === CycleStatut.TERMINE && (
+                          <div className="mb-3 pt-3 border-t border-neutral-100 space-y-2">
+                            <p className="text-xs text-neutral-500 font-medium">Désigner le bénéficiaire du jackpot</p>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => setBeneficiaireModal({ cycleId: cycle.id, cycleNum: cycle.numeroCycle })}
+                                className="flex-1 text-xs font-semibold text-primary-700 border border-primary-200 bg-primary-50 rounded-lg py-1.5 hover:bg-primary-100 transition-colors"
+                              >
+                                Choisir un membre
+                              </button>
+                              <button
+                                onClick={() => setRandomJackpotCycle(cycle.id)}
+                                className="flex-1 flex justify-center items-center gap-1 text-xs font-semibold text-neutral-700 border border-neutral-200 rounded-lg py-1.5 hover:bg-neutral-100 transition-colors"
+                              >
+                                <Shuffle size={11} /> Aléatoire
+                              </button>
+                            </div>
+                          </div>
+                        )
                       )}
                       {canManage && cycle.statut === CycleStatut.EN_COURS && (
                         <button
@@ -682,10 +772,20 @@ export function TontineDetailPage() {
                           className="flex items-center gap-2 bg-white border border-orange-200 rounded-lg px-3 py-1.5"
                         >
                           <MiniAvatar name={nom} />
-                          <span className="text-sm font-medium text-neutral-800">{nom}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-medium text-neutral-800">{nom}</span>
+                            {m.user.accountStatus === AccountStatus.PRE_ENROLLED && (
+                              <span
+                                title="Ce membre n'a pas encore de compte Dinthialma. Seul l'admin peut enregistrer ses paiements."
+                                className="px-1.5 py-0.5 rounded-full text-xs font-semibold bg-neutral-200 text-neutral-600 cursor-help"
+                              >
+                                Sans compte
+                              </span>
+                            )}
+                          </div>
                           <button
                             onClick={() => setAdminPayModal({ membreId: m.id, membreNom: nom })}
-                            className="ml-1 flex items-center gap-1 px-2 py-0.5 bg-primary-600 text-white text-xs rounded-lg hover:bg-primary-700 transition-colors"
+                            className="ml-auto flex items-center gap-1 px-2 py-0.5 bg-primary-600 text-white text-xs rounded-lg hover:bg-primary-700 transition-colors"
                           >
                             <Plus size={11} /> Paiement
                           </button>
@@ -902,6 +1002,53 @@ export function TontineDetailPage() {
           isLoading={isUpdatingMembre || isRemovingMembre}
         />
       )}
+
+      {/* Désigner bénéficiaire — sélection manuelle */}
+      <Modal
+        isOpen={!!beneficiaireModal}
+        onClose={() => { setBeneficiaireModal(null); setSelectedMembreJackpot('') }}
+        title={`Désigner le bénéficiaire — Cycle #${beneficiaireModal?.cycleNum ?? ''}`}
+        size="sm"
+        footer={
+          <div className="flex gap-3 justify-end">
+            <Button variant="ghost" onClick={() => { setBeneficiaireModal(null); setSelectedMembreJackpot('') }} disabled={isDesignating}>
+              Annuler
+            </Button>
+            <Button onClick={handleDesignerManuel} disabled={!selectedMembreJackpot} loading={isDesignating}>
+              Confirmer
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-sm text-neutral-500 mb-4">
+          Sélectionnez le membre qui recevra le jackpot pour ce cycle.
+        </p>
+        {membresEligiblesJackpot.length === 0 ? (
+          <p className="text-sm text-orange-600 py-2">Aucun membre éligible — tous ont déjà reçu un jackpot.</p>
+        ) : (
+          <Select
+            label="Membre bénéficiaire"
+            placeholder="Choisir un membre..."
+            value={selectedMembreJackpot}
+            onChange={(e) => setSelectedMembreJackpot(e.target.value)}
+            options={membresEligiblesJackpot.map((m: Membre) => ({
+              value: m.id,
+              label: `${m.user.firstName} ${m.user.lastName}`,
+            }))}
+          />
+        )}
+      </Modal>
+
+      {/* Désigner bénéficiaire — sélection aléatoire */}
+      <ConfirmDialog
+        isOpen={!!randomJackpotCycle}
+        onClose={() => setRandomJackpotCycle(null)}
+        onConfirm={handleDesignerAleatoire}
+        title="Sélection aléatoire ?"
+        message="Le système choisira automatiquement un membre parmi ceux qui n'ont pas encore reçu de jackpot."
+        confirmText="Sélectionner"
+        isLoading={isDesignating}
+      />
 
       {/* Enregistrement admin de paiement */}
       {adminPayModal && currentCycle && (

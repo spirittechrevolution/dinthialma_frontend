@@ -40,3 +40,15 @@ export function useCloturerCycle() {
     },
   })
 }
+
+export function useDesignerBeneficiaire() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ tontineId, cycleId, membreId }: { tontineId: string; cycleId: string; membreId?: string }) =>
+      cycleService.designerBeneficiaire(tontineId, cycleId, membreId),
+    onSuccess: (_, { tontineId }) => {
+      queryClient.invalidateQueries({ queryKey: ['cycles', tontineId] })
+      queryClient.invalidateQueries({ queryKey: ['membres', tontineId] })
+    },
+  })
+}

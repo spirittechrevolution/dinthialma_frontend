@@ -36,4 +36,14 @@ export const cycleService = {
     )
     return response.data.data
   },
+
+  // ─── Désigner le bénéficiaire du jackpot (mode MANUEL, cycle TERMINÉ) ────────
+  // membreId absent = sélection aléatoire
+  designerBeneficiaire: async (tontineId: string, cycleId: string, membreId?: string): Promise<Cycle> => {
+    const response = await api.patch<CustomResponse<Cycle>>(
+      `/v1/tontines/${tontineId}/cycles/${cycleId}/beneficiaire`,
+      membreId ? { membreId } : {}
+    )
+    return response.data.data
+  },
 }

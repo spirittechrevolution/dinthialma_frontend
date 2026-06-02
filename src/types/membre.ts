@@ -8,6 +8,8 @@ export interface Membre {
   ordreJackpot: number
   statut: MembreStatut
   dateAdhesion: string
+  aRecuJackpot: boolean
+  dateJackpot?: string | null
   createdAt: string
   updatedAt: string
 }

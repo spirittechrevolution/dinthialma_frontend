@@ -5,12 +5,15 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { AddMembreModal } from '@/components/shared/AddMembreModal'
+import { AdminEnregistrerPaiementModal } from '@/components/shared/AdminEnregistrerPaiementModal'
 import { Spinner } from '@/components/ui/Spinner'
 import { useTontines } from '@/hooks/useTontines'
 import { useMembres, useUpdateMembreStatut, useRemoveMembre } from '@/hooks/useMembres'
+import { useCycles } from '@/hooks/useCycles'
 import { Membre } from '@/types/membre'
-import { MembreStatut, AccountStatus } from '@/types/common'
-import { Plus, MoreHorizontal, Search, Clock } from 'lucide-react'
+import { Cycle } from '@/types/cycle'
+import { MembreStatut, AccountStatus, CycleStatut } from '@/types/common'
+import { Plus, MoreHorizontal, Search, Clock, CreditCard } from 'lucide-react'
 
 type MembreAction = { type: 'suspendre' | 'activer' | 'retirer'; membreId: string; nom: string; tontineId: string } | null
 
@@ -31,13 +34,16 @@ function MiniAvatar({ name }: { name: string }) {
   )
 }
 
-function MembreActionsMenu({ membre, tontineId, onAction }: {
+function MembreActionsMenu({ membre, tontineId, onAction, canPay, onPayment }: {
   membre: Membre
   tontineId: string
   onAction: (a: MembreAction) => void
+  canPay?: boolean
+  onPayment?: () => void
 }) {
   const [open, setOpen] = useState(false)
   const nom = `${membre.user.firstName} ${membre.user.lastName}`
+  const isEligiblePayment = membre.statut !== MembreStatut.SORTI && membre.statut !== MembreStatut.SUSPENDU
 
   return (
     <div className="relative">
@@ -47,11 +53,19 @@ function MembreActionsMenu({ membre, tontineId, onAction }: {
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-lg border border-neutral-200 z-20 overflow-hidden text-sm">
+          <div className="absolute right-0 mt-1 w-52 bg-white rounded-xl shadow-lg border border-neutral-200 z-20 overflow-hidden text-sm">
+            {canPay && isEligiblePayment && (
+              <button
+                onClick={() => { setOpen(false); onPayment?.() }}
+                className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-primary-50 text-primary-700 font-medium transition-colors"
+              >
+                <CreditCard size={14} /> Enregistrer paiement
+              </button>
+            )}
             {membre.statut === MembreStatut.ACTIF && (
               <button
                 onClick={() => { setOpen(false); onAction({ type: 'suspendre', membreId: membre.id, nom, tontineId }) }}
-                className="w-full flex items-center px-4 py-2.5 hover:bg-neutral-50 text-orange-600 transition-colors"
+                className={`w-full flex items-center px-4 py-2.5 hover:bg-neutral-50 text-orange-600 transition-colors ${canPay && isEligiblePayment ? 'border-t border-neutral-100' : ''}`}
               >
                 Suspendre
               </button>
@@ -85,6 +99,7 @@ export function MembresPage() {
   const [search, setSearch] = useState('')
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [action, setAction] = useState<MembreAction>(null)
+  const [paymentModal, setPaymentModal] = useState<{ membreId: string; membreNom: string; cycleId: string } | null>(null)
 
   const { data: tontinesData, isLoading: loadingTontines } = useTontines(0, 50)
   const tontines = tontinesData?.content || []
@@ -92,6 +107,9 @@ export function MembresPage() {
   const activeTontineId = selectedTontineId || tontines[0]?.id || ''
 
   const { data: membresData, isLoading: loadingMembres } = useMembres(activeTontineId, page, 20)
+  const { data: cyclesData } = useCycles(activeTontineId, 0, 50)
+  const currentCycle = cyclesData?.content?.find((c: Cycle) => c.statut === CycleStatut.EN_COURS)
+  const activeTontine = tontines.find((t) => t.id === activeTontineId)
   const { mutate: updateStatut, isPending: isUpdating } = useUpdateMembreStatut()
   const { mutate: removeMembre, isPending: isRemoving } = useRemoveMembre()
 
@@ -236,6 +254,12 @@ export function MembresPage() {
                           membre={m}
                           tontineId={activeTontineId}
                           onAction={setAction}
+                          canPay={!!currentCycle}
+                          onPayment={() => setPaymentModal({
+                            membreId: m.id,
+                            membreNom: nom,
+                            cycleId: currentCycle!.id,
+                          })}
                         />
                       </td>
                     </tr>
@@ -267,6 +291,19 @@ export function MembresPage() {
         isOpen={isAddOpen}
         onClose={() => setIsAddOpen(false)}
       />
+
+      {/* Modal enregistrer paiement admin */}
+      {paymentModal && currentCycle && (
+        <AdminEnregistrerPaiementModal
+          isOpen={!!paymentModal}
+          onClose={() => setPaymentModal(null)}
+          tontineId={activeTontineId}
+          cycleId={paymentModal.cycleId}
+          membreId={paymentModal.membreId}
+          membreNom={paymentModal.membreNom}
+          montantDefaut={activeTontine?.montant}
+        />
+      )}
 
       {action && confirmConfig && (
         <ConfirmDialog
