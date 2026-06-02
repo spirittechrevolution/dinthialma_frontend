@@ -13,6 +13,7 @@ import { Select } from '@/components/ui/Select'
 import { Spinner } from '@/components/ui/Spinner'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { AddMembreModal } from '@/components/shared/AddMembreModal'
+import { AdminEnregistrerPaiementModal } from '@/components/shared/AdminEnregistrerPaiementModal'
 import { useAuth } from '@/hooks/useAuth'
 import {
   useTontine,
@@ -112,7 +113,7 @@ const CYCLE_STATUT_LABELS: Record<CycleStatut, string> = {
 
 const COT_BADGE: Record<CotisationStatut, 'success' | 'warning' | 'error' | 'default'> = {
   VALIDE: 'success',
-  EN_ATTENTE: 'default',
+  EN_ATTENTE: 'warning',
   EN_RETARD: 'error',
 }
 
@@ -147,6 +148,26 @@ function MiniAvatar({ name }: { name: string }) {
   )
 }
 
+function SaisieParBadge({ cotisation }: { cotisation: Cotisation }) {
+  if (!cotisation.enregistrePar) return <span className="text-neutral-300 text-xs">—</span>
+  const isAutoDeclaré = cotisation.enregistrePar.id === cotisation.membre.userId
+  if (isAutoDeclaré) {
+    return (
+      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-neutral-100 text-neutral-600">
+        Auto-déclaré
+      </span>
+    )
+  }
+  return (
+    <span
+      title={`${cotisation.enregistrePar.firstName} ${cotisation.enregistrePar.lastName}`}
+      className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 cursor-help"
+    >
+      Saisie admin
+    </span>
+  )
+}
+
 type Tab = 'infos' | 'membres' | 'cycles' | 'cotisations' | 'commissions'
 
 // ─── Page principale ──────────────────────────────────────────────────────────
@@ -166,6 +187,7 @@ export function TontineDetailPage() {
   const [cycleToClose, setCycleToClose] = useState<string | null>(null)
   const [cotisationToValidate, setCotisationToValidate] = useState<string | null>(null)
   const [membreAction, setMembreAction] = useState<{ type: 'suspendre' | 'activer' | 'retirer'; id: string; nom: string } | null>(null)
+  const [adminPayModal, setAdminPayModal] = useState<{ membreId: string; membreNom: string } | null>(null)
 
   // ─── Data ─────────────────────────────────────────────────────────────────
   const { data: tontine, isLoading } = useTontine(id || '')
@@ -211,6 +233,13 @@ export function TontineDetailPage() {
   const cotValidees = cotisations.filter((c) => c.statut === CotisationStatut.VALIDE).length
   const cotEnAttente = cotisations.filter((c) => c.statut === CotisationStatut.EN_ATTENTE).length
   const cotEnRetard = cotisations.filter((c) => c.statut === CotisationStatut.EN_RETARD).length
+
+  const currentCycle = cycles.find((c: Cycle) => c.statut === CycleStatut.EN_COURS)
+  const cotisationsCurrentCycle = cotisations.filter((c: Cotisation) => currentCycle && c.cycleId === currentCycle.id)
+  const paidMembreIds = new Set(cotisationsCurrentCycle.map((c: Cotisation) => c.membre.membreId))
+  const membresWithoutCotisation = membres.filter(
+    (m: Membre) => m.statut === MembreStatut.ACTIF && !paidMembreIds.has(m.id)
+  )
 
   // ─── Handlers ─────────────────────────────────────────────────────────────
   const handleConfirmTontine = () => {
@@ -638,11 +667,40 @@ export function TontineDetailPage() {
                 </div>
               </div>
 
+              {/* Membres sans cotisation (cycle EN_COURS) */}
+              {canManage && currentCycle && membresWithoutCotisation.length > 0 && (
+                <div className="mb-4 p-4 bg-orange-50 border border-orange-100 rounded-xl">
+                  <p className="text-xs font-semibold text-orange-700 mb-3 uppercase tracking-wide">
+                    Membres sans cotisation — Cycle #{currentCycle.numeroCycle} en cours
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {membresWithoutCotisation.map((m: Membre) => {
+                      const nom = `${m.user.firstName} ${m.user.lastName}`
+                      return (
+                        <div
+                          key={m.id}
+                          className="flex items-center gap-2 bg-white border border-orange-200 rounded-lg px-3 py-1.5"
+                        >
+                          <MiniAvatar name={nom} />
+                          <span className="text-sm font-medium text-neutral-800">{nom}</span>
+                          <button
+                            onClick={() => setAdminPayModal({ membreId: m.id, membreNom: nom })}
+                            className="ml-1 flex items-center gap-1 px-2 py-0.5 bg-primary-600 text-white text-xs rounded-lg hover:bg-primary-700 transition-colors"
+                          >
+                            <Plus size={11} /> Paiement
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-neutral-100">
-                      {['Membre', 'Montant', 'Méthode', 'Référence', 'Date', 'Statut', canManage ? '' : undefined]
+                      {['Membre', 'Montant', 'Méthode', 'Référence', 'Date', 'Statut', 'Saisie par', canManage ? '' : undefined]
                         .filter(Boolean)
                         .map((h) => (
                           <th key={String(h)} className="px-4 py-3 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
@@ -653,7 +711,7 @@ export function TontineDetailPage() {
                   </thead>
                   <tbody>
                     {cotisations.length === 0 ? (
-                      <tr><td colSpan={7} className="text-center py-8 text-neutral-400">Aucune cotisation</td></tr>
+                      <tr><td colSpan={canManage ? 8 : 7} className="text-center py-8 text-neutral-400">Aucune cotisation</td></tr>
                     ) : (
                       cotisations.map((c: Cotisation) => (
                         <tr key={c.id} className="border-b border-neutral-50 hover:bg-neutral-50">
@@ -664,6 +722,9 @@ export function TontineDetailPage() {
                           <td className="px-4 py-3 text-neutral-500 text-xs">{new Date(c.createdAt).toLocaleDateString('fr-FR')}</td>
                           <td className="px-4 py-3">
                             <Badge variant={COT_BADGE[c.statut]}>{COT_LABEL[c.statut]}</Badge>
+                          </td>
+                          <td className="px-4 py-3">
+                            <SaisieParBadge cotisation={c} />
                           </td>
                           {canManage && (
                             <td className="px-4 py-3">
@@ -839,6 +900,19 @@ export function TontineDetailPage() {
           }
           isDangerous={membreAction.type !== 'activer'}
           isLoading={isUpdatingMembre || isRemovingMembre}
+        />
+      )}
+
+      {/* Enregistrement admin de paiement */}
+      {adminPayModal && currentCycle && (
+        <AdminEnregistrerPaiementModal
+          isOpen={!!adminPayModal}
+          onClose={() => setAdminPayModal(null)}
+          tontineId={id!}
+          cycleId={currentCycle.id}
+          membreId={adminPayModal.membreId}
+          membreNom={adminPayModal.membreNom}
+          montantDefaut={tontine.montant}
         />
       )}
 

@@ -6,7 +6,7 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { Spinner } from '@/components/ui/Spinner'
 import { useTontines } from '@/hooks/useTontines'
 import { useCotisations, useValiderCotisation } from '@/hooks/useCotisations'
-import { Cotisation } from '@/types/cotisation'
+import { Cotisation, EnregistreParInfo } from '@/types/cotisation'
 import { CotisationStatut } from '@/types/common'
 import { Search, Download, CheckCircle, XCircle } from 'lucide-react'
 
@@ -19,9 +19,9 @@ const STATUT_TABS = [
 
 const STATUT_BADGE: Record<string, 'success' | 'warning' | 'error' | 'default'> = {
   VALIDE: 'success',
-  EN_ATTENTE: 'default',
+  EN_ATTENTE: 'warning',
   EN_RETARD: 'error',
-  REFUSE: 'warning',
+  REFUSE: 'default',
 }
 
 const STATUT_LABEL: Record<string, string> = {
@@ -167,7 +167,7 @@ export function CotisationsPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-neutral-100">
-                {['Membre', 'Tontine', 'Montant', 'Méthode', 'Référence', 'Validé le', 'Statut', ''].map((h) => (
+                {['Membre', 'Tontine', 'Montant', 'Méthode', 'Référence', 'Validé le', 'Statut', 'Saisie par', ''].map((h) => (
                   <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
                     {h}
                   </th>
@@ -176,12 +176,14 @@ export function CotisationsPage() {
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={8} className="text-center py-10"><Spinner /></td></tr>
+                <tr><td colSpan={9} className="text-center py-10"><Spinner /></td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-10 text-neutral-400">Aucune cotisation trouvée</td></tr>
+                <tr><td colSpan={9} className="text-center py-10 text-neutral-400">Aucune cotisation trouvée</td></tr>
               ) : (
                 filtered.map((c: Cotisation) => {
                   const tontine = tontines.find((t) => t.id === activeTontineId)
+                  const ep: EnregistreParInfo | undefined = c.enregistrePar
+                  const isAutoDeclaré = ep && ep.id === c.membre.userId
                   return (
                     <tr key={c.id} className="border-b border-neutral-50 hover:bg-neutral-50 transition-colors">
                       <td className="px-5 py-4 font-semibold text-neutral-900">
@@ -204,6 +206,22 @@ export function CotisationsPage() {
                         <Badge variant={STATUT_BADGE[c.statut] || 'default'}>
                           {STATUT_LABEL[c.statut] || c.statut}
                         </Badge>
+                      </td>
+                      <td className="px-5 py-4">
+                        {!ep ? (
+                          <span className="text-neutral-300 text-xs">—</span>
+                        ) : isAutoDeclaré ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-neutral-100 text-neutral-600">
+                            Auto-déclaré
+                          </span>
+                        ) : (
+                          <span
+                            title={`${ep.firstName} ${ep.lastName}`}
+                            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 cursor-help"
+                          >
+                            Saisie admin
+                          </span>
+                        )}
                       </td>
                       <td className="px-5 py-4">
                         {c.statut === CotisationStatut.EN_ATTENTE && (

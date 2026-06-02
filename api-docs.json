@@ -1379,6 +1379,85 @@
         "security": [{ "bearerAuth": [] }]
       }
     },
+    "/v1/tontines/{tontineId}/cotisations/admin": {
+      "post": {
+        "tags": ["Cotisations"],
+        "summary": "Enregistrer et valider une cotisation (admin)",
+        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nPermet à l'admin d'enregistrer un paiement reçu directement (cash ou mobile money) pour n'importe quel membre de la tontine, y compris les membres **PRE_ENROLLED** qui n'ont pas encore de compte.\n\nLa cotisation est créée **directement en statut VALIDÉ** – pas de passage par EN_ATTENTE. Les champs `enregistrePar`, `validePar` et `dateValidation` sont remplis automatiquement avec les informations de l'admin appelant.\n\nUne notification WhatsApp est envoyée au membre à l'issue de l'enregistrement.",
+        "operationId": "adminRecordCotisation",
+        "parameters": [
+          {
+            "name": "tontineId",
+            "in": "path",
+            "description": "UUID de la tontine",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminRecordCotisationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Cotisation enregistrée et validée",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CotisationResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Données invalides ou cycle pas EN_COURS",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "JWT manquant ou expiré",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "Accès interdit (pas créateur ni SUPER_ADMIN)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "Tontine, cycle ou membre introuvable",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+              }
+            }
+          },
+          "409": {
+            "description": "Cotisation déjà enregistrée pour ce membre",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+              }
+            }
+          }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
     "/v1/tontines/{tontineId}/commissions": {
       "get": {
         "tags": ["Commissions"],
@@ -3027,6 +3106,10 @@
             "format": "date-time",
             "description": "Date de validation par l'admin (null si pas encore validé)"
           },
+          "enregistrePar": {
+            "$ref": "#/components/schemas/SaisiePar",
+            "description": "Utilisateur ayant saisi la cotisation (membre ou admin)"
+          },
           "validePar": {
             "$ref": "#/components/schemas/ValideurInfo",
             "description": "Admin qui a validé la cotisation (null si pas encore validé)"
@@ -3070,6 +3153,32 @@
           "phone": {
             "type": "string",
             "description": "Numéro de téléphone normalisé",
+            "example": 221770000001
+          }
+        }
+      },
+      "SaisiePar": {
+        "type": "object",
+        "description": "Utilisateur ayant saisi la cotisation (membre ou admin)",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID de l'utilisateur"
+          },
+          "firstName": {
+            "type": "string",
+            "description": "Prénom",
+            "example": "Aminata"
+          },
+          "lastName": {
+            "type": "string",
+            "description": "Nom de famille",
+            "example": "Diallo"
+          },
+          "phone": {
+            "type": "string",
+            "description": "Numéro de téléphone",
             "example": 221770000001
           }
         }
@@ -3680,6 +3789,45 @@
           }
         },
         "required": ["cycleId", "montant"]
+      },
+      "AdminRecordCotisationRequest": {
+        "type": "object",
+        "description": "Corps de la requête admin pour enregistrer une cotisation directement VALIDÉE. Utilisé pour les paiements cash ou les membres PRE_ENROLLED qui ne peuvent pas déclarer eux-mêmes. La cotisation est créée et validée en une seule opération.",
+        "properties": {
+          "membreId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID du membre dans la tontine (tontine_membres.id)",
+            "example": "550e8400-e29b-41d4-a716-446655440099"
+          },
+          "cycleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID du cycle concerné (cycles_tontine.id)",
+            "example": "550e8400-e29b-41d4-a716-446655440002"
+          },
+          "montant": {
+            "type": "number",
+            "description": "Montant cotisé en FCFA",
+            "example": 5000
+          },
+          "methodePaiement": {
+            "type": "string",
+            "description": "Méthode de paiement – code METHODE_PAIEMENT. Exemples : CASH, WAVE, ORANGE_MONEY, FREE_MONEY. Voir GET /v1/code-list/type/METHODE_PAIEMENT.",
+            "example": "CASH"
+          },
+          "referenceTransaction": {
+            "type": "string",
+            "description": "Référence de transaction externe (Wave, Orange Money…) si applicable",
+            "example": "WAVE-TXN-20240701-XYZ123"
+          },
+          "note": {
+            "type": "string",
+            "description": "Note libre de l'admin",
+            "example": "Reçu cash le 01/06/2026"
+          }
+        },
+        "required": ["cycleId", "membreId", "montant"]
       },
       "CreateCommissionRequest": {
         "type": "object",
