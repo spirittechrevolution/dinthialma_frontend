@@ -4,6 +4,7 @@ import { UserCircle } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { UserRole } from '@/types/common'
 import type { NavLink } from './AppLayout'
+import { LogoIcon } from '@/components/ui/LogoIcon'
 
 interface SidebarProps {
   links: NavLink[]
@@ -16,15 +17,6 @@ function getRoleLabel(hasRole: (r: UserRole) => boolean) {
   return 'Utilisateur'
 }
 
-function ShieldIcon() {
-  return (
-    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect width="32" height="32" rx="8" fill="#16a34a" />
-      <path d="M16 6L8 10v6c0 5.25 3.4 10.15 8 11.35C20.6 26.15 24 21.25 24 16v-6l-8-4z" fill="white" fillOpacity="0.9" />
-      <path d="M13 16l2 2 4-4" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
 
 export function Sidebar({ links }: SidebarProps) {
   const location = useLocation()
@@ -38,7 +30,7 @@ export function Sidebar({ links }: SidebarProps) {
     <aside className="hidden md:flex flex-col w-60 lg:w-64 bg-[#111827] text-white flex-shrink-0 h-screen">
       {/* Logo */}
       <div className="px-5 pt-6 pb-5 flex items-center gap-3">
-        <ShieldIcon />
+        <LogoIcon size={32} />
         <div>
           <h1 className="text-base font-bold leading-none">Dinthialma</h1>
           <p className="text-xs text-neutral-400 mt-0.5">Gestion de tontines</p>

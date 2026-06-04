@@ -5,6 +5,7 @@ import { isAxiosError } from 'axios'
 import { Delete, LogOut } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { getUserPhone, clearAll, getRefreshToken, getClientType } from '@/lib/tokenStorage'
+import { LogoIcon } from '@/components/ui/LogoIcon'
 import { UserRole } from '@/types/common'
 import api from '@/services/api'
 
@@ -239,10 +240,7 @@ export function PinLoginPage() {
       <div className="flex items-center justify-between px-5 pt-12 pb-2">
         <div className="flex items-center gap-2">
           <div className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center">
-            <svg width="22" height="22" viewBox="0 0 32 32" fill="none">
-              <path d="M16 3L6 8v7c0 6.55 4.25 12.68 10 14.19C21.75 27.68 26 21.55 26 15V8L16 3z" fill="white" fillOpacity="0.95"/>
-              <path d="M12 15.5l3 3 5-5" stroke="#16a34a" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+            <LogoIcon size={22} />
           </div>
           <span className="text-white font-bold text-sm">Dinthialma</span>
         </div>

@@ -3,6 +3,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { isAxiosError } from 'axios'
 import { Phone, Lock, AlertCircle, ArrowRight } from 'lucide-react'
+import { LogoIcon } from '@/components/ui/LogoIcon'
 import { useAuth } from '@/hooks/useAuth'
 import { UserRole } from '@/types/common'
 import { getPinConfigured } from '@/lib/tokenStorage'
@@ -20,11 +21,7 @@ function LeftPanel() {
   return (
     <div className="hidden lg:flex w-1/2 bg-[#0d1f0f] flex-col justify-between px-12 py-10 flex-shrink-0">
       <div className="flex items-center gap-3">
-        <svg width="36" height="36" viewBox="0 0 32 32" fill="none">
-          <rect width="32" height="32" rx="8" fill="#16a34a"/>
-          <path d="M16 6L8 10v6c0 5.25 3.4 10.15 8 11.35C20.6 26.15 24 21.25 24 16v-6l-8-4z" fill="white" fillOpacity="0.9"/>
-          <path d="M13 16l2 2 4-4" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
+        <LogoIcon size={36} />
         <div>
           <h1 className="text-white text-lg font-bold leading-none">Dinthialma</h1>
           <p className="text-neutral-400 text-xs">Gestion de tontines</p>
@@ -48,10 +45,7 @@ function MobileHeader({ title, subtitle }: { title: string; subtitle: string }) 
     <div className="lg:hidden relative bg-gradient-to-br from-[#0d1f0f] via-primary-800 to-primary-600 pt-14 pb-20 px-6 text-center flex-shrink-0">
       <div className="flex flex-col items-center gap-3 mb-5">
         <div className="w-16 h-16 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center ring-2 ring-white/20">
-          <svg width="36" height="36" viewBox="0 0 32 32" fill="none">
-            <path d="M16 3L6 8v7c0 6.55 4.25 12.68 10 14.19C21.75 27.68 26 21.55 26 15V8L16 3z" fill="white" fillOpacity="0.95"/>
-            <path d="M12 15.5l3 3 5-5" stroke="#16a34a" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
+          <LogoIcon size={36} />
         </div>
         <div>
           <p className="text-white text-xl font-extrabold leading-none tracking-tight">Dinthialma</p>
