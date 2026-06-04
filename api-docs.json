@@ -10,7 +10,10 @@
     "version": "1.0.0"
   },
   "servers": [
-    { "url": "/api", "description": "Serveur courant (context-path inclus)" }
+    {
+      "url": "/api",
+      "description": "Serveur courant (context-path inclus)"
+    }
   ],
   "tags": [
     {
@@ -29,7 +32,10 @@
       "name": "Cotisations",
       "description": "Enregistrement par le membre et validation par l'admin des paiements de cotisation"
     },
-    { "name": "Membres", "description": "Gestion des cotisants d'une tontine" },
+    {
+      "name": "Membres",
+      "description": "Gestion des cotisants d'une tontine"
+    },
     {
       "name": "Tontines",
       "description": "Gestion des groupes de tontine (CRUD + cycle de vie)"
@@ -90,7 +96,9 @@
   "paths": {
     "/v1/tontines/{tontineId}/cycles/{cycleId}/cloturer": {
       "put": {
-        "tags": ["Cycles"],
+        "tags": [
+          "Cycles"
+        ],
         "summary": "Clôturer un cycle",
         "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nPasse le cycle **EN_COURS → TERMINÉ** avec le traitement automatique suivant :\n\n1. Calcul du jackpot brut = somme des cotisations **VALIDÉES** du cycle\n2. Calcul des commissions actives (POURCENTAGE_JACKPOT, FRAIS_FIXES_PAR_CYCLE)\n3. Stockage de montantJackpot, montantCommission, montantNet\n4. Cotisations **EN_ATTENTE** restantes → marquées **EN_RETARD**\n5. En mode AUTOMATIQUE : le cycle suivant (EN_ATTENTE) passe **EN_COURS** et un SMS est envoyé au bénéficiaire suivant",
         "operationId": "closeCycle",
@@ -100,7 +108,10 @@
             "in": "path",
             "description": "UUID de la tontine",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "550e8400-e29b-41d4-a716-446655440000"
           },
           {
@@ -108,7 +119,10 @@
             "in": "path",
             "description": "UUID du cycle à clôturer",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "660e8400-e29b-41d4-a716-446655440000"
           }
         ],
@@ -117,7 +131,9 @@
             "description": "Cycle clôturé avec jackpot calculé",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CycleResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CycleResponse"
+                }
               }
             }
           },
@@ -125,7 +141,9 @@
             "description": "Cycle pas EN_COURS",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -133,7 +151,9 @@
             "description": "JWT manquant ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -141,7 +161,9 @@
             "description": "Accès interdit",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -149,17 +171,25 @@
             "description": "Tontine ou cycle introuvable",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/tontines/{tontineId}/cotisations/{cotisationId}/valider": {
       "put": {
-        "tags": ["Cotisations"],
+        "tags": [
+          "Cotisations"
+        ],
         "summary": "Valider une cotisation",
         "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nL'admin confirme la réception du paiement : statut **EN_ATTENTE → VALIDÉ**.\n\nRemplit automatiquement :\n- `validePar` : l'admin appelant\n- `dateValidation` : date/heure courante\n\nUne cotisation VALIDÉE est prise en compte dans le jackpot à la clôture du cycle.",
         "operationId": "validateCotisation",
@@ -169,7 +199,10 @@
             "in": "path",
             "description": "UUID de la tontine",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "550e8400-e29b-41d4-a716-446655440000"
           },
           {
@@ -177,7 +210,10 @@
             "in": "path",
             "description": "UUID de la cotisation à valider",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "880e8400-e29b-41d4-a716-446655440000"
           }
         ],
@@ -186,7 +222,9 @@
             "description": "Cotisation validée",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CotisationResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CotisationResponse"
+                }
               }
             }
           },
@@ -194,7 +232,9 @@
             "description": "Cotisation pas en statut EN_ATTENTE",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -202,7 +242,9 @@
             "description": "JWT manquant ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -210,7 +252,9 @@
             "description": "Accès interdit",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -218,17 +262,25 @@
             "description": "Tontine ou cotisation introuvable",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/tontines/{tontineId}/commissions/{commissionId}": {
       "put": {
-        "tags": ["Commissions"],
+        "tags": [
+          "Commissions"
+        ],
         "summary": "Modifier une commission",
         "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nMet à jour la valeur et/ou la description d'une commission existante. Les champs null ne sont pas modifiés.",
         "operationId": "updateCommission",
@@ -238,7 +290,10 @@
             "in": "path",
             "description": "UUID de la tontine",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "550e8400-e29b-41d4-a716-446655440000"
           },
           {
@@ -246,7 +301,10 @@
             "in": "path",
             "description": "UUID de la commission",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "990e8400-e29b-41d4-a716-446655440000"
           }
         ],
@@ -265,7 +323,9 @@
             "description": "Commission mise à jour",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CommissionResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CommissionResponse"
+                }
               }
             }
           },
@@ -273,7 +333,9 @@
             "description": "Données invalides",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -281,7 +343,9 @@
             "description": "JWT manquant ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -289,7 +353,9 @@
             "description": "Accès interdit",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -297,15 +363,23 @@
             "description": "Tontine ou commission introuvable",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "delete": {
-        "tags": ["Commissions"],
+        "tags": [
+          "Commissions"
+        ],
         "summary": "Supprimer une commission (soft delete)",
         "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nSuppression logique. La commission ne sera plus appliquée aux prochains cycles. Le même type peut être recréé ultérieurement.",
         "operationId": "deleteCommission",
@@ -315,7 +389,10 @@
             "in": "path",
             "description": "UUID de la tontine",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "550e8400-e29b-41d4-a716-446655440000"
           },
           {
@@ -323,7 +400,10 @@
             "in": "path",
             "description": "UUID de la commission",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "990e8400-e29b-41d4-a716-446655440000"
           }
         ],
@@ -332,7 +412,9 @@
             "description": "Commission supprimée",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -340,7 +422,9 @@
             "description": "JWT manquant ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -348,7 +432,9 @@
             "description": "Accès interdit",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -356,17 +442,25 @@
             "description": "Tontine ou commission introuvable",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/tontines/{id}": {
       "get": {
-        "tags": ["Tontines"],
+        "tags": [
+          "Tontines"
+        ],
         "summary": "Récupérer une tontine",
         "description": "🔒 Rôles : créateur de la tontine, membres de la tontine, SUPER_ADMIN.\n\nRetourne le détail complet de la tontine avec les informations du créateur.",
         "operationId": "getTontine",
@@ -376,7 +470,10 @@
             "in": "path",
             "description": "UUID de la tontine",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "550e8400-e29b-41d4-a716-446655440000"
           }
         ],
@@ -385,7 +482,9 @@
             "description": "Détail de la tontine",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/TontineResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/TontineResponse"
+                }
               }
             }
           },
@@ -393,7 +492,9 @@
             "description": "JWT manquant ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -401,7 +502,9 @@
             "description": "Accès interdit – pas créateur ni membre ni SUPER_ADMIN",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -409,15 +512,23 @@
             "description": "Tontine introuvable",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "put": {
-        "tags": ["Tontines"],
+        "tags": [
+          "Tontines"
+        ],
         "summary": "Mettre à jour une tontine",
         "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nModification autorisée **uniquement si la tontine est en statut BROUILLON**. Les champs null dans la requête ne sont pas modifiés.",
         "operationId": "updateTontine",
@@ -427,14 +538,19 @@
             "in": "path",
             "description": "UUID de la tontine",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "550e8400-e29b-41d4-a716-446655440000"
           }
         ],
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/UpdateTontineRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTontineRequest"
+              }
             }
           },
           "required": true
@@ -444,7 +560,9 @@
             "description": "Tontine mise à jour",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/TontineResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/TontineResponse"
+                }
               }
             }
           },
@@ -452,7 +570,9 @@
             "description": "Données invalides ou tontine pas en BROUILLON",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -460,7 +580,9 @@
             "description": "JWT manquant ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -468,7 +590,9 @@
             "description": "Accès interdit – pas le créateur ni SUPER_ADMIN",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -476,15 +600,23 @@
             "description": "Tontine introuvable",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "delete": {
-        "tags": ["Tontines"],
+        "tags": [
+          "Tontines"
+        ],
         "summary": "Supprimer une tontine (soft delete)",
         "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nSuppression logique (deletedAt renseigné) – la tontine disparaît des listes mais les données restent en base. Autorisé **uniquement en statut BROUILLON**.",
         "operationId": "deleteTontine",
@@ -494,7 +626,10 @@
             "in": "path",
             "description": "UUID de la tontine",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "550e8400-e29b-41d4-a716-446655440000"
           }
         ],
@@ -503,7 +638,9 @@
             "description": "Tontine supprimée",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -511,7 +648,9 @@
             "description": "Tontine pas en statut BROUILLON",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -519,7 +658,9 @@
             "description": "JWT manquant ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -527,7 +668,9 @@
             "description": "Accès interdit",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -535,17 +678,25 @@
             "description": "Tontine introuvable",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/tontines/{id}/suspendre": {
       "put": {
-        "tags": ["Tontines"],
+        "tags": [
+          "Tontines"
+        ],
         "summary": "Suspendre une tontine",
         "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nPasse la tontine de **ACTIVE** à **SUSPENDUE**. Les cycles et cotisations existants sont conservés. La tontine peut être réactivée via `PUT /{id}/activer`.",
         "operationId": "suspendTontine",
@@ -555,7 +706,10 @@
             "in": "path",
             "description": "UUID de la tontine",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "550e8400-e29b-41d4-a716-446655440000"
           }
         ],
@@ -564,7 +718,9 @@
             "description": "Tontine suspendue",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/TontineResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/TontineResponse"
+                }
               }
             }
           },
@@ -572,7 +728,9 @@
             "description": "Tontine pas en statut ACTIVE",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -580,7 +738,9 @@
             "description": "JWT manquant ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -588,7 +748,9 @@
             "description": "Accès interdit",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -596,17 +758,25 @@
             "description": "Tontine introuvable",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/tontines/{id}/activer": {
       "put": {
-        "tags": ["Tontines"],
+        "tags": [
+          "Tontines"
+        ],
         "summary": "Activer une tontine",
         "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nPasse la tontine de **BROUILLON** (ou SUSPENDUE) à **ACTIVE**.\n\nEn mode **AUTOMATIQUE** : génère immédiatement tous les cycles (N cycles = N membres attendus), le premier passe EN_COURS.\n\nEn mode **MANUEL** : la tontine est active mais les cycles doivent être ouverts manuellement.",
         "operationId": "activateTontine",
@@ -616,7 +786,10 @@
             "in": "path",
             "description": "UUID de la tontine",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "550e8400-e29b-41d4-a716-446655440000"
           }
         ],
@@ -625,7 +798,9 @@
             "description": "Tontine activée",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/TontineResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/TontineResponse"
+                }
               }
             }
           },
@@ -633,7 +808,9 @@
             "description": "Tontine déjà ACTIVE ou TERMINEE",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -641,7 +818,9 @@
             "description": "JWT manquant ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -649,7 +828,9 @@
             "description": "Accès interdit",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -657,17 +838,25 @@
             "description": "Tontine introuvable",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/profile": {
       "get": {
-        "tags": ["Profil"],
+        "tags": [
+          "Profil"
+        ],
         "summary": "Voir mon profil",
         "description": "🔒 Accès : USER, MEMBER, ADMIN, SUPER_ADMIN",
         "operationId": "getProfile",
@@ -676,22 +865,32 @@
             "description": "Profil retourné",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "put": {
-        "tags": ["Profil"],
+        "tags": [
+          "Profil"
+        ],
         "summary": "Modifier mon profil (nom, prénom, email)",
         "description": "🔒 Accès : USER, MEMBER, ADMIN, SUPER_ADMIN — Met à jour DB + Keycloak.",
         "operationId": "updateProfile",
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/UpdateProfileRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileRequest"
+              }
             }
           },
           "required": true
@@ -701,7 +900,9 @@
             "description": "Profil mis à jour",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -709,17 +910,25 @@
             "description": "Email déjà utilisé",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/code-list/{id}": {
       "get": {
-        "tags": ["CodeList"],
+        "tags": [
+          "CodeList"
+        ],
         "summary": "Détail d'un code list par id",
         "operationId": "findById",
         "parameters": [
@@ -728,7 +937,10 @@
             "in": "path",
             "description": "UUID de l'entrée du code list",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "550e8400-e29b-41d4-a716-446655440000"
           }
         ],
@@ -737,7 +949,9 @@
             "description": "Code list trouvé",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/LaCodeListDto" }
+                "schema": {
+                  "$ref": "#/components/schemas/LaCodeListDto"
+                }
               }
             }
           },
@@ -745,7 +959,9 @@
             "description": "Token manquant ou invalide",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -753,15 +969,23 @@
             "description": "Code list introuvable",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "put": {
-        "tags": ["CodeList"],
+        "tags": [
+          "CodeList"
+        ],
         "summary": "Modifier un code list (admin)",
         "description": "🛡 **Rôle requis :** `ADMIN` ou `SUPER_ADMIN`.\n\nMet à jour un code list existant. Le couple type/value doit rester unique.",
         "operationId": "update",
@@ -771,14 +995,19 @@
             "in": "path",
             "description": "UUID de l'entrée à modifier",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "550e8400-e29b-41d4-a716-446655440000"
           }
         ],
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/LaCodeListDto" }
+              "schema": {
+                "$ref": "#/components/schemas/LaCodeListDto"
+              }
             }
           },
           "required": true
@@ -788,7 +1017,9 @@
             "description": "Code list mis à jour",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -796,7 +1027,9 @@
             "description": "Données invalides",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -804,7 +1037,9 @@
             "description": "Token manquant ou invalide",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -812,7 +1047,9 @@
             "description": "Rôle insuffisant",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -820,7 +1057,9 @@
             "description": "Code list introuvable",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -828,17 +1067,25 @@
             "description": "Ce couple type/value existe déjà",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/admin/dashboard/users/{userId}/roles": {
       "put": {
-        "tags": ["Administration"],
+        "tags": [
+          "Administration"
+        ],
         "summary": "Modifier les rôles d'un utilisateur",
         "description": "🔒 Rôle requis : **SUPER_ADMIN**.\n\n**Replace-all idempotent** : les rôles fournis remplacent complètement les rôles existants.\n\nRègles :\n- Le rôle USER est toujours conservé même s'il n'est pas dans la liste\n- Les rôles Keycloak sont synchronisés simultanément\n\nExemple : `{\"roles\": [\"USER\", \"ADMIN\"]}` → attribue ADMIN, retire MEMBER si présent",
         "operationId": "updateUserRoles",
@@ -848,7 +1095,10 @@
             "in": "path",
             "description": "UUID de l'utilisateur",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "550e8400-e29b-41d4-a716-446655440000"
           }
         ],
@@ -867,7 +1117,9 @@
             "description": "Rôles mis à jour",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/AdminUserResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserResponse"
+                }
               }
             }
           },
@@ -875,7 +1127,9 @@
             "description": "Rôles invalides",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -883,7 +1137,9 @@
             "description": "JWT manquant ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -891,7 +1147,9 @@
             "description": "Accès interdit – SUPER_ADMIN requis",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -899,17 +1157,25 @@
             "description": "Utilisateur introuvable",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/tontines": {
       "get": {
-        "tags": ["Tontines"],
+        "tags": [
+          "Tontines"
+        ],
         "summary": "Lister les tontines",
         "description": "🔒 Rôles : tout utilisateur authentifié.\n\n- **SUPER_ADMIN** : voit toutes les tontines de la plateforme.\n- **Autres** : voit uniquement les tontines dont il est créateur + celles où il est cotisant.\n\nPagination : `?page=0&size=20&sort=createdAt,desc`",
         "operationId": "listTontines",
@@ -918,7 +1184,9 @@
             "name": "pageable",
             "in": "query",
             "required": true,
-            "schema": { "$ref": "#/components/schemas/Pageable" }
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
           }
         ],
         "responses": {
@@ -926,7 +1194,9 @@
             "description": "Page de tontines",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/TontineResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/TontineResponse"
+                }
               }
             }
           },
@@ -934,22 +1204,32 @@
             "description": "JWT manquant ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "post": {
-        "tags": ["Tontines"],
+        "tags": [
+          "Tontines"
+        ],
         "summary": "Créer une tontine",
         "description": "🔒 Rôles : tout utilisateur authentifié.\n\nL'appelant devient automatiquement l'administrateur de la tontine et reçoit le rôle DINTHIALMA_ADMIN. La tontine est créée en statut **BROUILLON** – elle doit être activée (`PUT /{id}/activer`) pour démarrer les cotisations.",
         "operationId": "createTontine",
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/CreateTontineRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/CreateTontineRequest"
+              }
             }
           },
           "required": true
@@ -959,7 +1239,9 @@
             "description": "Tontine créée en statut BROUILLON",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/TontineResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/TontineResponse"
+                }
               }
             }
           },
@@ -967,7 +1249,9 @@
             "description": "Données invalides (validation)",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -975,17 +1259,25 @@
             "description": "JWT manquant ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/tontines/{tontineId}/membres": {
       "get": {
-        "tags": ["Membres"],
+        "tags": [
+          "Membres"
+        ],
         "summary": "Lister les cotisants d'une tontine",
         "description": "🔒 Rôles : membres de la tontine, créateur, SUPER_ADMIN.\n\nRetourne les cotisants triés par ordre jackpot (position dans la rotation).\n\nPagination : `?page=0&size=20&sort=ordreJackpot,asc`",
         "operationId": "listMembres",
@@ -995,14 +1287,19 @@
             "in": "path",
             "description": "UUID de la tontine",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "550e8400-e29b-41d4-a716-446655440000"
           },
           {
             "name": "pageable",
             "in": "query",
             "required": true,
-            "schema": { "$ref": "#/components/schemas/Pageable" }
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
           }
         ],
         "responses": {
@@ -1010,7 +1307,9 @@
             "description": "Page de cotisants",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/MembreResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/MembreResponse"
+                }
               }
             }
           },
@@ -1018,7 +1317,9 @@
             "description": "JWT manquant ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1026,7 +1327,9 @@
             "description": "Accès interdit",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1034,15 +1337,23 @@
             "description": "Tontine introuvable",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "post": {
-        "tags": ["Membres"],
+        "tags": [
+          "Membres"
+        ],
         "summary": "Ajouter un cotisant",
         "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nAjoute un cotisant via son **numéro de téléphone**, son **prénom** et son **nom**.\n\n- Si le numéro est déjà inscrit (ACTIVE) → ajout direct, rôle MEMBER attribué. Le nom fourni est ignoré (l'utilisateur a son propre profil).\n- Si le numéro est inconnu → un compte **pré-inscrit (PRE_ENROLLED)** est créé avec le prénom et nom fournis. Le membre apparaît immédiatement dans la tontine avec son nom. Un SMS d'invitation est envoyé.\n- Si le numéro existe déjà en PRE_ENROLLED (ajouté par un autre admin) et que le nom est encore vide → le nom est complété.\n\nSi `ordreJackpot` est null, le membre est placé en fin de liste.",
         "operationId": "addMembre",
@@ -1052,14 +1363,19 @@
             "in": "path",
             "description": "UUID de la tontine",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "550e8400-e29b-41d4-a716-446655440000"
           }
         ],
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/AddMembreRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/AddMembreRequest"
+              }
             }
           },
           "required": true
@@ -1069,7 +1385,9 @@
             "description": "Cotisant ajouté",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/MembreResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/MembreResponse"
+                }
               }
             }
           },
@@ -1077,7 +1395,9 @@
             "description": "Utilisateur déjà membre de la tontine ou tontine complète",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1085,7 +1405,9 @@
             "description": "JWT manquant ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1093,7 +1415,9 @@
             "description": "Accès interdit",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1101,17 +1425,25 @@
             "description": "Tontine ou utilisateur introuvable",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/tontines/{tontineId}/cycles": {
       "get": {
-        "tags": ["Cycles"],
+        "tags": [
+          "Cycles"
+        ],
         "summary": "Lister les cycles d'une tontine",
         "description": "🔒 Rôles : membres de la tontine, créateur, SUPER_ADMIN.\n\nRetourne tous les cycles triés par numéro croissant (1, 2, 3, ...).\n\nStatuts possibles : EN_ATTENTE (généré mais pas encore démarré), EN_COURS (actif), TERMINE (clôturé).\n\nPagination : `?page=0&size=20&sort=numeroCycle,asc`",
         "operationId": "listCycles",
@@ -1121,14 +1453,19 @@
             "in": "path",
             "description": "UUID de la tontine",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "550e8400-e29b-41d4-a716-446655440000"
           },
           {
             "name": "pageable",
             "in": "query",
             "required": true,
-            "schema": { "$ref": "#/components/schemas/Pageable" }
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
           }
         ],
         "responses": {
@@ -1136,7 +1473,9 @@
             "description": "Page de cycles",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CycleResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CycleResponse"
+                }
               }
             }
           },
@@ -1144,7 +1483,9 @@
             "description": "JWT manquant ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1152,7 +1493,9 @@
             "description": "Accès interdit",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1160,15 +1503,23 @@
             "description": "Tontine introuvable",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "post": {
-        "tags": ["Cycles"],
+        "tags": [
+          "Cycles"
+        ],
         "summary": "Ouvrir un cycle manuellement",
         "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\n**Mode MANUEL uniquement.** Crée et ouvre un nouveau cycle avec les dates et le bénéficiaire spécifiés.\n\nConditions : tontine ACTIVE, aucun autre cycle EN_COURS, dateDebut ≤ dateFin.\n\nSi `beneficiaireId` est fourni, un SMS d'annonce est envoyé au bénéficiaire.",
         "operationId": "openCycle",
@@ -1178,14 +1529,19 @@
             "in": "path",
             "description": "UUID de la tontine",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "550e8400-e29b-41d4-a716-446655440000"
           }
         ],
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/OpenCycleRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/OpenCycleRequest"
+              }
             }
           },
           "required": true
@@ -1195,7 +1551,9 @@
             "description": "Cycle ouvert",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CycleResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CycleResponse"
+                }
               }
             }
           },
@@ -1203,7 +1561,9 @@
             "description": "Mode pas MANUEL, tontine pas ACTIVE, ou cycle déjà EN_COURS",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1211,7 +1571,9 @@
             "description": "JWT manquant ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1219,7 +1581,9 @@
             "description": "Accès interdit",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1227,17 +1591,25 @@
             "description": "Tontine ou bénéficiaire introuvable",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/tontines/{tontineId}/cotisations": {
       "get": {
-        "tags": ["Cotisations"],
+        "tags": [
+          "Cotisations"
+        ],
         "summary": "Lister les cotisations",
         "description": "🔒 Rôles : membres, créateur, SUPER_ADMIN.\n\n- **SUPER_ADMIN** et **créateur** : voient toutes les cotisations de la tontine.\n- **MEMBER** : voit uniquement ses propres cotisations.\n\nParamètre optionnel `cycleId` pour filtrer par cycle.\n\nPagination : `?page=0&size=20&sort=createdAt,desc&cycleId=<uuid>`",
         "operationId": "listCotisations",
@@ -1247,7 +1619,10 @@
             "in": "path",
             "description": "UUID de la tontine",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "550e8400-e29b-41d4-a716-446655440000"
           },
           {
@@ -1255,14 +1630,19 @@
             "in": "query",
             "description": "Filtrer par cycle (optionnel)",
             "required": false,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "660e8400-e29b-41d4-a716-446655440000"
           },
           {
             "name": "pageable",
             "in": "query",
             "required": true,
-            "schema": { "$ref": "#/components/schemas/Pageable" }
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
           }
         ],
         "responses": {
@@ -1270,7 +1650,9 @@
             "description": "Page de cotisations",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CotisationResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CotisationResponse"
+                }
               }
             }
           },
@@ -1278,7 +1660,9 @@
             "description": "JWT manquant ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1286,7 +1670,9 @@
             "description": "Accès interdit",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1294,15 +1680,23 @@
             "description": "Tontine introuvable",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "post": {
-        "tags": ["Cotisations"],
+        "tags": [
+          "Cotisations"
+        ],
         "summary": "Enregistrer une cotisation",
         "description": "🔒 Rôles : cotisant (MEMBER) de la tontine.\n\nLe membre signale son paiement. La cotisation est créée en statut **EN_ATTENTE** – l'admin devra la valider.\n\nContrainte : **une seule cotisation par membre par cycle** – une 2ème tentative retourne une erreur 409.",
         "operationId": "recordCotisation",
@@ -1312,7 +1706,10 @@
             "in": "path",
             "description": "UUID de la tontine",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "550e8400-e29b-41d4-a716-446655440000"
           }
         ],
@@ -1331,7 +1728,9 @@
             "description": "Cotisation enregistrée en statut EN_ATTENTE",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CotisationResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CotisationResponse"
+                }
               }
             }
           },
@@ -1339,7 +1738,9 @@
             "description": "Données invalides ou cycle pas EN_COURS",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1347,7 +1748,9 @@
             "description": "JWT manquant ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1355,7 +1758,9 @@
             "description": "Accès interdit (pas cotisant de la tontine)",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1363,7 +1768,9 @@
             "description": "Tontine ou cycle introuvable",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1371,17 +1778,25 @@
             "description": "Cotisation déjà enregistrée pour ce cycle",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/tontines/{tontineId}/cotisations/admin": {
       "post": {
-        "tags": ["Cotisations"],
+        "tags": [
+          "Cotisations"
+        ],
         "summary": "Enregistrer et valider une cotisation (admin)",
         "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nPermet à l'admin d'enregistrer un paiement reçu directement (cash ou mobile money) pour n'importe quel membre de la tontine, y compris les membres **PRE_ENROLLED** qui n'ont pas encore de compte.\n\nLa cotisation est créée **directement en statut VALIDÉ** – pas de passage par EN_ATTENTE. Les champs `enregistrePar`, `validePar` et `dateValidation` sont remplis automatiquement avec les informations de l'admin appelant.\n\nUne notification WhatsApp est envoyée au membre à l'issue de l'enregistrement.",
         "operationId": "adminRecordCotisation",
@@ -1391,7 +1806,10 @@
             "in": "path",
             "description": "UUID de la tontine",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "550e8400-e29b-41d4-a716-446655440000"
           }
         ],
@@ -1410,7 +1828,9 @@
             "description": "Cotisation enregistrée et validée",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CotisationResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CotisationResponse"
+                }
               }
             }
           },
@@ -1418,7 +1838,9 @@
             "description": "Données invalides ou cycle pas EN_COURS",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1426,7 +1848,9 @@
             "description": "JWT manquant ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1434,7 +1858,9 @@
             "description": "Accès interdit (pas créateur ni SUPER_ADMIN)",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1442,7 +1868,9 @@
             "description": "Tontine, cycle ou membre introuvable",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1450,17 +1878,25 @@
             "description": "Cotisation déjà enregistrée pour ce membre",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/tontines/{tontineId}/commissions": {
       "get": {
-        "tags": ["Commissions"],
+        "tags": [
+          "Commissions"
+        ],
         "summary": "Lister les commissions actives",
         "description": "🔒 Rôles : membres de la tontine, créateur, SUPER_ADMIN.\n\nRetourne toutes les commissions non supprimées de la tontine. Les membres peuvent ainsi voir les frais de gestion appliqués.",
         "operationId": "listCommissions",
@@ -1470,14 +1906,19 @@
             "in": "path",
             "description": "UUID de la tontine",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "550e8400-e29b-41d4-a716-446655440000"
           },
           {
             "name": "pageable",
             "in": "query",
             "required": true,
-            "schema": { "$ref": "#/components/schemas/Pageable" }
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
           }
         ],
         "responses": {
@@ -1485,7 +1926,9 @@
             "description": "Page de commissions",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CommissionResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CommissionResponse"
+                }
               }
             }
           },
@@ -1493,7 +1936,9 @@
             "description": "JWT manquant ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1501,7 +1946,9 @@
             "description": "Accès interdit",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1509,15 +1956,23 @@
             "description": "Tontine introuvable",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "post": {
-        "tags": ["Commissions"],
+        "tags": [
+          "Commissions"
+        ],
         "summary": "Créer une commission",
         "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nDéfinit une règle de commission appliquée automatiquement à chaque clôture de cycle.\n\n**Types disponibles :**\n- `POURCENTAGE_JACKPOT` : ex. 4 % → 20 000 FCFA prélevés sur un jackpot de 500 000 FCFA\n- `FRAIS_FIXES_PAR_CYCLE` : montant fixe FCFA déduit à chaque clôture\n- `FRAIS_ADHESION` : prélevé à l'entrée du membre, **ne réduit pas le jackpot**\n\n**Contrainte** : maximum 1 commission par type (erreur 409 si doublon).",
         "operationId": "createCommission",
@@ -1527,7 +1982,10 @@
             "in": "path",
             "description": "UUID de la tontine",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "550e8400-e29b-41d4-a716-446655440000"
           }
         ],
@@ -1546,7 +2004,9 @@
             "description": "Commission créée",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CommissionResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CommissionResponse"
+                }
               }
             }
           },
@@ -1554,7 +2014,9 @@
             "description": "Données invalides",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1562,7 +2024,9 @@
             "description": "JWT manquant ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1570,7 +2034,9 @@
             "description": "Accès interdit",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1578,7 +2044,9 @@
             "description": "Tontine introuvable",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1586,17 +2054,25 @@
             "description": "Commission de ce type déjà configurée",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/profile/phone/verify": {
       "post": {
-        "tags": ["Profil"],
+        "tags": [
+          "Profil"
+        ],
         "summary": "Confirmer le changement de numéro – étape 2/2",
         "description": "🔒 Vérifie l'OTP et applique le changement : met à jour Keycloak + DB + révoque toutes les sessions. Re-connexion obligatoire après cette opération.",
         "operationId": "verifyPhoneChange",
@@ -1615,7 +2091,9 @@
             "description": "Numéro changé – toutes les sessions révoquées",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1623,24 +2101,34 @@
             "description": "OTP invalide ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/profile/phone/request-change": {
       "post": {
-        "tags": ["Profil"],
+        "tags": [
+          "Profil"
+        ],
         "summary": "Demander un changement de numéro – étape 1/2",
         "description": "🔒 Envoie un OTP SMS au NOUVEAU numéro. Les tontines et memberships sont conservés (liés à l'UUID, pas au numéro).",
         "operationId": "requestPhoneChange",
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/PhoneChangeRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/PhoneChangeRequest"
+              }
             }
           },
           "required": true
@@ -1650,7 +2138,9 @@
             "description": "OTP envoyé au nouveau numéro",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1658,7 +2148,9 @@
             "description": "Nouveau numéro identique à l'actuel",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1666,17 +2158,25 @@
             "description": "Numéro déjà utilisé par un autre compte",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/code-list": {
       "get": {
-        "tags": ["CodeList"],
+        "tags": [
+          "CodeList"
+        ],
         "summary": "Liste paginée de tous les code lists",
         "description": "🔒 Accessible à tout utilisateur authentifié.\n\nRetourne l'ensemble des entrées de tous les référentiels. Supporte pagination et tri.\n\nPagination : `?page=0&size=25&sort=type,asc`",
         "operationId": "findAll",
@@ -1686,14 +2186,22 @@
             "in": "query",
             "description": "Zero-based page index (0..N)",
             "required": false,
-            "schema": { "type": "integer", "default": 0, "minimum": 0 }
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "minimum": 0
+            }
           },
           {
             "name": "size",
             "in": "query",
             "description": "The size of the page to be returned",
             "required": false,
-            "schema": { "type": "integer", "default": 25, "minimum": 1 }
+            "schema": {
+              "type": "integer",
+              "default": 25,
+              "minimum": 1
+            }
           },
           {
             "name": "sort",
@@ -1702,8 +2210,12 @@
             "required": false,
             "schema": {
               "type": "array",
-              "default": ["type,ASC"],
-              "items": { "type": "string" }
+              "default": [
+                "type,ASC"
+              ],
+              "items": {
+                "type": "string"
+              }
             }
           }
         ],
@@ -1712,7 +2224,9 @@
             "description": "Page de code lists",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/LaCodeListDto" }
+                "schema": {
+                  "$ref": "#/components/schemas/LaCodeListDto"
+                }
               }
             }
           },
@@ -1720,22 +2234,32 @@
             "description": "Token manquant ou invalide",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       },
       "post": {
-        "tags": ["CodeList"],
+        "tags": [
+          "CodeList"
+        ],
         "summary": "Créer un code list (admin)",
         "description": "🛡 **Rôle requis :** `ADMIN` ou `SUPER_ADMIN`.\n\nCrée une nouvelle valeur de référentiel. Le couple type/value doit être unique.",
         "operationId": "create",
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/LaCodeListDto" }
+              "schema": {
+                "$ref": "#/components/schemas/LaCodeListDto"
+              }
             }
           },
           "required": true
@@ -1745,7 +2269,9 @@
             "description": "Code list créé",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/LaCodeListDto" }
+                "schema": {
+                  "$ref": "#/components/schemas/LaCodeListDto"
+                }
               }
             }
           },
@@ -1753,7 +2279,9 @@
             "description": "Données invalides",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1761,7 +2289,9 @@
             "description": "Token manquant ou invalide",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1769,7 +2299,9 @@
             "description": "Rôle insuffisant",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1777,23 +2309,33 @@
             "description": "Ce couple type/value existe déjà",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/auth/register/verify-otp": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "summary": "Étape 2/3 – Vérifier l'OTP reçu par SMS",
         "operationId": "verifyOtp",
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/VerifyOtpRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/VerifyOtpRequest"
+              }
             }
           },
           "required": true
@@ -1803,7 +2345,9 @@
             "description": "OTP vérifié",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1811,7 +2355,9 @@
             "description": "OTP invalide ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
@@ -1820,14 +2366,18 @@
     },
     "/v1/auth/register/send-otp": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "summary": "Étape 1/3 – Envoyer un OTP par SMS",
         "description": "Envoie un code OTP au numéro fourni.\n\n- Numéro inconnu → nouveau compte.\n- Numéro **PRE_ENROLLED** (ajouté à une tontine par un gestionnaire) → OTP envoyé pour activer le compte. HTTP 200 dans les deux cas.\n- Numéro déjà inscrit (ACTIVE) → HTTP 409.",
         "operationId": "sendOtp",
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/SendOtpRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/SendOtpRequest"
+              }
             }
           },
           "required": true
@@ -1837,7 +2387,9 @@
             "description": "OTP envoyé",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1845,7 +2397,9 @@
             "description": "Téléphone déjà utilisé par un compte ACTIVE",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
@@ -1854,7 +2408,9 @@
     },
     "/v1/auth/register/complete": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "summary": "Étape 3/3 – Finaliser l'inscription",
         "description": "Crée le compte Keycloak et finalise l'enregistrement local.\n\n**Cas PRE_ENROLLED** : si le numéro appartient à un compte pré-inscrit par un gestionnaire de tontine, cette étape **active** le compte existant (keycloakId, firstName, lastName mis à jour, statut → ACTIVE, rôles USER + MEMBER attribués). Les memberships tontine déjà créés sont conservés.",
         "operationId": "completeRegistration",
@@ -1873,7 +2429,9 @@
             "description": "Compte créé (nouveau) ou activé (PRE_ENROLLED)",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1881,7 +2439,9 @@
             "description": "OTP non vérifié ou données invalides",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1889,7 +2449,9 @@
             "description": "Téléphone déjà utilisé par un compte ACTIVE",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
@@ -1898,14 +2460,18 @@
     },
     "/v1/auth/refresh": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "summary": "Rafraîchir les tokens JWT",
         "description": "Échange un refresh_token Keycloak valide contre de nouveaux tokens JWT.",
         "operationId": "refresh",
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/RefreshTokenRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenRequest"
+              }
             }
           },
           "required": true
@@ -1915,7 +2481,9 @@
             "description": "Nouveaux tokens retournés",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1923,7 +2491,9 @@
             "description": "Refresh token invalide ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
@@ -1932,14 +2502,18 @@
     },
     "/v1/auth/pin/setup": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "summary": "Configurer le code PIN",
         "description": "Accessible uniquement après connexion complète (JWT requis).",
         "operationId": "setupPin",
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/PinSetupRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/PinSetupRequest"
+              }
             }
           },
           "required": true
@@ -1949,7 +2523,9 @@
             "description": "Code PIN configuré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1957,7 +2533,9 @@
             "description": "PIN invalide ou confirmation incorrecte",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1965,23 +2543,33 @@
             "description": "JWT manquant ou invalide",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/auth/pin/reset": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "summary": "Reset PIN 3/3 – Choisir un nouveau code PIN",
         "operationId": "resetPin",
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/PinResetRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/PinResetRequest"
+              }
             }
           },
           "required": true
@@ -1991,7 +2579,9 @@
             "description": "Code PIN réinitialisé",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -1999,7 +2589,9 @@
             "description": "OTP invalide, PIN faible ou confirmation incorrecte",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
@@ -2008,13 +2600,17 @@
     },
     "/v1/auth/pin/reset/verify-otp": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "summary": "Reset PIN 2/3 – Vérifier l'OTP",
         "operationId": "verifyResetPinOtp",
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/VerifyOtpRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/VerifyOtpRequest"
+              }
             }
           },
           "required": true
@@ -2024,7 +2620,9 @@
             "description": "OTP vérifié",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
@@ -2033,14 +2631,18 @@
     },
     "/v1/auth/pin/reset/send-otp": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "summary": "Reset PIN 1/3 – Envoyer un OTP par SMS",
         "description": "Anti-énumération : répond toujours HTTP 200.",
         "operationId": "sendResetPinOtp",
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/SendOtpRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/SendOtpRequest"
+              }
             }
           },
           "required": true
@@ -2050,7 +2652,9 @@
             "description": "OTP envoyé",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
@@ -2059,13 +2663,17 @@
     },
     "/v1/auth/logout": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "summary": "Déconnexion – invalide la session Keycloak",
         "operationId": "logout",
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/LogoutRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/LogoutRequest"
+              }
             }
           },
           "required": true
@@ -2075,7 +2683,9 @@
             "description": "Déconnexion réussie",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
@@ -2084,14 +2694,18 @@
     },
     "/v1/auth/login": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "summary": "Connexion par téléphone ou email + mot de passe",
         "description": "L'identifiant peut être le numéro de téléphone (avec ou sans +) ou l'adresse email.\n\n**Compte PRE_ENROLLED** : si l'utilisateur a été ajouté à une tontine par un gestionnaire avant de s'inscrire, la connexion retourne HTTP 403 avec un message invitant à s'inscrire sur l'application.",
         "operationId": "login",
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/LoginRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
             }
           },
           "required": true
@@ -2101,7 +2715,9 @@
             "description": "Connexion réussie – tokens JWT retournés",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -2109,7 +2725,9 @@
             "description": "Identifiants incorrects",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -2117,7 +2735,9 @@
             "description": "Compte désactivé ou compte PRE_ENROLLED non encore activé",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
@@ -2126,14 +2746,18 @@
     },
     "/v1/auth/login-pin": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "summary": "Connexion rapide par code PIN (WEB + MOBILE)",
         "description": "Pré-requis : PIN configuré et session active existante (connexion mot de passe préalable).",
         "operationId": "loginWithPin",
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/PinLoginRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/PinLoginRequest"
+              }
             }
           },
           "required": true
@@ -2143,7 +2767,9 @@
             "description": "Connexion PIN réussie – tokens JWT",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -2151,7 +2777,9 @@
             "description": "PIN non configuré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -2159,7 +2787,9 @@
             "description": "PIN incorrect ou session expirée",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -2167,7 +2797,9 @@
             "description": "Utilisateur introuvable",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -2175,7 +2807,9 @@
             "description": "PIN verrouillé (trop de tentatives)",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
@@ -2184,13 +2818,17 @@
     },
     "/v1/auth/forgot-password/verify-otp": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "summary": "Reset mot de passe 2/3 – Vérifier l'OTP",
         "operationId": "verifyForgotPasswordOtp",
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/VerifyOtpRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/VerifyOtpRequest"
+              }
             }
           },
           "required": true
@@ -2200,7 +2838,9 @@
             "description": "OTP vérifié",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
@@ -2209,14 +2849,18 @@
     },
     "/v1/auth/forgot-password/send-otp": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "summary": "Reset mot de passe 1/3 – Envoyer OTP par SMS",
         "description": "Anti-énumération : répond toujours HTTP 200, même si le numéro est inconnu.",
         "operationId": "sendForgotPasswordOtp",
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/SendOtpRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/SendOtpRequest"
+              }
             }
           },
           "required": true
@@ -2226,7 +2870,9 @@
             "description": "OTP envoyé (même réponse si numéro inconnu)",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
@@ -2235,7 +2881,9 @@
     },
     "/v1/auth/forgot-password/reset": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "summary": "Reset mot de passe 3/3 – Choisir un nouveau mot de passe",
         "operationId": "resetPasswordByPhone",
         "requestBody": {
@@ -2253,7 +2901,9 @@
             "description": "Mot de passe réinitialisé",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -2261,7 +2911,9 @@
             "description": "OTP invalide ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
@@ -2270,7 +2922,9 @@
     },
     "/v1/admin/dashboard/users/{userId}/enable": {
       "post": {
-        "tags": ["Administration"],
+        "tags": [
+          "Administration"
+        ],
         "summary": "Réactiver un compte utilisateur",
         "description": "🔒 Rôle requis : **SUPER_ADMIN**.\n\nRéactive un compte désactivé (active = true) et le réactive dans Keycloak.",
         "operationId": "enableUser",
@@ -2280,7 +2934,10 @@
             "in": "path",
             "description": "UUID de l'utilisateur à réactiver",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "550e8400-e29b-41d4-a716-446655440000"
           }
         ],
@@ -2289,7 +2946,9 @@
             "description": "Compte réactivé",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/AdminUserResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserResponse"
+                }
               }
             }
           },
@@ -2297,7 +2956,9 @@
             "description": "JWT manquant ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -2305,7 +2966,9 @@
             "description": "Accès interdit – SUPER_ADMIN requis",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -2313,17 +2976,25 @@
             "description": "Utilisateur introuvable",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/admin/dashboard/users/{userId}/disable": {
       "post": {
-        "tags": ["Administration"],
+        "tags": [
+          "Administration"
+        ],
         "summary": "Désactiver un compte utilisateur",
         "description": "🔒 Rôle requis : **SUPER_ADMIN**.\n\nDésactive le compte (active = false) et le désactive également dans Keycloak. L'utilisateur ne peut plus se connecter.\n\nUn SUPER_ADMIN ne peut pas se désactiver lui-même.",
         "operationId": "disableUser",
@@ -2333,7 +3004,10 @@
             "in": "path",
             "description": "UUID de l'utilisateur à désactiver",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "550e8400-e29b-41d4-a716-446655440000"
           }
         ],
@@ -2342,7 +3016,9 @@
             "description": "Compte désactivé",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/AdminUserResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserResponse"
+                }
               }
             }
           },
@@ -2350,7 +3026,9 @@
             "description": "Impossible de se désactiver soi-même",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -2358,7 +3036,9 @@
             "description": "JWT manquant ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -2366,7 +3046,9 @@
             "description": "Accès interdit – SUPER_ADMIN requis",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -2374,17 +3056,25 @@
             "description": "Utilisateur introuvable",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/tontines/{tontineId}/membres/{membreId}/statut": {
       "patch": {
-        "tags": ["Membres"],
+        "tags": [
+          "Membres"
+        ],
         "summary": "Modifier le statut d'un cotisant",
         "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nTransitions de statut autorisées :\n\n- **ACTIF** : activer ou réactiver un membre suspendu\n- **SUSPENDU** : suspension temporaire (ne peut plus cotiser)\n- **SORTI** : retrait définitif",
         "operationId": "updateStatut",
@@ -2394,7 +3084,10 @@
             "in": "path",
             "description": "UUID de la tontine",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "550e8400-e29b-41d4-a716-446655440000"
           },
           {
@@ -2402,7 +3095,10 @@
             "in": "path",
             "description": "UUID du membre (tontine_membres.id)",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "770e8400-e29b-41d4-a716-446655440000"
           }
         ],
@@ -2421,7 +3117,9 @@
             "description": "Statut mis à jour",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/MembreResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/MembreResponse"
+                }
               }
             }
           },
@@ -2429,7 +3127,9 @@
             "description": "Transition de statut invalide",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -2437,7 +3137,9 @@
             "description": "JWT manquant ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -2445,7 +3147,9 @@
             "description": "Accès interdit",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -2453,17 +3157,25 @@
             "description": "Tontine ou membre introuvable",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/tontines/{tontineId}/cycles/{cycleId}/beneficiaire": {
       "patch": {
-        "tags": ["Cycles"],
+        "tags": [
+          "Cycles"
+        ],
         "summary": "Sélectionner le bénéficiaire du jackpot",
         "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nDisponible uniquement en **mode MANUEL** sur un cycle **TERMINE**.\n\n- `membreId` fourni → désignation manuelle du bénéficiaire\n- `membreId` absent ou null → sélection **aléatoire** parmi les membres ACTIF n'ayant pas encore reçu de jackpot dans cette tontine\n\nLe membre sélectionné est marqué `aRecuJackpot=true` et ne sera plus éligible lors des prochains cycles. Une notification WhatsApp est envoyée au bénéficiaire et à l'admin.",
         "operationId": "selectionnerBeneficiaire",
@@ -2473,14 +3185,20 @@
             "in": "path",
             "description": "UUID de la tontine",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" }
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           },
           {
             "name": "cycleId",
             "in": "path",
             "description": "UUID du cycle TERMINE",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" }
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         ],
         "requestBody": {
@@ -2498,7 +3216,9 @@
             "description": "Bénéficiaire désigné, cycle mis à jour",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CycleResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CycleResponse"
+                }
               }
             }
           },
@@ -2506,7 +3226,9 @@
             "description": "Cycle pas TERMINE, mode pas MANUEL, bénéficiaire déjà désigné, ou aucun membre éligible",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -2514,7 +3236,9 @@
             "description": "JWT manquant ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -2522,7 +3246,9 @@
             "description": "Accès interdit",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -2530,17 +3256,25 @@
             "description": "Tontine, cycle ou membre introuvable",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/users/search": {
       "get": {
-        "tags": ["Utilisateurs"],
+        "tags": [
+          "Utilisateurs"
+        ],
         "summary": "Rechercher un utilisateur par numéro de téléphone",
         "description": "🔒 Accès : tout utilisateur authentifié.\n\nRecherche sur **l'ensemble des comptes non supprimés** : `ACTIVE` et `PRE_ENROLLED` sont tous les deux retournés. Les comptes soft-deleted (`deletedAt` non null) sont exclus.\n\nUtilisé par un gestionnaire de tontine avant d'ajouter un membre (flux 2 étapes) :\n\n- **200 / accountStatus = ACTIVE** → utilisateur inscrit, ajout direct possible sans resaisir son nom.\n- **200 / accountStatus = PRE_ENROLLED** → déjà ajouté à une autre tontine par un autre gestionnaire, profil connu, ajout direct possible.\n- **404** → numéro totalement inconnu, l'admin doit saisir firstName et lastName pour créer un compte pré-inscrit.",
         "operationId": "searchByPhone",
@@ -2550,7 +3284,9 @@
             "in": "query",
             "description": "Numéro de téléphone (format international, avec ou sans le +)",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "example": 221770000001
           }
         ],
@@ -2559,7 +3295,9 @@
             "description": "Utilisateur trouvé",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -2567,7 +3305,9 @@
             "description": "Aucun compte avec ce numéro",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -2575,17 +3315,25 @@
             "description": "JWT manquant ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/tontines/{tontineId}/cycles/{cycleId}": {
       "get": {
-        "tags": ["Cycles"],
+        "tags": [
+          "Cycles"
+        ],
         "summary": "Récupérer un cycle",
         "description": "🔒 Rôles : membres de la tontine, créateur, SUPER_ADMIN.\n\nRetourne le détail complet d'un cycle : dates, statut, bénéficiaire, montant jackpot brut, commissions et montant net (renseignés à la clôture).",
         "operationId": "getCycle",
@@ -2595,7 +3343,10 @@
             "in": "path",
             "description": "UUID de la tontine",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "550e8400-e29b-41d4-a716-446655440000"
           },
           {
@@ -2603,7 +3354,10 @@
             "in": "path",
             "description": "UUID du cycle",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "660e8400-e29b-41d4-a716-446655440000"
           }
         ],
@@ -2612,7 +3366,9 @@
             "description": "Détail du cycle",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CycleResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CycleResponse"
+                }
               }
             }
           },
@@ -2620,7 +3376,9 @@
             "description": "JWT manquant ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -2628,7 +3386,9 @@
             "description": "Accès interdit",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -2636,17 +3396,102 @@
             "description": "Tontine ou cycle introuvable",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/v1/tontines/{tontineId}/cycles/beneficiaires": {
+      "get": {
+        "tags": [
+          "Cycles"
+        ],
+        "summary": "Historique des bénéficiaires de jackpot",
+        "description": "🔒 Rôles : membres de la tontine, créateur, SUPER_ADMIN.\n\nRetourne la liste des cycles **TERMINÉ** ayant un bénéficiaire désigné, triés par numéro de cycle croissant. Chaque entrée contient le bénéficiaire et les montants (jackpot brut, commissions, net).\n\nPagination : `?page=0&size=20&sort=numeroCycle,asc`",
+        "operationId": "listBeneficiaires",
+        "parameters": [
+          {
+            "name": "tontineId",
+            "in": "path",
+            "description": "UUID de la tontine",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Historique des bénéficiaires",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BeneficiaireHistoriqueResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "JWT manquant ou expiré",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Accès interdit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tontine introuvable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/tontines/{tontineId}/cotisations/{cotisationId}": {
       "get": {
-        "tags": ["Cotisations"],
+        "tags": [
+          "Cotisations"
+        ],
         "summary": "Récupérer une cotisation",
         "description": "🔒 Rôles : propriétaire de la cotisation (MEMBER), créateur de la tontine, SUPER_ADMIN.\n\nRetourne le détail complet : montant, méthode de paiement, référence, statut, valideur et date de validation.",
         "operationId": "getCotisation",
@@ -2656,7 +3501,10 @@
             "in": "path",
             "description": "UUID de la tontine",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "550e8400-e29b-41d4-a716-446655440000"
           },
           {
@@ -2664,7 +3512,10 @@
             "in": "path",
             "description": "UUID de la cotisation",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "880e8400-e29b-41d4-a716-446655440000"
           }
         ],
@@ -2673,7 +3524,9 @@
             "description": "Détail de la cotisation",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CotisationResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CotisationResponse"
+                }
               }
             }
           },
@@ -2681,7 +3534,9 @@
             "description": "JWT manquant ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -2689,7 +3544,9 @@
             "description": "Accès interdit",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -2697,17 +3554,25 @@
             "description": "Tontine ou cotisation introuvable",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/code-list/type/{type}": {
       "get": {
-        "tags": ["CodeList"],
+        "tags": [
+          "CodeList"
+        ],
         "summary": "Valeurs d'un type de code list (public)",
         "description": "🌐 **Public** — Retourne toutes les entrées d'un type donné. Aucun token requis.\n\n---\n\n### Référentiels disponibles\n\n| Type | Valeurs | Usage |\n|------|---------|-------|\n| `FREQUENCE_TONTINE` | `JOURNALIERE` · `HEBDOMADAIRE` · `BIMENSUEL` · `MENSUEL` · `TRIMESTRIEL` | Fréquence de cotisation lors de la création d'une tontine |\n| `METHODE_PAIEMENT` | `WAVE` · `ORANGE_MONEY` · `FREE_MONEY` · `CASH` | Moyen de paiement d'une cotisation |\n| `STATUT_COTISATION` | `EN_ATTENTE` · `VALIDE` · `EN_RETARD` | Cycle de vie d'une cotisation |\n| `ORDRE_BENEFICIAIRE` | `ALEATOIRE` · `MANUEL` · `ROTATION` | Règle de désignation du bénéficiaire du jackpot |\n\n> ⚠️ **`ROLE_INTERNE`** est restreint — utiliser `GET /v1/code-list/admin/type/ROLE_INTERNE`.",
         "operationId": "findAllByType",
@@ -2717,7 +3582,9 @@
             "in": "path",
             "description": "Type du référentiel (ex : FREQUENCE_TONTINE, METHODE_PAIEMENT, STATUT_COTISATION, ORDRE_BENEFICIAIRE)",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "example": "FREQUENCE_TONTINE"
           }
         ],
@@ -2726,7 +3593,9 @@
             "description": "Liste des entrées du type demandé",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/LaCodeListDto" }
+                "schema": {
+                  "$ref": "#/components/schemas/LaCodeListDto"
+                }
               }
             }
           },
@@ -2734,7 +3603,9 @@
             "description": "Type restreint – utiliser /admin/type/",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
@@ -2743,7 +3614,9 @@
     },
     "/v1/code-list/admin/type/{type}": {
       "get": {
-        "tags": ["CodeList"],
+        "tags": [
+          "CodeList"
+        ],
         "summary": "Valeurs d'un type (admin)",
         "description": "🛡 **Rôle requis :** `ADMIN` ou `SUPER_ADMIN`.\n\nIdentique à l'endpoint public mais donne accès aux types restreints (ex : `ROLE_INTERNE`).",
         "operationId": "findAllByTypeAdmin",
@@ -2753,7 +3626,9 @@
             "in": "path",
             "description": "Type du référentiel (y compris types restreints)",
             "required": true,
-            "schema": { "type": "string" },
+            "schema": {
+              "type": "string"
+            },
             "example": "ROLE_INTERNE"
           }
         ],
@@ -2762,7 +3637,9 @@
             "description": "Liste récupérée",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/LaCodeListDto" }
+                "schema": {
+                  "$ref": "#/components/schemas/LaCodeListDto"
+                }
               }
             }
           },
@@ -2770,7 +3647,9 @@
             "description": "Token manquant ou invalide",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -2778,17 +3657,25 @@
             "description": "Rôle insuffisant",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/admin/my-dashboard": {
       "get": {
-        "tags": ["Administration"],
+        "tags": [
+          "Administration"
+        ],
         "summary": "Mon tableau de bord admin",
         "description": "🔒 Rôles : tout utilisateur authentifié ayant créé au moins une tontine.\n\nMétriques personnelles pour chaque tontine gérée par l'appelant :\n\n- Cotisations EN_ATTENTE et EN_RETARD\n- Montant total validé\n- Cycle EN_COURS avec bénéficiaire désigné",
         "operationId": "getMyDashboard",
@@ -2797,7 +3684,9 @@
             "description": "Tableau de bord de l'admin",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/MyDashboardResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/MyDashboardResponse"
+                }
               }
             }
           },
@@ -2805,17 +3694,25 @@
             "description": "JWT manquant ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/admin/dashboard": {
       "get": {
-        "tags": ["Administration"],
+        "tags": [
+          "Administration"
+        ],
         "summary": "Dashboard global plateforme",
         "description": "🔒 Rôle requis : **SUPER_ADMIN**.\n\nMétriques globales en temps réel :\n\n- **Utilisateurs** : total, actifs, désactivés, nouveaux ce mois\n- **Tontines** : total, par statut (BROUILLON, ACTIVE, SUSPENDUE, TERMINEE)\n- **Finances** : cotisations EN_ATTENTE, EN_RETARD, montant validé ce mois\n- **Activité 24h** : nouveaux inscrits, cotisations enregistrées",
         "operationId": "getGlobalDashboard",
@@ -2834,7 +3731,9 @@
             "description": "JWT manquant ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -2842,17 +3741,25 @@
             "description": "Accès interdit – SUPER_ADMIN requis",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/admin/dashboard/users": {
       "get": {
-        "tags": ["Administration"],
+        "tags": [
+          "Administration"
+        ],
         "summary": "Liste paginée des utilisateurs",
         "description": "🔒 Rôle requis : **SUPER_ADMIN**.\n\nRetourne tous les utilisateurs non supprimés de la plateforme.\n\nPagination : `?page=0&size=20&sort=createdAt,desc`",
         "operationId": "listUsers",
@@ -2861,7 +3768,9 @@
             "name": "pageable",
             "in": "query",
             "required": true,
-            "schema": { "$ref": "#/components/schemas/Pageable" }
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
           }
         ],
         "responses": {
@@ -2869,7 +3778,9 @@
             "description": "Page d'utilisateurs",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/AdminUserResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserResponse"
+                }
               }
             }
           },
@@ -2877,7 +3788,9 @@
             "description": "JWT manquant ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -2885,17 +3798,25 @@
             "description": "Accès interdit – SUPER_ADMIN requis",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/admin/dashboard/users/{userId}": {
       "get": {
-        "tags": ["Administration"],
+        "tags": [
+          "Administration"
+        ],
         "summary": "Détail d'un utilisateur",
         "description": "🔒 Rôle requis : **SUPER_ADMIN**.\n\nRetourne le profil complet d'un utilisateur.",
         "operationId": "getUserDetail",
@@ -2905,7 +3826,10 @@
             "in": "path",
             "description": "UUID de l'utilisateur",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "550e8400-e29b-41d4-a716-446655440000"
           }
         ],
@@ -2914,7 +3838,9 @@
             "description": "Détail utilisateur",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/AdminUserResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserResponse"
+                }
               }
             }
           },
@@ -2922,7 +3848,9 @@
             "description": "JWT manquant ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -2930,7 +3858,9 @@
             "description": "Accès interdit – SUPER_ADMIN requis",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -2938,17 +3868,25 @@
             "description": "Utilisateur introuvable",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/v1/tontines/{tontineId}/membres/{membreId}": {
       "delete": {
-        "tags": ["Membres"],
+        "tags": [
+          "Membres"
+        ],
         "summary": "Retirer un cotisant (soft delete)",
         "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nSuppression logique du cotisant (statut → SORTI, deletedAt renseigné). Le membre ne voit plus la tontine.",
         "operationId": "removeMembre",
@@ -2958,7 +3896,10 @@
             "in": "path",
             "description": "UUID de la tontine",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "550e8400-e29b-41d4-a716-446655440000"
           },
           {
@@ -2966,7 +3907,10 @@
             "in": "path",
             "description": "UUID du membre (tontine_membres.id)",
             "required": true,
-            "schema": { "type": "string", "format": "uuid" },
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
             "example": "770e8400-e29b-41d4-a716-446655440000"
           }
         ],
@@ -2975,7 +3919,9 @@
             "description": "Cotisant retiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -2983,7 +3929,9 @@
             "description": "JWT manquant ou expiré",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -2991,7 +3939,9 @@
             "description": "Accès interdit",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           },
@@ -2999,12 +3949,18 @@
             "description": "Tontine ou membre introuvable",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/CustomResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
               }
             }
           }
         },
-        "security": [{ "bearerAuth": [] }]
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     }
   },
@@ -3012,7 +3968,7 @@
     "schemas": {
       "BeneficiaireInfo": {
         "type": "object",
-        "description": "Informations résumées du bénéficiaire du jackpot",
+        "description": "Informations du bénéficiaire",
         "properties": {
           "membreId": {
             "type": "string",
@@ -3036,14 +3992,19 @@
           },
           "phone": {
             "type": "string",
-            "description": "Numéro de téléphone normalisé",
+            "description": "Numéro de téléphone",
             "example": 221770000001
           },
           "ordreJackpot": {
             "type": "integer",
             "format": "int32",
-            "description": "Position dans la rotation des jackpots (1 = premier bénéficiaire)",
-            "example": 3
+            "description": "Position dans la rotation des jackpots",
+            "example": 2
+          },
+          "dateJackpot": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date/heure de remise du jackpot au membre"
           }
         }
       },
@@ -3097,7 +4058,11 @@
           "statut": {
             "type": "string",
             "description": "Statut courant du cycle",
-            "enum": ["EN_ATTENTE", "EN_COURS", "TERMINE"]
+            "enum": [
+              "EN_ATTENTE",
+              "EN_COURS",
+              "TERMINE"
+            ]
           },
           "dateRemise": {
             "type": "string",
@@ -3124,10 +4089,19 @@
       "CustomResponse": {
         "type": "object",
         "properties": {
-          "status": { "type": "string" },
-          "statusCode": { "type": "integer", "format": "int32" },
-          "message": { "type": "string" },
-          "data": { "type": "object" }
+          "status": {
+            "type": "string"
+          },
+          "statusCode": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
         }
       },
       "CotisationResponse": {
@@ -3171,7 +4145,11 @@
           "statut": {
             "type": "string",
             "description": "Statut de la cotisation",
-            "enum": ["EN_ATTENTE", "VALIDE", "EN_RETARD"]
+            "enum": [
+              "EN_ATTENTE",
+              "VALIDE",
+              "EN_RETARD"
+            ]
           },
           "note": {
             "type": "string",
@@ -3452,7 +4430,10 @@
           "modeCycle": {
             "type": "string",
             "description": "Mode de gestion des cycles",
-            "enum": ["AUTOMATIQUE", "MANUEL"],
+            "enum": [
+              "AUTOMATIQUE",
+              "MANUEL"
+            ],
             "example": "AUTOMATIQUE"
           },
           "dateDebut": {
@@ -3476,7 +4457,12 @@
           "statut": {
             "type": "string",
             "description": "Statut courant de la tontine",
-            "enum": ["BROUILLON", "ACTIVE", "SUSPENDUE", "TERMINEE"]
+            "enum": [
+              "BROUILLON",
+              "ACTIVE",
+              "SUSPENDUE",
+              "TERMINEE"
+            ]
           },
           "creePar": {
             "$ref": "#/components/schemas/CreateurInfo",
@@ -3557,7 +4543,9 @@
             "maxLength": 500,
             "minLength": 0
           },
-          "systemAssign": { "type": "boolean" }
+          "systemAssign": {
+            "type": "boolean"
+          }
         }
       },
       "UpdateUserRolesRequest": {
@@ -3567,12 +4555,26 @@
           "roles": {
             "type": "array",
             "description": "Nouvel ensemble de rôles souhaité. USER est toujours conservé même s'il n'est pas dans la liste.",
-            "enum": ["USER", "ADMIN", "MEMBER", "SUPER_ADMIN"],
-            "example": ["USER", "ADMIN", "MEMBER"],
+            "enum": [
+              "USER",
+              "ADMIN",
+              "MEMBER",
+              "SUPER_ADMIN"
+            ],
+            "example": [
+              "USER",
+              "ADMIN",
+              "MEMBER"
+            ],
             "items": {
               "type": "string",
               "description": "Rôle Keycloak de l'utilisateur. Les rôles sont cumulatifs. USER = base (inscription), MEMBER = cotisant d'une tontine, ADMIN = créateur d'une tontine, SUPER_ADMIN = équipe Dinthialma (accès total).",
-              "enum": ["USER", "MEMBER", "ADMIN", "SUPER_ADMIN"]
+              "enum": [
+                "USER",
+                "MEMBER",
+                "ADMIN",
+                "SUPER_ADMIN"
+              ]
             },
             "minItems": 1,
             "uniqueItems": true
@@ -3628,8 +4630,13 @@
           "roles": {
             "type": "array",
             "description": "Liste des rôles Keycloak triés alphabétiquement",
-            "example": ["DINTHIALMA_ADMIN", "DINTHIALMA_USER"],
-            "items": { "type": "string" }
+            "example": [
+              "DINTHIALMA_ADMIN",
+              "DINTHIALMA_USER"
+            ],
+            "items": {
+              "type": "string"
+            }
           },
           "createdAt": {
             "type": "string",
@@ -3679,7 +4686,10 @@
           "modeCycle": {
             "type": "string",
             "description": "Mode de gestion des cycles : AUTOMATIQUE = tous les cycles générés à l'activation, MANUEL = l'admin ouvre chaque cycle manuellement.",
-            "enum": ["AUTOMATIQUE", "MANUEL"],
+            "enum": [
+              "AUTOMATIQUE",
+              "MANUEL"
+            ],
             "example": "AUTOMATIQUE"
           },
           "dateDebut": {
@@ -3697,7 +4707,11 @@
             "minimum": 2
           }
         },
-        "required": ["dateDebut", "modeCycle", "montant"]
+        "required": [
+          "dateDebut",
+          "modeCycle",
+          "montant"
+        ]
       },
       "AddMembreRequest": {
         "type": "object",
@@ -3754,7 +4768,11 @@
           "statut": {
             "type": "string",
             "description": "Statut du cotisant",
-            "enum": ["ACTIF", "SUSPENDU", "SORTI"]
+            "enum": [
+              "ACTIF",
+              "SUSPENDU",
+              "SORTI"
+            ]
           },
           "dateAdhesion": {
             "type": "string",
@@ -3805,7 +4823,10 @@
           "accountStatus": {
             "type": "string",
             "description": "Statut d'activation du compte. PRE_ENROLLED = ajouté par l'admin, pas encore inscrit sur l'application.",
-            "enum": ["ACTIVE", "PRE_ENROLLED"]
+            "enum": [
+              "ACTIVE",
+              "PRE_ENROLLED"
+            ]
           }
         }
       },
@@ -3832,7 +4853,10 @@
             "example": "550e8400-e29b-41d4-a716-446655440000"
           }
         },
-        "required": ["dateDebut", "dateFin"]
+        "required": [
+          "dateDebut",
+          "dateFin"
+        ]
       },
       "RecordCotisationRequest": {
         "type": "object",
@@ -3865,7 +4889,10 @@
             "example": "Paiement pour juillet 2024"
           }
         },
-        "required": ["cycleId", "montant"]
+        "required": [
+          "cycleId",
+          "montant"
+        ]
       },
       "AdminRecordCotisationRequest": {
         "type": "object",
@@ -3904,7 +4931,11 @@
             "example": "Reçu cash le 01/06/2026"
           }
         },
-        "required": ["cycleId", "membreId", "montant"]
+        "required": [
+          "cycleId",
+          "membreId",
+          "montant"
+        ]
       },
       "CreateCommissionRequest": {
         "type": "object",
@@ -3932,7 +4963,10 @@
             "example": "Frais de gestion du groupe"
           }
         },
-        "required": ["type", "valeur"]
+        "required": [
+          "type",
+          "valeur"
+        ]
       },
       "PhoneChangeVerifyRequest": {
         "type": "object",
@@ -4129,7 +5163,10 @@
           "clientType": {
             "type": "string",
             "description": "Type de client – détermine la durée de vie de la session PIN : WEB = 24h, MOBILE = 30 jours",
-            "enum": ["WEB", "MOBILE"],
+            "enum": [
+              "WEB",
+              "MOBILE"
+            ],
             "example": "WEB"
           },
           "deviceInfo": {
@@ -4138,7 +5175,9 @@
             "example": "Chrome 124 / Windows 11"
           }
         },
-        "required": ["clientType"]
+        "required": [
+          "clientType"
+        ]
       },
       "PinLoginRequest": {
         "type": "object",
@@ -4160,7 +5199,10 @@
           "clientType": {
             "type": "string",
             "description": "Type de client : WEB (session 24h) ou MOBILE (session 30 jours)",
-            "enum": ["WEB", "MOBILE"],
+            "enum": [
+              "WEB",
+              "MOBILE"
+            ],
             "example": "MOBILE"
           },
           "deviceInfo": {
@@ -4169,7 +5211,9 @@
             "example": "iPhone 15 / iOS 17"
           }
         },
-        "required": ["clientType"]
+        "required": [
+          "clientType"
+        ]
       },
       "ResetPasswordByPhoneRequest": {
         "type": "object",
@@ -4205,7 +5249,11 @@
           "statut": {
             "type": "string",
             "description": "Nouveau statut du cotisant :\n- ACTIF : activer ou réactiver un membre suspendu\n- SUSPENDU : suspendre temporairement (ne peut plus cotiser)\n- SORTI : retrait définitif (irréversible sans intervention SUPER_ADMIN)",
-            "enum": ["ACTIF", "SUSPENDU", "SORTI"],
+            "enum": [
+              "ACTIF",
+              "SUSPENDU",
+              "SORTI"
+            ],
             "example": "SUSPENDU"
           },
           "motif": {
@@ -4214,7 +5262,9 @@
             "example": "Membre parti en voyage"
           }
         },
-        "required": ["statut"]
+        "required": [
+          "statut"
+        ]
       },
       "SelectionnerBeneficiaireRequest": {
         "type": "object",
@@ -4231,9 +5281,64 @@
       "Pageable": {
         "type": "object",
         "properties": {
-          "page": { "type": "integer", "format": "int32", "minimum": 0 },
-          "size": { "type": "integer", "format": "int32", "minimum": 1 },
-          "sort": { "type": "array", "items": { "type": "string" } }
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "sort": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "BeneficiaireHistoriqueResponse": {
+        "type": "object",
+        "description": "Bénéficiaire d'un jackpot pour un cycle terminé",
+        "properties": {
+          "cycleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID du cycle"
+          },
+          "numeroCycle": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Numéro séquentiel du cycle",
+            "example": 2
+          },
+          "dateRemise": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de remise du jackpot",
+            "example": "2024-07-31"
+          },
+          "montantJackpot": {
+            "type": "number",
+            "description": "Jackpot brut = somme des cotisations validées",
+            "example": 60000
+          },
+          "montantCommission": {
+            "type": "number",
+            "description": "Commissions prélevées",
+            "example": 2400
+          },
+          "montantNet": {
+            "type": "number",
+            "description": "Montant net remis au bénéficiaire",
+            "example": 57600
+          },
+          "beneficiaire": {
+            "$ref": "#/components/schemas/BeneficiaireInfo",
+            "description": "Bénéficiaire du jackpot"
+          }
         }
       },
       "CycleEnCoursInfo": {
@@ -4288,7 +5393,9 @@
           "tontines": {
             "type": "array",
             "description": "Détail par tontine gérée",
-            "items": { "$ref": "#/components/schemas/TontineStats" }
+            "items": {
+              "$ref": "#/components/schemas/TontineStats"
+            }
           }
         }
       },
@@ -4309,7 +5416,12 @@
           "statut": {
             "type": "string",
             "description": "Statut courant",
-            "enum": ["BROUILLON", "ACTIVE", "SUSPENDUE", "TERMINEE"]
+            "enum": [
+              "BROUILLON",
+              "ACTIVE",
+              "SUSPENDUE",
+              "TERMINEE"
+            ]
           },
           "nombreMembres": {
             "type": "integer",

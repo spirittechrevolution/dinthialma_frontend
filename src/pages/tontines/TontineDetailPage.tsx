@@ -24,10 +24,10 @@ import {
   useDeleteCommission,
 } from '@/hooks/useTontines'
 import { useMembres, useUpdateMembreStatut, useRemoveMembre } from '@/hooks/useMembres'
-import { useCycles, useOpenCycle, useCloturerCycle, useDesignerBeneficiaire } from '@/hooks/useCycles'
+import { useCycles, useOpenCycle, useCloturerCycle, useDesignerGagnants, useBeneficiairesHistorique } from '@/hooks/useCycles'
 import { useCotisations, useValiderCotisation } from '@/hooks/useCotisations'
 import { Membre } from '@/types/membre'
-import { Cycle } from '@/types/cycle'
+import { Cycle, GagnantInfo } from '@/types/cycle'
 import { Cotisation } from '@/types/cotisation'
 import { Commission } from '@/types/tontine'
 import {
@@ -57,6 +57,9 @@ import {
   Clock,
   Star,
   Shuffle,
+  Trophy,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
@@ -65,7 +68,6 @@ const openCycleSchema = z.object({
   numeroCycle: z.coerce.number().int().positive('Requis'),
   dateDebut: z.string().min(1, 'Requis'),
   dateFin: z.string().min(1, 'Requis'),
-  beneficiaireId: z.string().uuid().optional().or(z.literal('')),
 })
 
 const commissionSchema = z.object({
@@ -170,7 +172,7 @@ function SaisieParBadge({ cotisation }: { cotisation: Cotisation }) {
   )
 }
 
-type Tab = 'infos' | 'membres' | 'cycles' | 'cotisations' | 'commissions'
+type Tab = 'infos' | 'membres' | 'cycles' | 'cotisations' | 'commissions' | 'historique'
 
 // ─── Page principale ──────────────────────────────────────────────────────────
 
@@ -191,8 +193,9 @@ export function TontineDetailPage() {
   const [membreAction, setMembreAction] = useState<{ type: 'suspendre' | 'activer' | 'retirer'; id: string; nom: string } | null>(null)
   const [adminPayModal, setAdminPayModal] = useState<{ membreId: string; membreNom: string } | null>(null)
   const [beneficiaireModal, setBeneficiaireModal] = useState<{ cycleId: string; cycleNum: number } | null>(null)
-  const [selectedMembreJackpot, setSelectedMembreJackpot] = useState('')
+  const [selectedMembresJackpot, setSelectedMembresJackpot] = useState<string[]>([])
   const [randomJackpotCycle, setRandomJackpotCycle] = useState<string | null>(null)
+  const [expandedHistoriqueCycle, setExpandedHistoriqueCycle] = useState<string | null>(null)
 
   // ─── Data ─────────────────────────────────────────────────────────────────
   const { data: tontine, isLoading } = useTontine(id || '')
@@ -200,6 +203,7 @@ export function TontineDetailPage() {
   const { data: cyclesData } = useCycles(id || '', 0, 50)
   const { data: cotisationsData } = useCotisations(id || '', undefined, 0, 50)
   const { data: commissionsData } = useCommissions(id || '', 0, 20)
+  const { data: historiqueBeneficiaires, isLoading: isLoadingHistorique } = useBeneficiairesHistorique(id || '', 0, 50)
 
   // ─── Mutations ────────────────────────────────────────────────────────────
   const { mutate: activer, isPending: isActivating } = useActiverTontine()
@@ -211,7 +215,7 @@ export function TontineDetailPage() {
   const { mutate: validerCotisation, isPending: isValidating } = useValiderCotisation()
   const { mutate: createCommission, isPending: isCreatingCommission } = useCreateCommission()
   const { mutate: deleteCommission } = useDeleteCommission()
-  const { mutate: designerBeneficiaire, isPending: isDesignating } = useDesignerBeneficiaire()
+  const { mutate: designerGagnants, isPending: isDesignating } = useDesignerGagnants()
 
   // ─── Forms ────────────────────────────────────────────────────────────────
   const openCycleForm = useForm<OpenCycleForm>({
@@ -276,7 +280,7 @@ export function TontineDetailPage() {
 
   const onOpenCycle = (data: OpenCycleForm) => {
     openCycle(
-      { tontineId: id!, request: { dateDebut: data.dateDebut, dateFin: data.dateFin, beneficiaireId: data.beneficiaireId || undefined } },
+      { tontineId: id!, request: { dateDebut: data.dateDebut, dateFin: data.dateFin } },
       {
         onSuccess: () => { toast.success('Cycle ouvert'); openCycleForm.reset(); setShowOpenCycle(false) },
         onError: () => toast.error("Erreur lors de l'ouverture du cycle"),
@@ -333,14 +337,14 @@ export function TontineDetailPage() {
   }
 
   const handleDesignerManuel = () => {
-    if (!beneficiaireModal || !selectedMembreJackpot) return
-    designerBeneficiaire(
-      { tontineId: id!, cycleId: beneficiaireModal.cycleId, membreId: selectedMembreJackpot },
+    if (!beneficiaireModal || selectedMembresJackpot.length === 0) return
+    designerGagnants(
+      { tontineId: id!, cycleId: beneficiaireModal.cycleId, request: { membreIds: selectedMembresJackpot } },
       {
         onSuccess: () => {
-          toast.success('Bénéficiaire désigné avec succès')
+          toast.success('Gagnants désignés avec succès')
           setBeneficiaireModal(null)
-          setSelectedMembreJackpot('')
+          setSelectedMembresJackpot([])
         },
         onError: (err: unknown) => {
           const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Erreur lors de la désignation'
@@ -352,11 +356,11 @@ export function TontineDetailPage() {
 
   const handleDesignerAleatoire = () => {
     if (!randomJackpotCycle) return
-    designerBeneficiaire(
-      { tontineId: id!, cycleId: randomJackpotCycle },
+    designerGagnants(
+      { tontineId: id!, cycleId: randomJackpotCycle, request: { membreIds: [] } },
       {
         onSuccess: () => {
-          toast.success('Bénéficiaire sélectionné aléatoirement')
+          toast.success('Gagnants sélectionnés aléatoirement')
           setRandomJackpotCycle(null)
         },
         onError: (err: unknown) => {
@@ -372,6 +376,7 @@ export function TontineDetailPage() {
     { id: 'membres', label: 'Membres', show: true },
     { id: 'cycles', label: 'Cycles', show: true },
     { id: 'cotisations', label: 'Cotisations', show: true },
+    { id: 'historique', label: 'Historique jackpots', show: true },
     { id: 'commissions', label: 'Commissions', show: !!canManage },
   ]
 
@@ -455,6 +460,15 @@ export function TontineDetailPage() {
           <div>
             <p className="text-xs text-neutral-400 mb-1">Fréquence</p>
             <p className="font-semibold text-neutral-900 text-sm">{FREQ_LABELS[tontine.frequence] || tontine.frequence}</p>
+          </div>
+          <div>
+            <p className="text-xs text-neutral-400 mb-1">Gagnants / cycle</p>
+            <p className="font-semibold text-neutral-900 text-sm">
+              {tontine.nombreGagnants ?? 1}
+              {(tontine.nombreGagnants ?? 1) > 1 && (
+                <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700">Multi</span>
+              )}
+            </p>
           </div>
           <div>
             <p className="text-xs text-neutral-400 mb-1">Début</p>
@@ -689,29 +703,46 @@ export function TontineDetailPage() {
                           </div>
                         ))}
                       </div>
-                      {cycle.beneficiaire?.firstName ? (
-                        <div className="flex items-center gap-1.5 text-xs text-neutral-600 mb-3">
-                          <User size={11} className="text-neutral-400" />
-                          <span>
-                            Bénéficiaire :{' '}
-                            <span className="font-semibold text-primary-700">
-                              {cycle.beneficiaire.firstName} {cycle.beneficiaire.lastName}
-                            </span>
-                            <span className="ml-2 px-1.5 py-0.5 rounded-full text-xs font-semibold bg-primary-100 text-primary-700">
-                              Jackpot remis
-                            </span>
-                          </span>
+                      {cycle.gagnants && cycle.gagnants.length > 0 ? (
+                        <div className="mb-3 pt-3 border-t border-neutral-100">
+                          <p className="text-xs text-neutral-400 mb-2 flex items-center gap-1">
+                            <Trophy size={10} className="text-amber-500" />
+                            {cycle.gagnants.length > 1 ? 'Gagnants' : 'Gagnant'}
+                          </p>
+                          <div className="space-y-1.5">
+                            {cycle.gagnants.map((g: GagnantInfo) => (
+                              <div key={g.membreId} className="flex items-center justify-between">
+                                <div className="flex items-center gap-1.5">
+                                  <MiniAvatar name={`${g.firstName} ${g.lastName}`} />
+                                  <span className="text-xs font-semibold text-primary-700">
+                                    {g.firstName} {g.lastName}
+                                  </span>
+                                </div>
+                                <span className="text-xs font-bold text-primary-600">
+                                  {g.montantRecu != null
+                                    ? `${Number(g.montantRecu).toLocaleString('fr-FR')} FCFA`
+                                    : '—'}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       ) : (
-                        (canManage || isSuperAdmin) && isManuel && cycle.statut === CycleStatut.TERMINE && (
+                        cycle.statut === CycleStatut.TERMINE &&
+                        tontine.ordreBeneficiaire === 'MANUEL' &&
+                        (canManage || isSuperAdmin) && (
                           <div className="mb-3 pt-3 border-t border-neutral-100 space-y-2">
-                            <p className="text-xs text-neutral-500 font-medium">Désigner le bénéficiaire du jackpot</p>
+                            <p className="text-xs text-neutral-500 font-medium">
+                              Désigner {(tontine.nombreGagnants ?? 1) > 1
+                                ? `les ${tontine.nombreGagnants} gagnants`
+                                : 'le gagnant'} du jackpot
+                            </p>
                             <div className="flex gap-2">
                               <button
-                                onClick={() => setBeneficiaireModal({ cycleId: cycle.id, cycleNum: cycle.numeroCycle })}
+                                onClick={() => { setBeneficiaireModal({ cycleId: cycle.id, cycleNum: cycle.numeroCycle }); setSelectedMembresJackpot([]) }}
                                 className="flex-1 text-xs font-semibold text-primary-700 border border-primary-200 bg-primary-50 rounded-lg py-1.5 hover:bg-primary-100 transition-colors"
                               >
-                                Choisir un membre
+                                Choisir
                               </button>
                               <button
                                 onClick={() => setRandomJackpotCycle(cycle.id)}
@@ -856,9 +887,198 @@ export function TontineDetailPage() {
             </div>
           )}
 
-          {/* ── Commissions (créateur seulement) ─────────────────────────── */}
-          {activeTab === 'commissions' && canManage && (
+          {/* ── Historique jackpots ───────────────────────────────────────── */}
+          {activeTab === 'historique' && (
             <div>
+              {isLoadingHistorique ? (
+                <div className="flex justify-center py-12"><Spinner /></div>
+              ) : !historiqueBeneficiaires || historiqueBeneficiaires.content.length === 0 ? (
+                <div className="flex flex-col items-center py-16 text-neutral-400 gap-3">
+                  <div className="w-14 h-14 rounded-full bg-neutral-100 flex items-center justify-center">
+                    <Trophy size={24} className="text-neutral-300" />
+                  </div>
+                  <p className="font-medium text-neutral-500">Aucun jackpot remis pour le moment</p>
+                  <p className="text-xs text-neutral-400">Les bénéficiaires apparaîtront ici au fil des cycles clôturés.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {/* Résumé total */}
+                  <div className="flex items-center justify-between px-1 mb-5">
+                    <p className="text-sm text-neutral-500">
+                      <span className="font-semibold text-neutral-800">{historiqueBeneficiaires.totalElements}</span>{' '}
+                      {historiqueBeneficiaires.totalElements > 1 ? 'jackpots remis' : 'jackpot remis'}
+                    </p>
+                    <p className="text-xs text-neutral-400">
+                      Total net versé :{' '}
+                      <span className="font-bold text-primary-600">
+                        {historiqueBeneficiaires.content
+                          .reduce((sum, item) => sum + Number(item.montantNet), 0)
+                          .toLocaleString('fr-FR')}{' '}
+                        FCFA
+                      </span>
+                    </p>
+                  </div>
+
+                  {historiqueBeneficiaires.content.map((item) => {
+                    const isExpanded = expandedHistoriqueCycle === item.cycleId
+                    const montantNet = Number(item.montantNet)
+                    const montantBrut = Number(item.montantJackpot)
+                    const montantComm = item.montantCommission ? Number(item.montantCommission) : 0
+                    const montantParGagnant = item.montantParGagnant ? Number(item.montantParGagnant) : null
+                    const gagnants = item.gagnants || []
+                    // Date de référence : premier gagnant ou dateRemise
+                    const dateRef = gagnants[0]?.dateJackpot
+                      ? new Date(gagnants[0].dateJackpot).toLocaleDateString('fr-FR')
+                      : new Date(item.dateRemise).toLocaleDateString('fr-FR')
+
+                    return (
+                      <div
+                        key={item.cycleId}
+                        className="bg-white border border-neutral-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+                      >
+                        {/* Ligne principale */}
+                        <div className="flex items-center gap-4 px-5 py-4">
+                          {/* Numéro de cycle */}
+                          <div className="w-10 h-10 rounded-xl bg-primary-50 flex flex-col items-center justify-center flex-shrink-0">
+                            <span className="text-[10px] text-primary-400 leading-none">Cycle</span>
+                            <span className="font-extrabold text-primary-700 text-sm leading-none">{item.numeroCycle}</span>
+                          </div>
+
+                          {/* Gagnants */}
+                          <div className="flex-1 min-w-0">
+                            {gagnants.length === 0 ? (
+                              <p className="text-sm text-neutral-400 italic">Gagnants non encore désignés</p>
+                            ) : gagnants.length === 1 ? (
+                              <div className="flex items-center gap-2">
+                                <MiniAvatar name={`${gagnants[0].firstName} ${gagnants[0].lastName}`} />
+                                <div>
+                                  <div className="flex items-center gap-1.5">
+                                    <p className="font-semibold text-neutral-900 text-sm">{gagnants[0].firstName} {gagnants[0].lastName}</p>
+                                    {gagnants[0].ordreJackpot != null && (
+                                      <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-neutral-100 text-neutral-500">
+                                        #{gagnants[0].ordreJackpot}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-1 mt-0.5">
+                                    <Calendar size={10} className="text-neutral-400" />
+                                    <span className="text-xs text-neutral-400">{dateRef}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <div>
+                                <div className="flex items-center gap-1 flex-wrap">
+                                  {gagnants.map((g) => (
+                                    <div key={g.membreId} className="flex items-center gap-1 px-2 py-0.5 bg-primary-50 rounded-full">
+                                      <MiniAvatar name={`${g.firstName} ${g.lastName}`} />
+                                      <span className="text-xs font-semibold text-primary-700">{g.firstName}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                                <div className="flex items-center gap-1 mt-1">
+                                  <Calendar size={10} className="text-neutral-400" />
+                                  <span className="text-xs text-neutral-400">{dateRef}</span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Montant net total */}
+                          <div className="text-right flex-shrink-0">
+                            <p className="font-extrabold text-primary-600 text-base">
+                              {montantNet.toLocaleString('fr-FR')} FCFA
+                            </p>
+                            {gagnants.length > 1 && montantParGagnant != null && (
+                              <p className="text-[10px] text-neutral-400">
+                                {montantParGagnant.toLocaleString('fr-FR')} / pers.
+                              </p>
+                            )}
+                            {gagnants.length <= 1 && (
+                              <p className="text-[10px] text-neutral-400 mt-0.5">Net versé</p>
+                            )}
+                          </div>
+
+                          {/* Badge + accordéon */}
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700">
+                              <Trophy size={11} /> Jackpot
+                            </span>
+                            <button
+                              onClick={() => setExpandedHistoriqueCycle(isExpanded ? null : item.cycleId)}
+                              className="w-7 h-7 rounded-lg bg-neutral-100 flex items-center justify-center text-neutral-500 hover:bg-neutral-200 transition-colors"
+                              title={isExpanded ? 'Masquer le détail' : 'Voir le détail'}
+                            >
+                              {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Accordéon — détail financier */}
+                        {isExpanded && (
+                          <div className="border-t border-neutral-50 bg-neutral-50 px-5 py-4">
+                            <div className="grid grid-cols-3 gap-3 mb-3">
+                              <div className="bg-white rounded-xl p-3 border border-neutral-100 text-center">
+                                <p className="text-xs text-neutral-400 mb-1">Jackpot brut</p>
+                                <p className="font-bold text-neutral-800 text-sm">
+                                  {montantBrut.toLocaleString('fr-FR')} FCFA
+                                </p>
+                              </div>
+                              <div className={`rounded-xl p-3 border text-center ${montantComm > 0 ? 'bg-white border-neutral-100' : 'bg-neutral-50 border-neutral-100'}`}>
+                                <p className="text-xs text-neutral-400 mb-1">Commission</p>
+                                <p className={`font-bold text-sm ${montantComm > 0 ? 'text-orange-600' : 'text-neutral-400'}`}>
+                                  {montantComm > 0 ? `− ${montantComm.toLocaleString('fr-FR')} FCFA` : '—'}
+                                </p>
+                              </div>
+                              <div className="bg-primary-50 rounded-xl p-3 border border-primary-100 text-center">
+                                <p className="text-xs text-primary-400 mb-1">Net total</p>
+                                <p className="font-bold text-primary-700 text-sm">
+                                  {montantNet.toLocaleString('fr-FR')} FCFA
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Détail par gagnant si multi */}
+                            {gagnants.length > 1 && (
+                              <div className="mt-2 space-y-1.5">
+                                <p className="text-xs text-neutral-400 font-medium mb-2">Détail par gagnant</p>
+                                {gagnants.map((g) => (
+                                  <div key={g.membreId} className="flex items-center justify-between py-1 border-b border-neutral-100 last:border-0">
+                                    <div className="flex items-center gap-2">
+                                      <MiniAvatar name={`${g.firstName} ${g.lastName}`} />
+                                      <span className="text-sm font-medium text-neutral-800">{g.firstName} {g.lastName}</span>
+                                      {(canManage || isSuperAdmin) && (
+                                        <span className="text-xs text-neutral-400 font-mono">{g.phone}</span>
+                                      )}
+                                    </div>
+                                    <span className="font-bold text-primary-600 text-sm">
+                                      {g.montantRecu != null
+                                        ? `${Number(g.montantRecu).toLocaleString('fr-FR')} FCFA`
+                                        : '—'}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Téléphone gagnant unique (admin/superadmin) */}
+                            {gagnants.length === 1 && (canManage || isSuperAdmin) && (
+                              <p className="mt-2 text-xs text-neutral-400 font-mono">
+                                Tél : {gagnants[0].phone}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Commissions (créateur seulement) ─────────────────────────── */}
+          {activeTab === 'commissions' && canManage && (            <div>
               <div className="flex justify-end mb-4">
                 <Button size="sm" onClick={() => setShowAddCommission(true)}>
                   <Plus size={15} className="mr-1" /> Ajouter une commission
@@ -1003,49 +1223,119 @@ export function TontineDetailPage() {
         />
       )}
 
-      {/* Désigner bénéficiaire — sélection manuelle */}
+      {/* Désigner gagnants — sélection manuelle (multi-gagnants) */}
       <Modal
         isOpen={!!beneficiaireModal}
-        onClose={() => { setBeneficiaireModal(null); setSelectedMembreJackpot('') }}
-        title={`Désigner le bénéficiaire — Cycle #${beneficiaireModal?.cycleNum ?? ''}`}
+        onClose={() => { setBeneficiaireModal(null); setSelectedMembresJackpot([]) }}
+        title={`Désigner ${(tontine?.nombreGagnants ?? 1) > 1 ? 'les gagnants' : 'le gagnant'} — Cycle #${beneficiaireModal?.cycleNum ?? ''}`}
         size="sm"
         footer={
           <div className="flex gap-3 justify-end">
-            <Button variant="ghost" onClick={() => { setBeneficiaireModal(null); setSelectedMembreJackpot('') }} disabled={isDesignating}>
+            <Button
+              variant="ghost"
+              onClick={() => { setBeneficiaireModal(null); setSelectedMembresJackpot([]) }}
+              disabled={isDesignating}
+            >
               Annuler
             </Button>
-            <Button onClick={handleDesignerManuel} disabled={!selectedMembreJackpot} loading={isDesignating}>
+            <Button
+              onClick={handleDesignerManuel}
+              disabled={selectedMembresJackpot.length === 0}
+              loading={isDesignating}
+            >
               Confirmer
             </Button>
           </div>
         }
       >
-        <p className="text-sm text-neutral-500 mb-4">
-          Sélectionnez le membre qui recevra le jackpot pour ce cycle.
-        </p>
-        {membresEligiblesJackpot.length === 0 ? (
-          <p className="text-sm text-orange-600 py-2">Aucun membre éligible — tous ont déjà reçu un jackpot.</p>
-        ) : (
-          <Select
-            label="Membre bénéficiaire"
-            placeholder="Choisir un membre..."
-            value={selectedMembreJackpot}
-            onChange={(e) => setSelectedMembreJackpot(e.target.value)}
-            options={membresEligiblesJackpot.map((m: Membre) => ({
-              value: m.id,
-              label: `${m.user.firstName} ${m.user.lastName}`,
-            }))}
-          />
-        )}
+        {(() => {
+          const maxGagnants = tontine?.nombreGagnants ?? 1
+          const eligibles = membresEligiblesJackpot
+
+          if (eligibles.length === 0) {
+            return (
+              <p className="text-sm text-orange-600 py-2">
+                Aucun membre éligible — tous ont déjà reçu un jackpot.
+              </p>
+            )
+          }
+
+          return (
+            <>
+              <p className="text-sm text-neutral-500 mb-4">
+                {maxGagnants === 1
+                  ? 'Sélectionnez le membre qui recevra le jackpot.'
+                  : `Sélectionnez jusqu'à ${maxGagnants} membres. Le jackpot sera divisé équitablement.`}
+              </p>
+
+              {maxGagnants === 1 ? (
+                /* Mode classique — Select simple */
+                <Select
+                  label="Gagnant"
+                  placeholder="Choisir un membre..."
+                  value={selectedMembresJackpot[0] ?? ''}
+                  onChange={(e) => setSelectedMembresJackpot(e.target.value ? [e.target.value] : [])}
+                  options={eligibles.map((m: Membre) => ({
+                    value: m.id,
+                    label: `${m.user.firstName} ${m.user.lastName}`,
+                  }))}
+                />
+              ) : (
+                /* Mode multi — checkboxes */
+                <div className="space-y-2">
+                  <p className="text-xs text-neutral-400 mb-2">
+                    {selectedMembresJackpot.length}/{maxGagnants} sélectionnés
+                  </p>
+                  {eligibles.map((m: Membre) => {
+                    const nom = `${m.user.firstName} ${m.user.lastName}`
+                    const checked = selectedMembresJackpot.includes(m.id)
+                    const disabled = !checked && selectedMembresJackpot.length >= maxGagnants
+                    return (
+                      <label
+                        key={m.id}
+                        className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
+                          checked
+                            ? 'border-primary-300 bg-primary-50'
+                            : disabled
+                            ? 'border-neutral-100 bg-neutral-50 opacity-50 cursor-not-allowed'
+                            : 'border-neutral-200 hover:bg-neutral-50'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          disabled={disabled}
+                          onChange={() => {
+                            setSelectedMembresJackpot((prev) =>
+                              checked
+                                ? prev.filter((id) => id !== m.id)
+                                : [...prev, m.id]
+                            )
+                          }}
+                          className="accent-primary-600 w-4 h-4 flex-shrink-0"
+                        />
+                        <MiniAvatar name={nom} />
+                        <span className="text-sm font-medium text-neutral-800">{nom}</span>
+                        {m.ordreJackpot && (
+                          <span className="ml-auto text-xs text-neutral-400">#{m.ordreJackpot}</span>
+                        )}
+                      </label>
+                    )
+                  })}
+                </div>
+              )}
+            </>
+          )
+        })()}
       </Modal>
 
-      {/* Désigner bénéficiaire — sélection aléatoire */}
+      {/* Désigner gagnants — sélection aléatoire */}
       <ConfirmDialog
         isOpen={!!randomJackpotCycle}
         onClose={() => setRandomJackpotCycle(null)}
         onConfirm={handleDesignerAleatoire}
         title="Sélection aléatoire ?"
-        message="Le système choisira automatiquement un membre parmi ceux qui n'ont pas encore reçu de jackpot."
+        message={`Le système choisira automatiquement ${(tontine?.nombreGagnants ?? 1) > 1 ? `${tontine?.nombreGagnants} membres` : 'un membre'} parmi ceux qui n'ont pas encore reçu de jackpot.`}
         confirmText="Sélectionner"
         isLoading={isDesignating}
       />

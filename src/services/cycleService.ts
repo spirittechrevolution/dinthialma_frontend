@@ -1,5 +1,6 @@
 import api from './api'
-import { Cycle, OpenCycleRequest } from '@/types/cycle'
+import { Cycle, OpenCycleRequest, DesignerGagnantsRequest } from '@/types/cycle'
+import { BeneficiaireHistoriqueItem } from '@/types/beneficiaire'
 import { PageResponse, CustomResponse } from '@/types/common'
 
 export const cycleService = {
@@ -21,6 +22,7 @@ export const cycleService = {
   },
 
   // ─── Ouvrir un cycle manuellement (mode MANUEL uniquement) ───────────────────
+  // beneficiaireId supprimé (point 6)
   openCycle: async (tontineId: string, request: OpenCycleRequest): Promise<Cycle> => {
     const response = await api.post<CustomResponse<Cycle>>(
       `/v1/tontines/${tontineId}/cycles`,
@@ -37,12 +39,29 @@ export const cycleService = {
     return response.data.data
   },
 
-  // ─── Désigner le bénéficiaire du jackpot (mode MANUEL, cycle TERMINÉ) ────────
-  // membreId absent = sélection aléatoire
-  designerBeneficiaire: async (tontineId: string, cycleId: string, membreId?: string): Promise<Cycle> => {
+  // ─── Désigner les gagnants (MANUEL uniquement, cycle TERMINÉ) ────────────────
+  // membreIds vide ou absent = sélection aléatoire par le backend
+  designerGagnants: async (
+    tontineId: string,
+    cycleId: string,
+    request: DesignerGagnantsRequest
+  ): Promise<Cycle> => {
     const response = await api.patch<CustomResponse<Cycle>>(
       `/v1/tontines/${tontineId}/cycles/${cycleId}/beneficiaire`,
-      membreId ? { membreId } : {}
+      request
+    )
+    return response.data.data
+  },
+
+  // ─── Historique des bénéficiaires jackpot ────────────────────────────────────
+  getBeneficiairesHistorique: async (
+    tontineId: string,
+    page = 0,
+    size = 20
+  ): Promise<PageResponse<BeneficiaireHistoriqueItem>> => {
+    const response = await api.get<CustomResponse<PageResponse<BeneficiaireHistoriqueItem>>>(
+      `/v1/tontines/${tontineId}/cycles/beneficiaires`,
+      { params: { page, size, sort: 'numeroCycle,asc' } }
     )
     return response.data.data
   },

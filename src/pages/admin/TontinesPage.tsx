@@ -26,6 +26,7 @@ const schema = z.object({
   modeCycle: z.nativeEnum(ModeCycle),
   dateDebut: z.string().min(1, 'Requis'),
   nombreMembres: z.coerce.number().int().min(2).max(500),
+  nombreGagnants: z.coerce.number().int().min(1, 'Min 1').max(500),
 })
 
 type FormData = z.infer<typeof schema>
@@ -65,10 +66,17 @@ export function TontinesPage() {
   const { data: frequences = [] } = useCodeList('FREQUENCE_TONTINE')
   const { data: ordresBeneficiaire = [] } = useCodeList('ORDRE_BENEFICIAIRE')
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { modeCycle: ModeCycle.AUTOMATIQUE, nombreMembres: 12 },
+    defaultValues: { modeCycle: ModeCycle.AUTOMATIQUE, nombreMembres: 12, nombreGagnants: 1 },
   })
+
+  // Calcul du nombre de cycles prévisualisé
+  const watchedMembres = watch('nombreMembres')
+  const watchedGagnants = watch('nombreGagnants')
+  const nbCyclesPrevus = watchedMembres > 0 && watchedGagnants > 0
+    ? Math.ceil(watchedMembres / watchedGagnants)
+    : null
 
   const tontines = tontinesData?.content || []
 
@@ -202,6 +210,24 @@ export function TontinesPage() {
           <div className="grid grid-cols-2 gap-4">
             <Input label="Montant (FCFA)" type="number" placeholder="5000" error={errors.montant?.message} {...register('montant')} />
             <Input label="Nombre de membres" type="number" placeholder="12" error={errors.nombreMembres?.message} {...register('nombreMembres')} />
+          </div>
+          <div>
+            <Input
+              label="Gagnants par cycle"
+              type="number"
+              placeholder="1"
+              error={errors.nombreGagnants?.message}
+              {...register('nombreGagnants')}
+            />
+            <p className="text-xs text-neutral-400 mt-1">
+              Nombre de membres qui reçoivent le jackpot à chaque cycle.{' '}
+              <span className="text-neutral-500">1 = comportement classique.</span>
+            </p>
+            {nbCyclesPrevus !== null && (
+              <p className="mt-1.5 text-xs font-semibold text-primary-600">
+                → {nbCyclesPrevus} cycle{nbCyclesPrevus > 1 ? 's' : ''} seront générés
+              </p>
+            )}
           </div>
           <Select
             label="Fréquence"

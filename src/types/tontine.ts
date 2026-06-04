@@ -12,6 +12,8 @@ export interface Tontine {
   dateDebut: string
   nombreMembres: number
   nombreMembresActuels: number
+  /** Nombre de gagnants par cycle — 1 = comportement classique */
+  nombreGagnants: number
   statut: TontineStatut
   creePar: CreateurInfo
   createdAt: string
@@ -28,6 +30,8 @@ export interface CreateTontineRequest {
   modeCycle: ModeCycle
   dateDebut: string
   nombreMembres: number
+  /** min 1, défaut 1 */
+  nombreGagnants: number
 }
 
 // ─── Requête mise à jour ──────────────────────────────────────────────────────
@@ -39,6 +43,7 @@ export interface UpdateTontineRequest {
   ordreBeneficiaire?: string
   dateDebut?: string
   nombreMembres?: number
+  nombreGagnants?: number
 }
 
 // ─── Commission ───────────────────────────────────────────────────────────────
