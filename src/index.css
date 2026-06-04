@@ -8,55 +8,54 @@
 
 html {
   @apply scroll-smooth;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
   @apply bg-neutral-50 text-neutral-900;
+  overscroll-behavior: none;
+}
+
+/* Safe area iOS (notch / home indicator) */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* Animations */
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes slideDown {
-  from {
-    transform: translateY(-10px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
+  from { transform: translateY(-10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
 
-.animate-fadeIn {
-  animation: fadeIn 0.3s ease-in-out;
+@keyframes slideUp {
+  from { transform: translateY(16px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
 
-.animate-slideDown {
-  animation: slideDown 0.3s ease-out;
-}
+.animate-fadeIn   { animation: fadeIn   0.3s ease-in-out; }
+.animate-slideDown { animation: slideDown 0.3s ease-out; }
+.animate-slideUp  { animation: slideUp  0.3s ease-out; }
 
-/* Scrollbar styling */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+/* Shake — PIN incorrect */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%       { transform: translateX(-8px); }
+  40%       { transform: translateX(8px); }
+  60%       { transform: translateX(-6px); }
+  80%       { transform: translateX(6px); }
 }
+.animate-shake { animation: shake 0.45s ease-in-out; }
 
-::-webkit-scrollbar-track {
-  @apply bg-neutral-100;
-}
-
-::-webkit-scrollbar-thumb {
-  @apply bg-neutral-300 rounded;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-neutral-400;
+/* Scrollbar styling — desktop uniquement */
+@media (min-width: 768px) {
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { @apply bg-neutral-100; }
+  ::-webkit-scrollbar-thumb { @apply bg-neutral-300 rounded; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-neutral-400; }
 }

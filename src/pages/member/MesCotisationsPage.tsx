@@ -104,12 +104,12 @@ export function MesCotisationsPage() {
 
   return (
     <AppLayout>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-neutral-900">Mes cotisations</h1>
           <p className="text-sm text-neutral-500 mt-1">Historique de mes paiements et déclarations.</p>
         </div>
-        <Button size="sm" onClick={() => setIsOpen(true)}>
+        <Button size="sm" onClick={() => setIsOpen(true)} className="self-start sm:self-auto">
           <Plus size={16} className="mr-1" /> Déclarer un paiement
         </Button>
       </div>
@@ -132,9 +132,40 @@ export function MesCotisationsPage() {
         </div>
       </div>
 
-      {/* Table */}
+      {/* Table desktop / Cards mobile */}
       <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+
+        {/* Cards — mobile uniquement */}
+        <div className="md:hidden divide-y divide-neutral-50">
+          {isLoading ? (
+            <div className="flex justify-center py-10"><Spinner /></div>
+          ) : cotisations.length === 0 ? (
+            <p className="text-center py-10 text-neutral-400 text-sm">Aucune cotisation</p>
+          ) : (
+            cotisations.map((c: Cotisation) => {
+              const tontine = tontines.find((t) => t.id === firstTontineId)
+              return (
+                <div key={c.id} className="px-4 py-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm text-neutral-900 truncate">{tontine?.nom || '—'}</p>
+                    <p className="text-xs text-neutral-400 mt-0.5">
+                      {METHODE_LABELS[c.methodePaiement || ''] || c.methodePaiement || '—'}
+                      {' · '}
+                      {new Date(c.createdAt).toLocaleDateString('fr-FR')}
+                    </p>
+                  </div>
+                  <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                    <p className="font-bold text-sm text-neutral-900">{c.montant.toLocaleString('fr-FR')} FCFA</p>
+                    <Badge variant={STATUT_BADGE[c.statut]}>{STATUT_LABEL[c.statut]}</Badge>
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+
+        {/* Table — desktop uniquement */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-neutral-100">
@@ -159,13 +190,9 @@ export function MesCotisationsPage() {
                       <td className="px-5 py-4 font-semibold text-neutral-900">{c.montant.toLocaleString('fr-FR')} FCFA</td>
                       <td className="px-5 py-4 text-neutral-600">{METHODE_LABELS[c.methodePaiement || ''] || c.methodePaiement || '—'}</td>
                       <td className="px-5 py-4 text-neutral-500 text-xs font-mono">{c.referenceTransaction || '—'}</td>
-                      <td className="px-5 py-4 text-neutral-500 text-xs">
-                        {new Date(c.createdAt).toLocaleDateString('fr-FR')}
-                      </td>
+                      <td className="px-5 py-4 text-neutral-500 text-xs">{new Date(c.createdAt).toLocaleDateString('fr-FR')}</td>
                       <td className="px-5 py-4">
-                        <Badge variant={STATUT_BADGE[c.statut]}>
-                          {STATUT_LABEL[c.statut] || c.statut}
-                        </Badge>
+                        <Badge variant={STATUT_BADGE[c.statut]}>{STATUT_LABEL[c.statut] || c.statut}</Badge>
                       </td>
                     </tr>
                   )

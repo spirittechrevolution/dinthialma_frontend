@@ -149,12 +149,12 @@ export function MembresPage() {
 
   return (
     <AppLayout>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-neutral-900">Membres</h1>
           <p className="text-sm text-neutral-500 mt-1">Gérez les participants de vos tontines.</p>
         </div>
-        <Button size="sm" onClick={() => setIsAddOpen(true)} disabled={!activeTontineId}>
+        <Button size="sm" onClick={() => setIsAddOpen(true)} disabled={!activeTontineId} className="self-start sm:self-auto">
           <Plus size={16} className="mr-1" /> Ajouter
         </Button>
       </div>
@@ -194,8 +194,53 @@ export function MembresPage() {
           </div>
         </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto mt-3">
+        {/* Cards — mobile */}
+        <div className="md:hidden divide-y divide-neutral-50 mt-3">
+          {loadingMembres ? (
+            <div className="flex justify-center py-10"><Spinner /></div>
+          ) : filtered.length === 0 ? (
+            <p className="text-center py-10 text-neutral-400 text-sm">Aucun membre</p>
+          ) : (
+            filtered.map((m: Membre) => {
+              const nom = `${m.user.firstName} ${m.user.lastName}`
+              const tontine = tontines.find((t) => t.id === activeTontineId)
+              const isPreEnrolled = m.user.accountStatus === AccountStatus.PRE_ENROLLED
+              return (
+                <div key={m.id} className="px-4 py-3 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <MiniAvatar name={nom} />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="font-semibold text-sm text-neutral-900 truncate">{nom}</p>
+                        {isPreEnrolled && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-700">
+                            <Clock size={9} /> Non inscrit
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-neutral-400">{tontine?.nom || m.user.phone}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <Badge variant={STATUT_VARIANT[m.statut]}>
+                      {m.statut === 'ACTIF' ? 'Actif' : m.statut === 'SUSPENDU' ? 'Susp.' : 'Sorti'}
+                    </Badge>
+                    <MembreActionsMenu
+                      membre={m}
+                      tontineId={activeTontineId}
+                      onAction={setAction}
+                      canPay={!!currentCycle}
+                      onPayment={() => setPaymentModal({ membreId: m.id, membreNom: nom, cycleId: currentCycle!.id })}
+                    />
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+
+        {/* Table — desktop */}
+        <div className="hidden md:block overflow-x-auto mt-3">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-neutral-100">
@@ -208,9 +253,9 @@ export function MembresPage() {
             </thead>
             <tbody>
               {loadingMembres ? (
-                <tr><td colSpan={6} className="text-center py-10"><Spinner /></td></tr>
+                <tr><td colSpan={7} className="text-center py-10"><Spinner /></td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={6} className="text-center py-10 text-neutral-400">Aucun membre dans cette tontine</td></tr>
+                <tr><td colSpan={7} className="text-center py-10 text-neutral-400">Aucun membre dans cette tontine</td></tr>
               ) : (
                 filtered.map((m: Membre) => {
                   const nom = `${m.user.firstName} ${m.user.lastName}`
@@ -239,10 +284,7 @@ export function MembresPage() {
                       </td>
                       <td className="px-5 py-4">
                         {isPreEnrolled ? (
-                          <span
-                            title="Ce membre n'a pas encore activé son compte sur Dinthialma"
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 cursor-help"
-                          >
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 cursor-help" title="Ce membre n'a pas encore activé son compte">
                             <Clock size={10} /> Non inscrit
                           </span>
                         ) : (
@@ -255,11 +297,7 @@ export function MembresPage() {
                           tontineId={activeTontineId}
                           onAction={setAction}
                           canPay={!!currentCycle}
-                          onPayment={() => setPaymentModal({
-                            membreId: m.id,
-                            membreNom: nom,
-                            cycleId: currentCycle!.id,
-                          })}
+                          onPayment={() => setPaymentModal({ membreId: m.id, membreNom: nom, cycleId: currentCycle!.id })}
                         />
                       </td>
                     </tr>

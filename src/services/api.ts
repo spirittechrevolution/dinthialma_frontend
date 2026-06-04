@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosError } from 'axios'
-import { getAccessToken, getRefreshToken, setTokens, clearTokens } from '@/lib/tokenStorage'
+import { getAccessToken, getRefreshToken, setTokens, clearAll } from '@/lib/tokenStorage'
 import { ApiError } from '@/types/common'
 
 // Le backend expose ses routes sous /api (context-path) + /v1 (version)
@@ -40,10 +40,19 @@ const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue = []
 }
 
+// Endpoints publics d'auth : ne pas tenter de refresh sur leurs 401
+const AUTH_URLS = ['/v1/auth/login', '/v1/auth/login-pin', '/v1/auth/refresh', '/v1/auth/register', '/v1/auth/logout']
+
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError<ApiError>) => {
     const originalRequest = error.config as typeof error.config & { _retry?: boolean }
+    const url = originalRequest?.url ?? ''
+
+    // Laisser passer les erreurs des endpoints d'auth directement au appelant
+    if (AUTH_URLS.some((u) => url.includes(u))) {
+      return Promise.reject(error)
+    }
 
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
@@ -60,7 +69,7 @@ api.interceptors.response.use(
 
       const refreshToken = getRefreshToken()
       if (!refreshToken) {
-        clearTokens()
+        clearAll()
         window.location.href = '/login'
         return Promise.reject(error)
       }
@@ -77,7 +86,7 @@ api.interceptors.response.use(
         return api(originalRequest)
       } catch (refreshError) {
         processQueue(refreshError, null)
-        clearTokens()
+        clearAll()
         window.location.href = '/login'
         return Promise.reject(refreshError)
       } finally {

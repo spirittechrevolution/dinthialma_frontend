@@ -84,12 +84,12 @@ export function CotisationsPage() {
 
   return (
     <AppLayout>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-neutral-900">Cotisations</h1>
           <p className="text-sm text-neutral-500 mt-1">Validez les paiements reçus.</p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-neutral-700 border border-neutral-200 rounded-xl hover:bg-neutral-50 transition-colors shadow-sm">
+        <button className="self-start sm:self-auto flex items-center gap-2 px-4 py-2 text-sm font-medium text-neutral-700 border border-neutral-200 rounded-xl hover:bg-neutral-50 transition-colors shadow-sm">
           <Download size={15} /> Exporter
         </button>
       </div>
@@ -162,15 +162,49 @@ export function CotisationsPage() {
           </div>
         )}
 
-        {/* Table */}
-        <div className="overflow-x-auto mt-3">
+        {/* Cards — mobile */}
+        <div className="md:hidden divide-y divide-neutral-50 mt-3">
+          {isLoading ? (
+            <div className="flex justify-center py-10"><Spinner /></div>
+          ) : filtered.length === 0 ? (
+            <p className="text-center py-10 text-neutral-400 text-sm">Aucune cotisation</p>
+          ) : (
+            filtered.map((c: Cotisation) => {
+              const tontine = tontines.find((t) => t.id === activeTontineId)
+              return (
+                <div key={c.id} className="px-4 py-3">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <p className="font-semibold text-sm text-neutral-900">{c.membre.firstName} {c.membre.lastName}</p>
+                    <Badge variant={STATUT_BADGE[c.statut] || 'default'}>{STATUT_LABEL[c.statut] || c.statut}</Badge>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs text-neutral-400">
+                      {tontine?.nom} · {METHODE_LABELS[c.methodePaiement || ''] || c.methodePaiement || '—'}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-bold text-sm text-neutral-900">{c.montant.toLocaleString('fr-FR')} FCFA</p>
+                      {c.statut === CotisationStatut.EN_ATTENTE && (
+                        <button onClick={() => setCotisationToValidate(c.id)}
+                          className="w-7 h-7 rounded-full bg-primary-50 text-primary-600 flex items-center justify-center hover:bg-primary-100"
+                          title="Valider">
+                          <CheckCircle size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+
+        {/* Table — desktop */}
+        <div className="hidden md:block overflow-x-auto mt-3">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-neutral-100">
                 {['Membre', 'Tontine', 'Montant', 'Méthode', 'Référence', 'Validé le', 'Statut', 'Saisie par', ''].map((h) => (
-                  <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                    {h}
-                  </th>
+                  <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -186,59 +220,25 @@ export function CotisationsPage() {
                   const isAutoDeclaré = ep && ep.id === c.membre.userId
                   return (
                     <tr key={c.id} className="border-b border-neutral-50 hover:bg-neutral-50 transition-colors">
-                      <td className="px-5 py-4 font-semibold text-neutral-900">
-                        {c.membre.firstName} {c.membre.lastName}
-                      </td>
+                      <td className="px-5 py-4 font-semibold text-neutral-900">{c.membre.firstName} {c.membre.lastName}</td>
                       <td className="px-5 py-4 text-neutral-600">{tontine?.nom || '—'}</td>
-                      <td className="px-5 py-4 font-semibold text-neutral-900">
-                        {c.montant.toLocaleString('fr-FR')} FCFA
-                      </td>
-                      <td className="px-5 py-4 text-neutral-600">
-                        {METHODE_LABELS[c.methodePaiement || ''] || c.methodePaiement || '—'}
-                      </td>
-                      <td className="px-5 py-4 text-neutral-500 text-xs font-mono">
-                        {c.referenceTransaction || '—'}
-                      </td>
-                      <td className="px-5 py-4 text-neutral-500 text-xs">
-                        {c.dateValidation ? new Date(c.dateValidation).toLocaleDateString('fr-FR') : '—'}
-                      </td>
+                      <td className="px-5 py-4 font-semibold text-neutral-900">{c.montant.toLocaleString('fr-FR')} FCFA</td>
+                      <td className="px-5 py-4 text-neutral-600">{METHODE_LABELS[c.methodePaiement || ''] || c.methodePaiement || '—'}</td>
+                      <td className="px-5 py-4 text-neutral-500 text-xs font-mono">{c.referenceTransaction || '—'}</td>
+                      <td className="px-5 py-4 text-neutral-500 text-xs">{c.dateValidation ? new Date(c.dateValidation).toLocaleDateString('fr-FR') : '—'}</td>
+                      <td className="px-5 py-4"><Badge variant={STATUT_BADGE[c.statut] || 'default'}>{STATUT_LABEL[c.statut] || c.statut}</Badge></td>
                       <td className="px-5 py-4">
-                        <Badge variant={STATUT_BADGE[c.statut] || 'default'}>
-                          {STATUT_LABEL[c.statut] || c.statut}
-                        </Badge>
-                      </td>
-                      <td className="px-5 py-4">
-                        {!ep ? (
-                          <span className="text-neutral-300 text-xs">—</span>
-                        ) : isAutoDeclaré ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-neutral-100 text-neutral-600">
-                            Auto-déclaré
-                          </span>
-                        ) : (
-                          <span
-                            title={`${ep.firstName} ${ep.lastName}`}
-                            className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 cursor-help"
-                          >
-                            Saisie admin
-                          </span>
-                        )}
+                        {!ep ? <span className="text-neutral-300 text-xs">—</span>
+                          : isAutoDeclaré
+                            ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-neutral-100 text-neutral-600">Auto-déclaré</span>
+                            : <span title={`${ep.firstName} ${ep.lastName}`} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 cursor-help">Saisie admin</span>
+                        }
                       </td>
                       <td className="px-5 py-4">
                         {c.statut === CotisationStatut.EN_ATTENTE && (
                           <div className="flex gap-2">
-                            <button
-                              onClick={() => setCotisationToValidate(c.id)}
-                              className="w-7 h-7 rounded-full bg-primary-50 text-primary-600 flex items-center justify-center hover:bg-primary-100 transition-colors"
-                              title="Valider"
-                            >
-                              <CheckCircle size={14} />
-                            </button>
-                            <button
-                              className="w-7 h-7 rounded-full bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors"
-                              title="Refuser"
-                            >
-                              <XCircle size={14} />
-                            </button>
+                            <button onClick={() => setCotisationToValidate(c.id)} className="w-7 h-7 rounded-full bg-primary-50 text-primary-600 flex items-center justify-center hover:bg-primary-100" title="Valider"><CheckCircle size={14} /></button>
+                            <button className="w-7 h-7 rounded-full bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100" title="Refuser"><XCircle size={14} /></button>
                           </div>
                         )}
                       </td>

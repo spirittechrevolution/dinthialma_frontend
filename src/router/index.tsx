@@ -4,6 +4,7 @@ import { Spinner } from '@/components/ui/Spinner'
 import { ProtectedRoute } from './ProtectedRoute'
 import { RoleRoute } from './RoleRoute'
 import { UserRole } from '@/types/common'
+import { getAccessToken, getRefreshToken, getUserPhone, isTokenExpired } from '@/lib/tokenStorage'
 
 function S({ children }: { children: ReactNode }) {
   return (
@@ -17,10 +18,45 @@ function S({ children }: { children: ReactNode }) {
   )
 }
 
+/**
+ * Composant de démarrage — décide de la destination au lancement de l'app :
+ *
+ * 1. Token valide        → dashboard (ProtectedRoute gère)
+ * 2. Refresh token dispo → l'intercepteur axios s'en charge, on va au dashboard
+ * 3. Phone stocké        → écran PIN
+ * 4. Rien                → login complet
+ */
+function StartRoute() {
+  const access = getAccessToken()
+  const refresh = getRefreshToken()
+  const phone = getUserPhone()
+
+  // Token valide → ProtectedRoute redirigera vers le bon dashboard
+  if (access && !isTokenExpired(access)) {
+    return <Navigate to="/dashboard" replace />
+  }
+
+  // Refresh dispo → tenter le refresh (l'intercepteur s'en charge) ou écran PIN
+  if (refresh && phone) {
+    return <Navigate to="/pin" replace />
+  }
+
+  // Phone stocké sans refresh → écran PIN (le login-pin utilisera la session active)
+  if (phone) {
+    return <Navigate to="/pin" replace />
+  }
+
+  // Rien → login complet
+  return <Navigate to="/login" replace />
+}
+
 // Publiques
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage').then(m => ({ default: m.LoginPage })))
 const RegisterPage = lazy(() => import('@/pages/auth/RegisterPage').then(m => ({ default: m.RegisterPage })))
 const ForgotPasswordPage = lazy(() => import('@/pages/auth/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })))
+const PinLoginPage = lazy(() => import('@/pages/auth/PinLoginPage').then(m => ({ default: m.PinLoginPage })))
+const PinSetupPage = lazy(() => import('@/pages/auth/PinSetupPage').then(m => ({ default: m.PinSetupPage })))
+const PinResetPage = lazy(() => import('@/pages/auth/PinResetPage').then(m => ({ default: m.PinResetPage })))
 
 // Protégées
 const ProfilePage = lazy(() => import('@/pages/profile/ProfilePage').then(m => ({ default: m.ProfilePage })))
@@ -47,11 +83,18 @@ const MesTontinesPage = lazy(() => import('@/pages/member/MesTontinesPage').then
 const MesCotisationsPage = lazy(() => import('@/pages/member/MesCotisationsPage').then(m => ({ default: m.MesCotisationsPage })))
 
 const router = createBrowserRouter([
-  // Publiques
+  // ── Démarrage intelligent ─────────────────────────────────────────────────
+  { path: '/', element: <StartRoute /> },
+
+  // ── Auth publique ─────────────────────────────────────────────────────────
   { path: '/login', element: <S><LoginPage /></S> },
   { path: '/register', element: <S><RegisterPage /></S> },
   { path: '/forgot-password', element: <S><ForgotPasswordPage /></S> },
-  { path: '/', element: <Navigate to="/dashboard" replace /> },
+
+  // ── Flux PIN ──────────────────────────────────────────────────────────────
+  { path: '/pin', element: <S><PinLoginPage /></S> },
+  { path: '/pin/setup', element: <ProtectedRoute><S><PinSetupPage /></S></ProtectedRoute> },
+  { path: '/pin/reset', element: <S><PinResetPage /></S> },
 
   // Super Admin
   {
