@@ -1,10 +1,25 @@
 import type { AuthUser } from '@/types/user'
 import { UserRole } from '@/types/common'
 
-const ACCESS_TOKEN_KEY  = 'dinthialma_access_token'
-const REFRESH_TOKEN_KEY = 'dinthialma_refresh_token'
-const USER_PHONE_KEY    = 'dinthialma_user_phone'
+const ACCESS_TOKEN_KEY   = 'dinthialma_access_token'
+const REFRESH_TOKEN_KEY  = 'dinthialma_refresh_token'
+const USER_PHONE_KEY     = 'dinthialma_user_phone'
 const PIN_CONFIGURED_KEY = 'dinthialma_pin_configured'
+const CLIENT_TYPE_KEY    = 'dinthialma_client_type'
+
+// ─── Détection du type de client ──────────────────────────────────────────────
+export function detectClientType(): 'WEB' | 'MOBILE' {
+  const isStandalone =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (window.navigator as Navigator & { standalone?: boolean }).standalone === true
+  return isStandalone ? 'MOBILE' : 'WEB'
+}
+
+// ─── Normalisation du téléphone ───────────────────────────────────────────────
+// Le backend attend le numéro sans le + (ex: 221783703310)
+export function normalizePhone(phone: string): string {
+  return phone.replace(/\s/g, '').replace(/^\+/, '')
+}
 
 // ─── Structure du JWT Keycloak ────────────────────────────────────────────────
 interface JwtPayload {
@@ -43,21 +58,38 @@ export function clearTokens(): void {
   localStorage.removeItem(REFRESH_TOKEN_KEY)
 }
 
-// ─── Phone (persisté pour le login PIN) ──────────────────────────────────────
+// ─── Client type ──────────────────────────────────────────────────────────────
+export function getClientType(): 'WEB' | 'MOBILE' {
+  return (localStorage.getItem(CLIENT_TYPE_KEY) as 'WEB' | 'MOBILE') ?? detectClientType()
+}
+
+// ─── Session complète (stockage après login réussi) ───────────────────────────
+export function storeSession(
+  accessToken: string,
+  refreshToken: string,
+  phone: string,
+): void {
+  localStorage.setItem(ACCESS_TOKEN_KEY, accessToken)
+  localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
+  localStorage.setItem(USER_PHONE_KEY, normalizePhone(phone))
+  localStorage.setItem(CLIENT_TYPE_KEY, detectClientType())
+}
+
+// ─── Phone ────────────────────────────────────────────────────────────────────
 export function getUserPhone(): string | null {
   return localStorage.getItem(USER_PHONE_KEY)
 }
 export function setUserPhone(phone: string): void {
-  localStorage.setItem(USER_PHONE_KEY, phone)
+  localStorage.setItem(USER_PHONE_KEY, normalizePhone(phone))
 }
 export function clearUserPhone(): void {
   localStorage.removeItem(USER_PHONE_KEY)
 }
 
 // ─── PIN configuré ────────────────────────────────────────────────────────────
-// null  = clé absente (statut inconnu, ex. première connexion sur cet appareil)
-// false = backend a confirmé que le PIN n'est pas configuré
-// true  = backend a confirmé que le PIN est configuré
+// null  = clé absente (inconnu — 1ère connexion sur cet appareil)
+// false = backend a confirmé PIN non configuré
+// true  = PIN configuré
 export function getPinConfigured(): boolean | null {
   const val = localStorage.getItem(PIN_CONFIGURED_KEY)
   if (val === 'true') return true
@@ -68,11 +100,13 @@ export function setPinConfigured(value: boolean): void {
   localStorage.setItem(PIN_CONFIGURED_KEY, value ? 'true' : 'false')
 }
 
-// ─── Clear complet (logout) ────────────────────────────────────────────────────
+// ─── Effacement complet (logout) ──────────────────────────────────────────────
 export function clearAll(): void {
-  clearTokens()
-  clearUserPhone()
+  localStorage.removeItem(ACCESS_TOKEN_KEY)
+  localStorage.removeItem(REFRESH_TOKEN_KEY)
+  localStorage.removeItem(USER_PHONE_KEY)
   localStorage.removeItem(PIN_CONFIGURED_KEY)
+  localStorage.removeItem(CLIENT_TYPE_KEY)
 }
 
 // ─── Parsing JWT ──────────────────────────────────────────────────────────────
@@ -100,13 +134,13 @@ function extractRoles(payload: JwtPayload): UserRole[] {
   ]
   const roleMap: Record<string, UserRole> = {
     DINTHIALMA_SUPER_ADMIN: UserRole.SUPER_ADMIN,
-    DINTHIALMA_ADMIN: UserRole.ADMIN,
-    DINTHIALMA_MEMBER: UserRole.MEMBER,
-    DINTHIALMA_USER: UserRole.USER,
-    SUPER_ADMIN: UserRole.SUPER_ADMIN,
-    ADMIN: UserRole.ADMIN,
-    MEMBER: UserRole.MEMBER,
-    USER: UserRole.USER,
+    DINTHIALMA_ADMIN:       UserRole.ADMIN,
+    DINTHIALMA_MEMBER:      UserRole.MEMBER,
+    DINTHIALMA_USER:        UserRole.USER,
+    SUPER_ADMIN:            UserRole.SUPER_ADMIN,
+    ADMIN:                  UserRole.ADMIN,
+    MEMBER:                 UserRole.MEMBER,
+    USER:                   UserRole.USER,
   }
   const roles = rawRoles.map((r) => roleMap[r]).filter((r): r is UserRole => r !== undefined)
   return [...new Set(roles)]
@@ -116,11 +150,11 @@ export function getAuthUser(token?: string): AuthUser | null {
   const payload = parseJwt<JwtPayload>(token)
   if (!payload?.sub) return null
   return {
-    sub: payload.sub,
-    email: payload.email ?? '',
+    sub:       payload.sub,
+    email:     payload.email ?? '',
     firstName: payload.given_name ?? payload.preferred_username ?? '',
-    lastName: payload.family_name ?? '',
-    phone: payload.preferred_username ?? '',
-    roles: extractRoles(payload),
+    lastName:  payload.family_name ?? '',
+    phone:     payload.preferred_username ?? '',
+    roles:     extractRoles(payload),
   }
 }

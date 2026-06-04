@@ -2,12 +2,13 @@ import { useContext, createContext, useState, ReactNode, useCallback } from 'rea
 import { UserRole } from '@/types/common'
 import { AuthUser, AuthContextType } from '@/types/user'
 import {
-  getAccessToken, getRefreshToken, setTokens, clearAccessToken, getAuthUser,
-  isTokenExpired, setUserPhone, setPinConfigured,
+  getAccessToken,
+  storeSession, clearAccessToken,
+  getAuthUser, isTokenExpired,
+  setPinConfigured, detectClientType,
 } from '@/lib/tokenStorage'
 import api from '@/services/api'
 
-// ─── Type étendu du contexte ──────────────────────────────────────────────────
 interface ExtendedAuthContextType extends AuthContextType {
   loginWithPin: (phone: string, pin: string) => Promise<AuthUser | null>
   setupPin: (pin: string, confirmPin: string) => Promise<void>
@@ -32,16 +33,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { data } = await api.post<{
         data: { access_token: string; refresh_token: string; pinConfigured?: boolean }
-      }>('/v1/auth/login', { username, password, clientType: 'WEB' })
+      }>('/v1/auth/login', {
+        username,
+        password,
+        clientType: detectClientType(),
+        deviceInfo: navigator.userAgent,
+      })
 
       const { access_token, refresh_token, pinConfigured } = data.data
-      setTokens(access_token, refresh_token)
+      storeSession(access_token, refresh_token, username)
 
-      // Stocker le phone pour le login PIN futur
-      const normalized = username.replace(/\s/g, '')
-      setUserPhone(normalized)
-
-      // Stocker si le PIN est déjà configuré
       if (pinConfigured !== undefined) setPinConfigured(pinConfigured)
 
       const authUser = getAuthUser(access_token)
@@ -53,21 +54,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   // ─── Login PIN ─────────────────────────────────────────────────────────────
+  // Pas de Bearer manuel — l'intercepteur Axios gère le refresh automatiquement
+  // si l'access token est expiré, ce qui fournit le Bearer pour identifier la session.
   const loginWithPin = useCallback(async (phone: string, pin: string): Promise<AuthUser | null> => {
     setIsLoading(true)
     try {
-      // Le backend identifie la session via le Bearer token.
-      // Après un soft logout, l'access token est absent mais le refresh token
-      // est encore valide — on l'utilise pour maintenir la session active.
-      const sessionToken = getAccessToken() ?? getRefreshToken()
-      const headers = sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}
       const { data } = await api.post<{ data: { access_token: string; refresh_token: string } }>(
         '/v1/auth/login-pin',
-        { phone, pin, clientType: 'MOBILE' },
-        { headers }
+        {
+          phone,
+          pin,
+          clientType: detectClientType(),
+          deviceInfo: navigator.userAgent,
+        }
       )
       const { access_token, refresh_token } = data.data
-      setTokens(access_token, refresh_token)
+      storeSession(access_token, refresh_token, phone)
       const authUser = getAuthUser(access_token)
       setUser(authUser)
       return authUser
@@ -83,9 +85,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   // ─── Logout (soft) ────────────────────────────────────────────────────────
-  // Ne termine pas la session Keycloak côté backend : le refresh token reste
-  // valide pour le login PIN. Seul l'access token est supprimé localement.
-  // "Changer de compte" sur l'écran PIN fait un logout complet.
+  // Ne termine pas la session Keycloak côté backend : refresh token + phone +
+  // isPinConfigured restent en localStorage.
+  // StartRoute voit phone+isPinConfigured=true → redirige vers /pin.
+  // L'intercepteur Axios gère le refresh si l'access token est expiré.
+  // Pour un logout complet (changer de compte), utiliser handleChangeAccount
+  // sur l'écran PIN qui appelle /auth/logout + clearAll().
   const logout = useCallback(async (): Promise<void> => {
     clearAccessToken()
     setUser(null)
@@ -105,8 +110,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       hasRole,
       isSuperAdmin: () => hasRole(UserRole.SUPER_ADMIN),
-      isAdmin: () => hasRole(UserRole.ADMIN),
-      isMember: () => hasRole(UserRole.MEMBER),
+      isAdmin:      () => hasRole(UserRole.ADMIN),
+      isMember:     () => hasRole(UserRole.MEMBER),
     }}>
       {children}
     </AuthContext.Provider>

@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { isAxiosError } from 'axios'
 import { Delete, LogOut } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
-import { getUserPhone, clearAll, getRefreshToken } from '@/lib/tokenStorage'
+import { getUserPhone, clearAll, getRefreshToken, getClientType } from '@/lib/tokenStorage'
 import { UserRole } from '@/types/common'
 import api from '@/services/api'
 
@@ -79,17 +79,25 @@ export function PinLoginPage() {
 
         if (isAxiosError(err)) {
           const status = err.response?.status
-          const msg: string = err.response?.data?.message || ''
+          const msg: string = err.response?.data?.message ?? ''
 
           if (status === 401 && msg.toLowerCase().includes('session')) {
             clearAll()
-            toast.error('Session expirée. Reconnectez-vous avec votre mot de passe.')
+            toast.error('Votre session a expiré. Reconnectez-vous avec votre mot de passe.')
+            navigate('/login', { replace: true })
+          } else if (status === 404) {
+            clearAll()
+            toast.error('Compte introuvable. Reconnectez-vous.')
             navigate('/login', { replace: true })
           } else if (status === 400 && msg.toLowerCase().includes('expiré')) {
             toast.error('Votre PIN a expiré. Réinitialisez-le.')
             navigate('/pin/reset', { replace: true })
+          } else if (status === 400 && msg.toLowerCase().includes('simple')) {
+            toast.error('Code PIN trop simple. Choisissez un autre.')
+          } else if (status === 429) {
+            toast.error(msg || 'Code PIN verrouillé. Réessayez dans quelques minutes.')
           } else {
-            toast.error('PIN incorrect.')
+            toast.error('Code PIN incorrect.')
           }
         }
       } finally {
@@ -102,16 +110,17 @@ export function PinLoginPage() {
 
   const handleChangeAccount = async () => {
     const refreshToken = getRefreshToken()
+    const clientType   = getClientType()
     try {
-      if (refreshToken) await api.post('/v1/auth/logout', { refreshToken })
-    } catch { /* continuer même si l'appel échoue */ } finally {
+      if (refreshToken) await api.post('/v1/auth/logout', { refreshToken, clientType })
+    } catch { /* non bloquant */ } finally {
       clearAll()
       navigate('/login', { replace: true })
     }
   }
 
   const displayPhone = phone
-    ? phone.replace(/(\+\d{3})(\d{2})(\d{3})(\d{2})(\d{2})/, '$1 $2 $3 $4 $5')
+    ? ('+' + phone).replace(/(\+\d{3})(\d{2})(\d{3})(\d{2})(\d{2})/, '$1 $2 $3 $4 $5')
     : ''
 
   // ─── Clavier partagé ──────────────────────────────────────────────────────

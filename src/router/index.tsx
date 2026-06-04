@@ -4,7 +4,7 @@ import { Spinner } from '@/components/ui/Spinner'
 import { ProtectedRoute } from './ProtectedRoute'
 import { RoleRoute } from './RoleRoute'
 import { UserRole } from '@/types/common'
-import { getAccessToken, getRefreshToken, getUserPhone, isTokenExpired } from '@/lib/tokenStorage'
+import { getAccessToken, getUserPhone, getPinConfigured, isTokenExpired } from '@/lib/tokenStorage'
 
 function S({ children }: { children: ReactNode }) {
   return (
@@ -28,25 +28,21 @@ function S({ children }: { children: ReactNode }) {
  */
 function StartRoute() {
   const access = getAccessToken()
-  const refresh = getRefreshToken()
-  const phone = getUserPhone()
+  const phone  = getUserPhone()
 
-  // Token valide → ProtectedRoute redirigera vers le bon dashboard
+  // Token valide → dashboard directement
   if (access && !isTokenExpired(access)) {
     return <Navigate to="/dashboard" replace />
   }
 
-  // Refresh dispo → tenter le refresh (l'intercepteur s'en charge) ou écran PIN
-  if (refresh && phone) {
+  // Phone connu + PIN non explicitement absent → écran PIN
+  // null = inconnu (première connexion sur cet appareil, ou flag effacé) → on tente le PIN
+  // false = backend a confirmé PIN non configuré → login complet
+  if (phone && getPinConfigured() !== false) {
     return <Navigate to="/pin" replace />
   }
 
-  // Phone stocké sans refresh → écran PIN (le login-pin utilisera la session active)
-  if (phone) {
-    return <Navigate to="/pin" replace />
-  }
-
-  // Rien → login complet
+  // Sinon → login complet
   return <Navigate to="/login" replace />
 }
 
