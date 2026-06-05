@@ -5,6 +5,7 @@ import { ProtectedRoute } from './ProtectedRoute'
 import { RoleRoute } from './RoleRoute'
 import { UserRole } from '@/types/common'
 import { getAccessToken, getUserPhone, getPinConfigured, isTokenExpired } from '@/lib/tokenStorage'
+import { isMobilePWA, hasSeenOnboarding } from '@/pages/OnboardingPage'
 
 function S({ children }: { children: ReactNode }) {
   return (
@@ -21,28 +22,31 @@ function S({ children }: { children: ReactNode }) {
 /**
  * Composant de démarrage — décide de la destination au lancement de l'app :
  *
- * 1. Token valide        → dashboard (ProtectedRoute gère)
- * 2. Refresh token dispo → l'intercepteur axios s'en charge, on va au dashboard
- * 3. Phone stocké        → écran PIN
- * 4. Rien                → login complet
+ * 0. PWA mobile + première ouverture → onboarding
+ * 1. Token valide                    → dashboard
+ * 2. Phone stocké + PIN configuré   → écran PIN
+ * 3. Sinon                           → login complet
  */
 function StartRoute() {
   const access = getAccessToken()
   const phone  = getUserPhone()
 
-  // Token valide → dashboard directement
+  // 0. PWA mobile, première ouverture → onboarding
+  if (isMobilePWA() && !hasSeenOnboarding()) {
+    return <Navigate to="/onboarding" replace />
+  }
+
+  // 1. Token valide → dashboard directement
   if (access && !isTokenExpired(access)) {
     return <Navigate to="/dashboard" replace />
   }
 
-  // Phone connu + PIN non explicitement absent → écran PIN
-  // null = inconnu (première connexion sur cet appareil, ou flag effacé) → on tente le PIN
-  // false = backend a confirmé PIN non configuré → login complet
+  // 2. Phone connu + PIN non explicitement absent → écran PIN
   if (phone && getPinConfigured() !== false) {
     return <Navigate to="/pin" replace />
   }
 
-  // Sinon → login complet
+  // 3. Sinon → login complet
   return <Navigate to="/login" replace />
 }
 
@@ -53,6 +57,7 @@ const ForgotPasswordPage = lazy(() => import('@/pages/auth/ForgotPasswordPage').
 const PinLoginPage = lazy(() => import('@/pages/auth/PinLoginPage').then(m => ({ default: m.PinLoginPage })))
 const PinSetupPage = lazy(() => import('@/pages/auth/PinSetupPage').then(m => ({ default: m.PinSetupPage })))
 const PinResetPage = lazy(() => import('@/pages/auth/PinResetPage').then(m => ({ default: m.PinResetPage })))
+const OnboardingPage = lazy(() => import('@/pages/OnboardingPage').then(m => ({ default: m.OnboardingPage })))
 
 // Protégées
 const ProfilePage = lazy(() => import('@/pages/profile/ProfilePage').then(m => ({ default: m.ProfilePage })))
@@ -77,10 +82,14 @@ const CotisationsPage = lazy(() => import('@/pages/admin/CotisationsPage').then(
 const MemberDashboard = lazy(() => import('@/pages/member/Dashboard').then(m => ({ default: m.MemberDashboard })))
 const MesTontinesPage = lazy(() => import('@/pages/member/MesTontinesPage').then(m => ({ default: m.MesTontinesPage })))
 const MesCotisationsPage = lazy(() => import('@/pages/member/MesCotisationsPage').then(m => ({ default: m.MesCotisationsPage })))
+const NotificationsPage = lazy(() => import('@/pages/NotificationsPage').then(m => ({ default: m.NotificationsPage })))
 
 const router = createBrowserRouter([
   // ── Démarrage intelligent ─────────────────────────────────────────────────
   { path: '/', element: <StartRoute /> },
+
+  // ── Onboarding PWA mobile (première ouverture) ────────────────────────────
+  { path: '/onboarding', element: <S><OnboardingPage /></S> },
 
   // ── Auth publique ─────────────────────────────────────────────────────────
   { path: '/login', element: <S><LoginPage /></S> },
@@ -176,6 +185,12 @@ const router = createBrowserRouter([
   {
     path: '/profile',
     element: <ProtectedRoute><S><ProfilePage /></S></ProtectedRoute>,
+  },
+
+  // Notifications (toutes les rôles)
+  {
+    path: '/notifications',
+    element: <ProtectedRoute><S><NotificationsPage /></S></ProtectedRoute>,
   },
 
   // Catch-all

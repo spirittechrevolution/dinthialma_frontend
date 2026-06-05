@@ -936,81 +936,81 @@ export function TontineDetailPage() {
                         key={item.cycleId}
                         className="bg-white border border-neutral-100 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow"
                       >
-                        {/* Ligne principale */}
-                        <div className="flex items-center gap-4 px-5 py-4">
-                          {/* Numéro de cycle */}
-                          <div className="w-10 h-10 rounded-xl bg-primary-50 flex flex-col items-center justify-center flex-shrink-0">
-                            <span className="text-[10px] text-primary-400 leading-none">Cycle</span>
-                            <span className="font-extrabold text-primary-700 text-sm leading-none">{item.numeroCycle}</span>
-                          </div>
+                        {/* Ligne principale — layout corrigé sans superposition */}
+                        <div className="px-4 py-4">
+                          <div className="flex items-start gap-3">
+                            {/* Badge cycle */}
+                            <div className="w-12 h-12 rounded-xl bg-primary-50 flex flex-col items-center justify-center flex-shrink-0">
+                              <span className="text-[9px] text-primary-400 leading-none font-medium">Cycle</span>
+                              <span className="font-extrabold text-primary-700 text-lg leading-none">{item.numeroCycle}</span>
+                            </div>
 
-                          {/* Gagnants */}
-                          <div className="flex-1 min-w-0">
-                            {gagnants.length === 0 ? (
-                              <p className="text-sm text-neutral-400 italic">Gagnants non encore désignés</p>
-                            ) : gagnants.length === 1 ? (
-                              <div className="flex items-center gap-2">
-                                <MiniAvatar name={`${gagnants[0].firstName} ${gagnants[0].lastName}`} />
-                                <div>
-                                  <div className="flex items-center gap-1.5">
-                                    <p className="font-semibold text-neutral-900 text-sm">{gagnants[0].firstName} {gagnants[0].lastName}</p>
-                                    {gagnants[0].ordreJackpot != null && (
-                                      <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-neutral-100 text-neutral-500">
-                                        #{gagnants[0].ordreJackpot}
-                                      </span>
-                                    )}
+                            {/* Nom + date — flex-1 avec min-w-0 pour éviter le débordement */}
+                            <div className="flex-1 min-w-0">
+                              {gagnants.length === 0 ? (
+                                <p className="text-sm text-neutral-400 italic">Gagnants non encore désignés</p>
+                              ) : gagnants.length === 1 ? (
+                                <>
+                                  <div className="flex items-center gap-2 mb-0.5">
+                                    <MiniAvatar name={`${gagnants[0].firstName} ${gagnants[0].lastName}`} />
+                                    <div className="min-w-0">
+                                      <p className="font-bold text-neutral-900 text-sm truncate">
+                                        {gagnants[0].firstName} {gagnants[0].lastName}
+                                        {gagnants[0].ordreJackpot != null && (
+                                          <span className="ml-1.5 px-1 py-0.5 rounded text-[10px] font-bold bg-neutral-100 text-neutral-500">
+                                            #{gagnants[0].ordreJackpot}
+                                          </span>
+                                        )}
+                                      </p>
+                                      {/* Montant sous le nom — plus de superposition */}
+                                      <p className="font-extrabold text-primary-600 text-base">
+                                        {montantNet.toLocaleString('fr-FR')} <span className="text-xs font-semibold text-primary-400">FCFA</span>
+                                      </p>
+                                    </div>
                                   </div>
+                                  <div className="flex items-center gap-1 ml-10">
+                                    <Calendar size={10} className="text-neutral-400" />
+                                    <span className="text-xs text-neutral-400">{dateRef}</span>
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  <div className="flex flex-wrap gap-1 mb-1">
+                                    {gagnants.map((g) => (
+                                      <div key={g.membreId} className="flex items-center gap-1 px-2 py-0.5 bg-primary-50 rounded-full">
+                                        <MiniAvatar name={`${g.firstName} ${g.lastName}`} />
+                                        <span className="text-xs font-semibold text-primary-700">{g.firstName}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  <p className="font-extrabold text-primary-600 text-base">
+                                    {montantNet.toLocaleString('fr-FR')} <span className="text-xs font-semibold text-primary-400">FCFA</span>
+                                  </p>
+                                  {montantParGagnant != null && (
+                                    <p className="text-[10px] text-neutral-400">
+                                      {montantParGagnant.toLocaleString('fr-FR')} FCFA / pers.
+                                    </p>
+                                  )}
                                   <div className="flex items-center gap-1 mt-0.5">
                                     <Calendar size={10} className="text-neutral-400" />
                                     <span className="text-xs text-neutral-400">{dateRef}</span>
                                   </div>
-                                </div>
-                              </div>
-                            ) : (
-                              <div>
-                                <div className="flex items-center gap-1 flex-wrap">
-                                  {gagnants.map((g) => (
-                                    <div key={g.membreId} className="flex items-center gap-1 px-2 py-0.5 bg-primary-50 rounded-full">
-                                      <MiniAvatar name={`${g.firstName} ${g.lastName}`} />
-                                      <span className="text-xs font-semibold text-primary-700">{g.firstName}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                                <div className="flex items-center gap-1 mt-1">
-                                  <Calendar size={10} className="text-neutral-400" />
-                                  <span className="text-xs text-neutral-400">{dateRef}</span>
-                                </div>
-                              </div>
-                            )}
-                          </div>
+                                </>
+                              )}
+                            </div>
 
-                          {/* Montant net total */}
-                          <div className="text-right flex-shrink-0">
-                            <p className="font-extrabold text-primary-600 text-base">
-                              {montantNet.toLocaleString('fr-FR')} FCFA
-                            </p>
-                            {gagnants.length > 1 && montantParGagnant != null && (
-                              <p className="text-[10px] text-neutral-400">
-                                {montantParGagnant.toLocaleString('fr-FR')} / pers.
-                              </p>
-                            )}
-                            {gagnants.length <= 1 && (
-                              <p className="text-[10px] text-neutral-400 mt-0.5">Net versé</p>
-                            )}
-                          </div>
-
-                          {/* Badge + accordéon */}
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700">
-                              <Trophy size={11} /> Jackpot
-                            </span>
-                            <button
-                              onClick={() => setExpandedHistoriqueCycle(isExpanded ? null : item.cycleId)}
-                              className="w-7 h-7 rounded-lg bg-neutral-100 flex items-center justify-center text-neutral-500 hover:bg-neutral-200 transition-colors"
-                              title={isExpanded ? 'Masquer le détail' : 'Voir le détail'}
-                            >
-                              {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                            </button>
+                            {/* Badge + accordéon — colonne droite fixe */}
+                            <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700 whitespace-nowrap">
+                                <Trophy size={11} /> Jackpot
+                              </span>
+                              <button
+                                onClick={() => setExpandedHistoriqueCycle(isExpanded ? null : item.cycleId)}
+                                className="w-7 h-7 rounded-lg bg-neutral-100 flex items-center justify-center text-neutral-500 hover:bg-neutral-200 transition-colors"
+                              >
+                                {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                              </button>
+                            </div>
                           </div>
                         </div>
 
