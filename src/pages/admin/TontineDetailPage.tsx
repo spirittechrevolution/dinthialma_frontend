@@ -172,9 +172,11 @@ export function TontineDetailPage() {
       render: (row) => row.montantNet ? `${row.montantNet.toLocaleString()} FCFA` : '—',
     },
     {
-      key: 'beneficiaire',
+      key: 'gagnants',
       header: 'Bénéficiaire',
-      render: (row) => row.beneficiaire ? `${row.beneficiaire.firstName} ${row.beneficiaire.lastName}` : '—',
+      render: (row) => row.gagnants && row.gagnants.length > 0
+        ? row.gagnants.map(g => `${g.firstName} ${g.lastName}`).join(', ')
+        : '—',
     },
     {
       key: 'statut',

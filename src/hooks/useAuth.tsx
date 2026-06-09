@@ -28,7 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false)
 
   // ─── Login mot de passe ────────────────────────────────────────────────────
-  const login = useCallback(async (username: string, password: string): Promise<AuthUser | null> => {
+  const login = useCallback(async (username: string, password: string): Promise<{ user: AuthUser | null; pinConfigured?: boolean }> => {
     setIsLoading(true)
     try {
       const { data } = await api.post<{
@@ -47,7 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const authUser = getAuthUser(access_token)
       setUser(authUser)
-      return authUser
+      return { user: authUser, pinConfigured }
     } finally {
       setIsLoading(false)
     }

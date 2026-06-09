@@ -7,15 +7,10 @@ import { useMyDashboard } from '@/hooks/useDashboard'
 import { useAuth } from '@/hooks/useAuth'
 import { TontineStats } from '@/types/dashboard'
 import { TontineStatut } from '@/types/common'
-import { BookCopy, Users, Clock, AlertTriangle, ArrowRight, Bell, TrendingUp, ChevronRight } from 'lucide-react'
+import { BookCopy, Users, Clock, AlertTriangle, ArrowRight, Bell, TrendingUp, ChevronRight, UserCheck, CalendarHeart, RotateCcw } from 'lucide-react'
 
 const statutVariants: Record<string, 'success' | 'warning' | 'info' | 'default'> = {
   ACTIVE: 'success', BROUILLON: 'default', SUSPENDUE: 'warning', TERMINEE: 'default',
-}
-
-const FREQ_LABELS: Record<string, string> = {
-  JOURNALIERE: 'journalière', HEBDOMADAIRE: 'hebdomadaire',
-  BIMENSUEL: 'bimensuelle', MENSUEL: 'mensuelle', TRIMESTRIEL: 'trimestrielle',
 }
 
 // ─── KPI card ─────────────────────────────────────────────────────────────────
@@ -158,6 +153,21 @@ export function AdminDashboard() {
         <p className="text-[10px] text-neutral-400 mt-1 text-right">* Données illustratives</p>
       </div>
 
+      {/* Mes participations (vue membre) */}
+      <Link
+        to="/member/dashboard"
+        className="flex items-center gap-4 bg-white border border-neutral-100 shadow-sm rounded-2xl p-4 mb-4 hover:border-primary-200 hover:shadow-md transition-all"
+      >
+        <div className="w-10 h-10 rounded-2xl bg-primary-50 flex items-center justify-center flex-shrink-0">
+          <UserCheck size={20} className="text-primary-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold text-neutral-900">Mes participations</p>
+          <p className="text-xs text-neutral-400 mt-0.5">Voir votre vue en tant que membre</p>
+        </div>
+        <ChevronRight size={16} className="text-neutral-300 flex-shrink-0" />
+      </Link>
+
       {/* Liste tontines */}
       <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm p-4">
         <div className="flex items-center justify-between mb-3">
@@ -170,23 +180,52 @@ export function AdminDashboard() {
           {tontines.length === 0 ? (
             <p className="text-sm text-neutral-400 text-center py-4">Aucune tontine gérée</p>
           ) : (
-            tontines.slice(0, 4).map((t: TontineStats) => (
-              <Link key={t.id} to={`/admin/tontines/${t.id}`}
-                className="flex items-center justify-between py-2.5 border-b border-neutral-50 last:border-0 hover:bg-neutral-50 rounded-xl px-1 -mx-1 transition-colors">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="font-semibold text-neutral-900 text-sm truncate">{t.nom}</p>
-                    <Badge variant={statutVariants[t.statut as TontineStatut]} className="text-[10px] px-1.5 py-0.5">
-                      {t.statut.charAt(0) + t.statut.slice(1).toLowerCase()}
-                    </Badge>
+            tontines.slice(0, 4).map((t: TontineStats) => {
+              const isEvent = t.tontineType === 'EVENEMENTIELLE'
+              const jours = t.dateEcheance
+                ? Math.ceil((new Date(t.dateEcheance).getTime() - Date.now()) / 86400000)
+                : null
+              return (
+                <Link key={t.id} to={`/admin/tontines/${t.id}`}
+                  className="flex items-center justify-between py-2.5 border-b border-neutral-50 last:border-0 hover:bg-neutral-50 rounded-xl px-1 -mx-1 transition-colors">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-semibold text-neutral-900 text-sm truncate">{t.nom}</p>
+                      <Badge variant={statutVariants[t.statut as TontineStatut]} className="text-[10px] px-1.5 py-0.5">
+                        {t.statut.charAt(0) + t.statut.slice(1).toLowerCase()}
+                      </Badge>
+                      {isEvent ? (
+                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-purple-600">
+                          <CalendarHeart size={9} /> Évén.
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-blue-500">
+                          <RotateCcw size={9} /> Rot.
+                        </span>
+                      )}
+                    </div>
+                    {isEvent ? (
+                      <p className="text-xs text-neutral-400 mt-0.5">
+                        {t.nombreMembresCotise != null ? `${t.nombreMembresCotise} cotisants` : `${t.nombreMembres} membres`}
+                        {jours != null && (
+                          <span className={`ml-2 font-semibold ${jours > 0 ? 'text-purple-500' : 'text-red-500'}`}>
+                            {jours > 0 ? `J-${jours}` : jours === 0 ? "Aujourd'hui" : `J+${Math.abs(jours)}`}
+                          </span>
+                        )}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-neutral-400 mt-0.5">
+                        {t.montant?.toLocaleString('fr-FR')} FCFA · {t.nombreMembres} membres
+                        {t.cycleEnCours && (
+                          <span className="ml-2">· Cycle {t.cycleEnCours.numeroCycle}</span>
+                        )}
+                      </p>
+                    )}
                   </div>
-                  <p className="text-xs text-neutral-400 mt-0.5">
-                    {t.montant?.toLocaleString('fr-FR')} FCFA · {t.nombreMembres} membres
-                  </p>
-                </div>
-                <ChevronRight size={14} className="text-neutral-300 flex-shrink-0 ml-2" />
-              </Link>
-            ))
+                  <ChevronRight size={14} className="text-neutral-300 flex-shrink-0 ml-2" />
+                </Link>
+              )
+            })
           )}
         </div>
       </div>

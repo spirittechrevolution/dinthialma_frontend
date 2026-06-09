@@ -1,20 +1,34 @@
 import { TontineStatut, ModeCycle, CreateurInfo } from './common'
 
+// ─── Type de tontine ──────────────────────────────────────────────────────────
+export enum TontineType {
+  ROTATIVE       = 'ROTATIVE',
+  EVENEMENTIELLE = 'EVENEMENTIELLE',
+}
+
 // ─── Réponse tontine ──────────────────────────────────────────────────────────
 export interface Tontine {
   id: string
+  tontineType: TontineType
   nom: string
   description?: string
   montant: number
   frequence: string
-  ordreBeneficiaire: string
-  modeCycle: ModeCycle
+  /** null pour EVENEMENTIELLE */
+  ordreBeneficiaire?: string | null
+  /** null pour EVENEMENTIELLE */
+  modeCycle?: ModeCycle | null
   dateDebut: string
   nombreMembres: number
   nombreMembresActuels: number
   /** Nombre de gagnants par cycle — 1 = comportement classique */
   nombreGagnants: number
   statut: TontineStatut
+  // ── Champs EVENEMENTIELLE ───────────────────────────────────────────────────
+  dateEcheance?: string | null
+  nomEvenement?: string | null
+  montantLibre?: boolean | null
+  montantMinimum?: number | null
   creePar: CreateurInfo
   createdAt: string
   updatedAt: string
@@ -22,16 +36,22 @@ export interface Tontine {
 
 // ─── Requête création ─────────────────────────────────────────────────────────
 export interface CreateTontineRequest {
+  tontineType: TontineType
   nom: string
   description?: string
-  montant: number
   frequence: string
-  ordreBeneficiaire: string
-  modeCycle: ModeCycle
   dateDebut: string
-  nombreMembres: number
-  /** min 1, défaut 1 */
-  nombreGagnants: number
+  // ROTATIVE uniquement
+  montant?: number
+  ordreBeneficiaire?: string
+  modeCycle?: ModeCycle
+  nombreMembres?: number
+  nombreGagnants?: number
+  // EVENEMENTIELLE uniquement
+  dateEcheance?: string
+  nomEvenement?: string
+  montantLibre?: boolean
+  montantMinimum?: number
 }
 
 // ─── Requête mise à jour ──────────────────────────────────────────────────────

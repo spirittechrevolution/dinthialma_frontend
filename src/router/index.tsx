@@ -41,7 +41,7 @@ function StartRoute() {
     return <Navigate to="/dashboard" replace />
   }
 
-  // 2. Phone connu + PIN non explicitement absent → écran PIN
+  // 2. Phone connu + PIN configuré (ou état inconnu = ancien localStorage) → écran PIN
   if (phone && getPinConfigured() !== false) {
     return <Navigate to="/pin" replace />
   }
@@ -83,6 +83,7 @@ const MemberDashboard = lazy(() => import('@/pages/member/Dashboard').then(m => 
 const MesTontinesPage = lazy(() => import('@/pages/member/MesTontinesPage').then(m => ({ default: m.MesTontinesPage })))
 const MesCotisationsPage = lazy(() => import('@/pages/member/MesCotisationsPage').then(m => ({ default: m.MesCotisationsPage })))
 const NotificationsPage = lazy(() => import('@/pages/NotificationsPage').then(m => ({ default: m.NotificationsPage })))
+const UserDashboard = lazy(() => import('@/pages/user/Dashboard').then(m => ({ default: m.UserDashboard })))
 
 const router = createBrowserRouter([
   // ── Démarrage intelligent ─────────────────────────────────────────────────
@@ -163,22 +164,28 @@ const router = createBrowserRouter([
     element: <RoleRoute requiredRoles={[UserRole.ADMIN]}><S><CotisationsPage /></S></RoleRoute>,
   },
 
-  // Member
+  // User (rôle USER — pas encore membre)
+  {
+    path: '/user/dashboard',
+    element: <ProtectedRoute><S><UserDashboard /></S></ProtectedRoute>,
+  },
+
+  // Member (ADMIN inclus — un admin est souvent aussi membre de ses tontines)
   {
     path: '/member/dashboard',
-    element: <RoleRoute requiredRoles={[UserRole.MEMBER]}><S><MemberDashboard /></S></RoleRoute>,
+    element: <RoleRoute requiredRoles={[UserRole.MEMBER, UserRole.ADMIN]}><S><MemberDashboard /></S></RoleRoute>,
   },
   {
     path: '/member/tontines',
-    element: <RoleRoute requiredRoles={[UserRole.MEMBER]}><S><MesTontinesPage /></S></RoleRoute>,
+    element: <RoleRoute requiredRoles={[UserRole.MEMBER, UserRole.ADMIN]}><S><MesTontinesPage /></S></RoleRoute>,
   },
   {
     path: '/member/tontines/:id',
-    element: <RoleRoute requiredRoles={[UserRole.MEMBER]}><S><TontineDetailPage /></S></RoleRoute>,
+    element: <RoleRoute requiredRoles={[UserRole.MEMBER, UserRole.ADMIN]}><S><TontineDetailPage /></S></RoleRoute>,
   },
   {
     path: '/member/cotisations',
-    element: <RoleRoute requiredRoles={[UserRole.MEMBER]}><S><MesCotisationsPage /></S></RoleRoute>,
+    element: <RoleRoute requiredRoles={[UserRole.MEMBER, UserRole.ADMIN]}><S><MesCotisationsPage /></S></RoleRoute>,
   },
 
   // Profil

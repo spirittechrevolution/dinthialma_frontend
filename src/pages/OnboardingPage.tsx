@@ -141,11 +141,6 @@ export function OnboardingPage() {
     redirectAfterOnboarding()
   }
 
-  const finish = () => {
-    markOnboardingDone()
-    redirectAfterOnboarding()
-  }
-
   const redirectAfterOnboarding = () => {
     const access = getAccessToken()
     const phone  = getUserPhone()

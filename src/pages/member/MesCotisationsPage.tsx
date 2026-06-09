@@ -14,7 +14,7 @@ import { useTontines } from '@/hooks/useTontines'
 import { useCycles } from '@/hooks/useCycles'
 import { Cotisation } from '@/types/cotisation'
 import { CotisationStatut, TontineStatut } from '@/types/common'
-import { CheckCircle, Clock, AlertTriangle, Trophy, Plus, Lock, ChevronRight } from 'lucide-react'
+import { CheckCircle, Clock, AlertTriangle, Trophy, Plus, Lock } from 'lucide-react'
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
 const schema = z.object({

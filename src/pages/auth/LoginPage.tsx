@@ -6,7 +6,6 @@ import { Phone, Lock, AlertCircle, ArrowRight } from 'lucide-react'
 import { LogoIcon } from '@/components/ui/LogoIcon'
 import { useAuth } from '@/hooks/useAuth'
 import { UserRole } from '@/types/common'
-import { getPinConfigured } from '@/lib/tokenStorage'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { PhoneInput } from '@/components/ui/PhoneInput'
@@ -81,23 +80,23 @@ export function LoginPage() {
     defaultValues: { username: '+221' },
   })
 
-  const redirectAfterLogin = (roles: UserRole[]) => {
-    if (getPinConfigured() === false) {
+  const redirectAfterLogin = (roles: UserRole[], pinConfigured?: boolean) => {
+    if (pinConfigured === false) {
       navigate('/pin/setup', { replace: true })
       return
     }
     if (roles.includes(UserRole.SUPER_ADMIN)) navigate('/dashboard', { replace: true })
     else if (roles.includes(UserRole.ADMIN)) navigate('/admin/dashboard', { replace: true })
     else if (roles.includes(UserRole.MEMBER)) navigate('/member/dashboard', { replace: true })
-    else navigate('/profile', { replace: true })
+    else navigate('/user/dashboard', { replace: true })
   }
 
   const onSubmit = async ({ username, password }: LoginFormData) => {
     setErrorMsg(null)
     setPreEnrolledPhone(null)
     try {
-      const user = await login(username, password)
-      if (user) redirectAfterLogin(user.roles)
+      const { user, pinConfigured } = await login(username, password)
+      if (user) redirectAfterLogin(user.roles, pinConfigured)
     } catch (err) {
       if (isAxiosError(err) && err.response?.status === 403) {
         const msg: string = err.response?.data?.message || ''

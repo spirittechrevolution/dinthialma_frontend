@@ -38,6 +38,11 @@ export default defineConfig({
             handler: 'NetworkFirst',
             options: { cacheName: 'api-tontines', networkTimeoutSeconds: 5, expiration: { maxEntries: 50, maxAgeSeconds: 60 * 5 } },
           },
+          {
+            urlPattern: /\/v1\/notifications/,
+            handler: 'NetworkFirst',
+            options: { cacheName: 'api-notifications', networkTimeoutSeconds: 5, expiration: { maxEntries: 20, maxAgeSeconds: 60 * 2 } },
+          },
         ],
       },
     }),

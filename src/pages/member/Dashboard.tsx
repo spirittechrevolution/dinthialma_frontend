@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { Spinner } from '@/components/ui/Spinner'
+import { CreateTontineModal } from '@/components/shared/CreateTontineModal'
 import { useAuth } from '@/hooks/useAuth'
 import { useTontines } from '@/hooks/useTontines'
 import { useCotisations } from '@/hooks/useCotisations'
@@ -49,6 +50,7 @@ function Avatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' }) {
 
 export function MemberDashboard() {
   const { user } = useAuth()
+  const [createOpen, setCreateOpen] = useState(false)
   const { data: tontinesData, isLoading } = useTontines(0, 20)
   const tontines = tontinesData?.content || []
 
@@ -72,7 +74,6 @@ export function MemberDashboard() {
   const actives = tontines.filter((t: Tontine) => t.statut === TontineStatut.ACTIVE).length
 
   const prenom = user?.firstName || 'Membre'
-  const [_tab, setTab] = useState<'accueil' | 'tontines' | 'cotisations' | 'membres' | 'profil'>('accueil')
 
   if (isLoading) return <AppLayout><div className="flex justify-center py-20"><Spinner /></div></AppLayout>
 
@@ -84,16 +85,24 @@ export function MemberDashboard() {
           <p className="text-xs text-neutral-500">Bonjour</p>
           <h1 className="text-lg font-extrabold text-neutral-900">{prenom} 👋</h1>
         </div>
-        <Link to="/notifications"
-          className="relative w-9 h-9 rounded-xl bg-white border border-neutral-100 shadow-sm flex items-center justify-center text-neutral-500">
-          <Bell size={17} />
-          <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">3</span>
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setCreateOpen(true)}
+            className="w-9 h-9 rounded-xl bg-primary-600 flex items-center justify-center text-white shadow-sm hover:bg-primary-700 transition-colors"
+            title="Créer une tontine"
+          >
+            <Plus size={17} />
+          </button>
+          <Link to="/notifications"
+            className="relative w-9 h-9 rounded-xl bg-white border border-neutral-100 shadow-sm flex items-center justify-center text-neutral-500">
+            <Bell size={17} />
+            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">3</span>
+          </Link>
+        </div>
       </div>
 
       {/* ── Hero card — solde + prochaine cotisation ─────────────── */}
       <div className="bg-gradient-to-br from-[#0d1f0f] via-primary-800 to-primary-600 rounded-3xl p-5 mb-4 shadow-lg relative overflow-hidden">
-        {/* Cercle déco */}
         <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-white/5" />
         <div className="absolute -bottom-6 -left-6 w-24 h-24 rounded-full bg-white/5" />
 
@@ -104,7 +113,6 @@ export function MemberDashboard() {
           </p>
 
           <div className="flex items-center justify-between">
-            {/* Prochaine cotisation */}
             <div className="bg-white/10 rounded-2xl px-4 py-3 flex-1 mr-3">
               <p className="text-white/60 text-xs mb-1">Prochaine cotisation</p>
               <p className="text-white font-extrabold text-lg">
@@ -121,7 +129,6 @@ export function MemberDashboard() {
               )}
             </div>
 
-            {/* Jackpot + membres */}
             <div className="flex flex-col gap-2">
               <div className="bg-white/10 rounded-xl px-3 py-2 text-center">
                 <p className="text-white/60 text-[10px]">Jackpot à recevoir</p>
@@ -150,7 +157,6 @@ export function MemberDashboard() {
           </div>
           <div className="flex items-center gap-4">
             <CycleDonut pct={cyclePct} />
-            {/* Fallback visuel si recharts ne charge pas */}
             <div className="flex-1">
               <div className="flex justify-between text-xs text-neutral-500 mb-1.5">
                 <span>Cotisations reçues</span>
@@ -206,7 +212,6 @@ export function MemberDashboard() {
               return (
                 <Link key={t.id} to={`/member/tontines/${t.id}`}
                   className="flex items-center gap-3 p-3 rounded-xl hover:bg-neutral-50 transition-colors border border-neutral-50">
-                  {/* Avatar tontine */}
                   <Avatar name={t.nom} size="md" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -251,6 +256,12 @@ export function MemberDashboard() {
           <p className="text-xs font-semibold text-neutral-700 text-center">Notifications</p>
         </Link>
       </div>
+
+      {/* ── Modal : Créer une tontine ─────────────────────────────── */}
+      <CreateTontineModal
+        isOpen={createOpen}
+        onClose={() => setCreateOpen(false)}
+      />
     </AppLayout>
   )
 }

@@ -27,9 +27,9 @@ import { useMembres, useUpdateMembreStatut, useRemoveMembre } from '@/hooks/useM
 import { useCycles, useOpenCycle, useCloturerCycle, useDesignerGagnants, useBeneficiairesHistorique } from '@/hooks/useCycles'
 import { useCotisations, useValiderCotisation } from '@/hooks/useCotisations'
 import { Membre } from '@/types/membre'
-import { Cycle, GagnantInfo } from '@/types/cycle'
+import { Cycle, GagnantInfo, MembreDistributionInfo } from '@/types/cycle'
 import { Cotisation } from '@/types/cotisation'
-import { Commission } from '@/types/tontine'
+import { Commission, TontineType } from '@/types/tontine'
 import {
   TontineStatut,
   CycleStatut,
@@ -52,7 +52,6 @@ import {
   XCircle,
   UserMinus,
   UserCheck,
-  User,
   Lock,
   Clock,
   Star,
@@ -60,6 +59,9 @@ import {
   Trophy,
   ChevronDown,
   ChevronUp,
+  PartyPopper,
+  CalendarHeart,
+  Download,
 } from 'lucide-react'
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
@@ -196,6 +198,7 @@ export function TontineDetailPage() {
   const [selectedMembresJackpot, setSelectedMembresJackpot] = useState<string[]>([])
   const [randomJackpotCycle, setRandomJackpotCycle] = useState<string | null>(null)
   const [expandedHistoriqueCycle, setExpandedHistoriqueCycle] = useState<string | null>(null)
+  const [distributionFinale, setDistributionFinale] = useState<MembreDistributionInfo[] | null>(null)
 
   // ─── Data ─────────────────────────────────────────────────────────────────
   const { data: tontine, isLoading } = useTontine(id || '')
@@ -235,6 +238,7 @@ export function TontineDetailPage() {
   const cotisations = cotisationsData?.content || []
   const commissions = commissionsData?.content || []
 
+  const isEvenementielle = tontine?.tontineType === TontineType.EVENEMENTIELLE
   const isManuel = tontine?.modeCycle === ModeCycle.MANUEL
   const pct = tontine && tontine.nombreMembres > 0
     ? Math.round((tontine.nombreMembresActuels / tontine.nombreMembres) * 100)
@@ -293,7 +297,13 @@ export function TontineDetailPage() {
     cloturerCycle(
       { tontineId: id!, cycleId: cycleToClose },
       {
-        onSuccess: () => { toast.success('Cycle clôturé'); setCycleToClose(null) },
+        onSuccess: (data) => {
+          toast.success('Période clôturée')
+          setCycleToClose(null)
+          if (data.distributionParMembre && data.distributionParMembre.length > 0) {
+            setDistributionFinale(data.distributionParMembre)
+          }
+        },
         onError: () => toast.error('Erreur lors de la clôture'),
       }
     )
@@ -372,12 +382,12 @@ export function TontineDetailPage() {
   }
 
   const tabs: { id: Tab; label: string; show: boolean }[] = [
-    { id: 'infos', label: 'Vue générale', show: true },
-    { id: 'membres', label: 'Membres', show: true },
-    { id: 'cycles', label: 'Cycles', show: true },
-    { id: 'cotisations', label: 'Cotisations', show: true },
-    { id: 'historique', label: 'Historique jackpots', show: true },
-    { id: 'commissions', label: 'Commissions', show: !!canManage },
+    { id: 'infos',        label: 'Vue générale',       show: true },
+    { id: 'membres',      label: 'Membres',             show: true },
+    { id: 'cycles',       label: isEvenementielle ? 'Périodes' : 'Cycles', show: true },
+    { id: 'cotisations',  label: 'Cotisations',         show: true },
+    { id: 'historique',   label: 'Historique jackpots', show: !isEvenementielle },
+    { id: 'commissions',  label: 'Commissions',         show: !!canManage },
   ]
 
   if (isLoading || !tontine) {
@@ -406,6 +416,15 @@ export function TontineDetailPage() {
             <Badge variant={STATUT_BADGE[tontine.statut]}>
               {STATUT_LABEL[tontine.statut]}
             </Badge>
+            {isEvenementielle ? (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">
+                <CalendarHeart size={11} /> Événementielle
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                <RefreshCw size={11} /> Rotative
+              </span>
+            )}
           </div>
           {tontine.description && (
             <p className="text-sm text-neutral-500 mt-0.5">{tontine.description}</p>
@@ -441,39 +460,92 @@ export function TontineDetailPage() {
       {/* ── Bande de résumé ──────────────────────────────────────────────── */}
       <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm p-5 mb-5">
         <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4">
+          {/* Montant — ROTATIVE = montant fixe, EVENEMENTIELLE = libre ou fixe */}
           <div>
-            <p className="text-xs text-neutral-400 mb-1">Montant</p>
-            <p className="font-bold text-primary-600 text-lg">{tontine.montant.toLocaleString('fr-FR')} FCFA</p>
-            <p className="text-xs text-neutral-400">{FREQ_LABELS[tontine.frequence] || tontine.frequence}</p>
+            <p className="text-xs text-neutral-400 mb-1">{isEvenementielle ? 'Cotisation' : 'Montant'}</p>
+            {isEvenementielle && tontine.montantLibre ? (
+              <>
+                <p className="font-bold text-purple-600 text-lg">Libre</p>
+                {tontine.montantMinimum && (
+                  <p className="text-xs text-neutral-400">min {tontine.montantMinimum.toLocaleString('fr-FR')} FCFA</p>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="font-bold text-primary-600 text-lg">{tontine.montant.toLocaleString('fr-FR')} FCFA</p>
+                <p className="text-xs text-neutral-400">{FREQ_LABELS[tontine.frequence] || tontine.frequence}</p>
+              </>
+            )}
           </div>
+
+          {/* Membres */}
           <div>
             <p className="text-xs text-neutral-400 mb-1">Membres</p>
-            <p className="font-bold text-neutral-900 text-lg">{tontine.nombreMembresActuels}/{tontine.nombreMembres}</p>
-            <div className="mt-1 w-full bg-neutral-100 rounded-full h-1.5">
-              <div className="h-1.5 rounded-full bg-primary-500" style={{ width: `${pct}%` }} />
-            </div>
+            <p className="font-bold text-neutral-900 text-lg">{tontine.nombreMembresActuels}{!isEvenementielle && `/${tontine.nombreMembres}`}</p>
+            {!isEvenementielle && (
+              <div className="mt-1 w-full bg-neutral-100 rounded-full h-1.5">
+                <div className="h-1.5 rounded-full bg-primary-500" style={{ width: `${pct}%` }} />
+              </div>
+            )}
           </div>
-          <div>
-            <p className="text-xs text-neutral-400 mb-1">Mode</p>
-            <p className="font-semibold text-neutral-900 uppercase text-sm">{tontine.modeCycle}</p>
-          </div>
-          <div>
-            <p className="text-xs text-neutral-400 mb-1">Fréquence</p>
-            <p className="font-semibold text-neutral-900 text-sm">{FREQ_LABELS[tontine.frequence] || tontine.frequence}</p>
-          </div>
-          <div>
-            <p className="text-xs text-neutral-400 mb-1">Gagnants / cycle</p>
-            <p className="font-semibold text-neutral-900 text-sm">
-              {tontine.nombreGagnants ?? 1}
-              {(tontine.nombreGagnants ?? 1) > 1 && (
-                <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700">Multi</span>
+
+          {/* Champs ROTATIVE uniquement */}
+          {!isEvenementielle && (
+            <>
+              <div>
+                <p className="text-xs text-neutral-400 mb-1">Mode</p>
+                <p className="font-semibold text-neutral-900 uppercase text-sm">{tontine.modeCycle}</p>
+              </div>
+              <div>
+                <p className="text-xs text-neutral-400 mb-1">Fréquence</p>
+                <p className="font-semibold text-neutral-900 text-sm">{FREQ_LABELS[tontine.frequence] || tontine.frequence}</p>
+              </div>
+              <div>
+                <p className="text-xs text-neutral-400 mb-1">Gagnants / cycle</p>
+                <p className="font-semibold text-neutral-900 text-sm">
+                  {tontine.nombreGagnants ?? 1}
+                  {(tontine.nombreGagnants ?? 1) > 1 && (
+                    <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700">Multi</span>
+                  )}
+                </p>
+              </div>
+            </>
+          )}
+
+          {/* Champs EVENEMENTIELLE uniquement */}
+          {isEvenementielle && (
+            <>
+              <div>
+                <p className="text-xs text-neutral-400 mb-1">Fréquence rappels</p>
+                <p className="font-semibold text-neutral-900 text-sm">{FREQ_LABELS[tontine.frequence] || tontine.frequence}</p>
+              </div>
+              {tontine.nomEvenement && (
+                <div>
+                  <p className="text-xs text-neutral-400 mb-1">Événement</p>
+                  <p className="font-semibold text-neutral-900 text-sm truncate">{tontine.nomEvenement}</p>
+                </div>
               )}
-            </p>
-          </div>
+              {tontine.dateEcheance && (() => {
+                const jours = Math.ceil((new Date(tontine.dateEcheance).getTime() - Date.now()) / 86400000)
+                return (
+                  <div>
+                    <p className="text-xs text-neutral-400 mb-1">Date événement</p>
+                    <p className="font-bold text-purple-700 text-sm">{new Date(tontine.dateEcheance).toLocaleDateString('fr-FR')}</p>
+                    <p className={`text-xs font-semibold ${jours > 0 ? 'text-purple-500' : 'text-red-500'}`}>
+                      {jours > 0 ? `J-${jours}` : jours === 0 ? "Aujourd'hui" : `J+${Math.abs(jours)}`}
+                    </p>
+                  </div>
+                )
+              })()}
+            </>
+          )}
+
+          {/* Début */}
           <div>
             <p className="text-xs text-neutral-400 mb-1">Début</p>
             <p className="font-semibold text-neutral-900 text-sm">{new Date(tontine.dateDebut).toLocaleDateString('fr-FR')}</p>
           </div>
+          {/* Créateur */}
           <div>
             <p className="text-xs text-neutral-400 mb-1">Créateur</p>
             <p className="font-semibold text-neutral-900 text-sm">{tontine.creePar.firstName} {tontine.creePar.lastName}</p>
@@ -523,15 +595,56 @@ export function TontineDetailPage() {
                   <p className="text-sm text-neutral-700">{tontine.description}</p>
                 </div>
               )}
+
+              {/* Section événement (EVENEMENTIELLE only) */}
+              {isEvenementielle && (tontine.nomEvenement || tontine.dateEcheance) && (
+                <div className="p-4 bg-purple-50 border border-purple-100 rounded-xl">
+                  <div className="flex items-center gap-2 mb-3">
+                    <PartyPopper size={16} className="text-purple-600" />
+                    <p className="text-sm font-semibold text-purple-700">Informations de l'événement</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {tontine.nomEvenement && (
+                      <div>
+                        <p className="text-xs text-purple-400 mb-0.5">Nom de l'événement</p>
+                        <p className="text-sm font-semibold text-purple-900">{tontine.nomEvenement}</p>
+                      </div>
+                    )}
+                    {tontine.dateEcheance && (
+                      <div>
+                        <p className="text-xs text-purple-400 mb-0.5">Date de l'événement</p>
+                        <p className="text-sm font-semibold text-purple-900">
+                          {new Date(tontine.dateEcheance).toLocaleDateString('fr-FR')}
+                        </p>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-xs text-purple-400 mb-0.5">Mode de cotisation</p>
+                      <p className="text-sm font-semibold text-purple-900">
+                        {tontine.montantLibre ? 'Montant libre' : 'Montant fixe'}
+                      </p>
+                    </div>
+                    {tontine.montantLibre && tontine.montantMinimum && (
+                      <div>
+                        <p className="text-xs text-purple-400 mb-0.5">Minimum par cotisation</p>
+                        <p className="text-sm font-semibold text-purple-900">
+                          {tontine.montantMinimum.toLocaleString('fr-FR')} FCFA
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 {[
-                  { label: 'Ordre bénéficiaire', value: tontine.ordreBeneficiaire },
+                  !isEvenementielle && { label: 'Ordre bénéficiaire', value: tontine.ordreBeneficiaire ?? '—' },
                   { label: 'Date de début', value: new Date(tontine.dateDebut).toLocaleDateString('fr-FR') },
                   { label: 'Créé le', value: new Date(tontine.createdAt).toLocaleDateString('fr-FR') },
                   { label: 'Modifié le', value: new Date(tontine.updatedAt).toLocaleDateString('fr-FR') },
                   { label: 'Créateur', value: `${tontine.creePar.firstName} ${tontine.creePar.lastName}` },
                   { label: 'Téléphone créateur', value: tontine.creePar.phone },
-                ].map(({ label, value }) => (
+                ].filter((item): item is { label: string; value: string } => Boolean(item)).map(({ label, value }) => (
                   <div key={label} className="p-3 bg-neutral-50 rounded-xl">
                     <p className="text-xs text-neutral-400 mb-1">{label}</p>
                     <p className="text-sm font-semibold text-neutral-800">{value}</p>
@@ -658,10 +771,10 @@ export function TontineDetailPage() {
             </div>
           )}
 
-          {/* ── Cycles ───────────────────────────────────────────────────── */}
+          {/* ── Cycles / Périodes ────────────────────────────────────────── */}
           {activeTab === 'cycles' && (
             <div>
-              {canManage && isManuel && (
+              {canManage && isManuel && !isEvenementielle && (
                 <div className="flex justify-end mb-4">
                   <Button size="sm" onClick={() => setShowOpenCycle(true)}>
                     <Plus size={15} className="mr-1" /> Nouveau cycle
@@ -669,17 +782,24 @@ export function TontineDetailPage() {
                 </div>
               )}
               {cycles.length === 0 ? (
-                <p className="text-center text-neutral-400 py-8">Aucun cycle</p>
+                <p className="text-center text-neutral-400 py-8">
+                  {isEvenementielle ? 'Aucune période' : 'Aucun cycle'}
+                </p>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                   {cycles.map((cycle: Cycle) => (
-                    <div key={cycle.id} className="bg-neutral-50 rounded-2xl border border-neutral-100 p-4">
+                    <div
+                      key={cycle.id}
+                      className={`rounded-2xl border p-4 ${isEvenementielle ? 'bg-purple-50 border-purple-100' : 'bg-neutral-50 border-neutral-100'}`}
+                    >
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-full bg-primary-100 flex items-center justify-center text-primary-600">
-                            <RefreshCw size={12} />
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center ${isEvenementielle ? 'bg-purple-100 text-purple-600' : 'bg-primary-100 text-primary-600'}`}>
+                            {isEvenementielle ? <CalendarHeart size={12} /> : <RefreshCw size={12} />}
                           </div>
-                          <span className="font-bold text-neutral-900 text-sm">Cycle #{cycle.numeroCycle}</span>
+                          <span className="font-bold text-neutral-900 text-sm">
+                            {isEvenementielle ? 'Période' : 'Cycle'} #{cycle.numeroCycle}
+                          </span>
                         </div>
                         <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${CYCLE_STATUT_COLORS[cycle.statut]}`}>
                           {CYCLE_STATUT_LABELS[cycle.statut]}
@@ -691,19 +811,41 @@ export function TontineDetailPage() {
                       </div>
                       <div className="grid grid-cols-3 gap-1.5 mb-3">
                         {[
-                          { label: 'Jackpot', val: cycle.montantJackpot, green: false },
+                          { label: isEvenementielle ? 'Cagnotte' : 'Jackpot', val: cycle.montantJackpot, green: false },
                           { label: 'Commission', val: cycle.montantCommission, green: false },
                           { label: 'Net', val: cycle.montantNet, green: true },
                         ].map(({ label, val, green }) => (
-                          <div key={label} className={`rounded-lg p-2 text-center ${green ? 'bg-primary-50' : 'bg-white border border-neutral-100'}`}>
-                            <p className={`text-xs mb-0.5 ${green ? 'text-primary-400' : 'text-neutral-400'}`}>{label}</p>
-                            <p className={`font-bold text-xs ${green ? 'text-primary-600' : 'text-neutral-800'}`}>
+                          <div key={label} className={`rounded-lg p-2 text-center ${green ? (isEvenementielle ? 'bg-purple-100' : 'bg-primary-50') : 'bg-white border border-neutral-100'}`}>
+                            <p className={`text-xs mb-0.5 ${green ? (isEvenementielle ? 'text-purple-400' : 'text-primary-400') : 'text-neutral-400'}`}>{label}</p>
+                            <p className={`font-bold text-xs ${green ? (isEvenementielle ? 'text-purple-700' : 'text-primary-600') : 'text-neutral-800'}`}>
                               {val ? `${val.toLocaleString('fr-FR')}` : '—'}
                             </p>
                           </div>
                         ))}
                       </div>
-                      {cycle.gagnants && cycle.gagnants.length > 0 ? (
+
+                      {/* Distribution finale EVENEMENTIELLE (après clôture) */}
+                      {isEvenementielle && cycle.distributionParMembre && cycle.distributionParMembre.length > 0 && (
+                        <div className="mb-3 pt-3 border-t border-purple-100">
+                          <p className="text-xs text-purple-500 mb-2 flex items-center gap-1 font-semibold">
+                            <PartyPopper size={11} /> Distribution finale
+                          </p>
+                          <div className="space-y-1">
+                            {cycle.distributionParMembre.slice(0, 3).map((d) => (
+                              <div key={d.membreId} className="flex items-center justify-between">
+                                <span className="text-xs text-neutral-700">{d.firstName} {d.lastName}</span>
+                                <span className="text-xs font-bold text-purple-700">{d.montantNet.toLocaleString('fr-FR')} FCFA</span>
+                              </div>
+                            ))}
+                            {cycle.distributionParMembre.length > 3 && (
+                              <p className="text-xs text-neutral-400 text-center">+{cycle.distributionParMembre.length - 3} autres</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Gagnants ROTATIVE */}
+                      {!isEvenementielle && cycle.gagnants && cycle.gagnants.length > 0 ? (
                         <div className="mb-3 pt-3 border-t border-neutral-100">
                           <p className="text-xs text-neutral-400 mb-2 flex items-center gap-1">
                             <Trophy size={10} className="text-amber-500" />
@@ -728,6 +870,7 @@ export function TontineDetailPage() {
                           </div>
                         </div>
                       ) : (
+                        !isEvenementielle &&
                         cycle.statut === CycleStatut.TERMINE &&
                         tontine.ordreBeneficiaire === 'MANUEL' &&
                         (canManage || isSuperAdmin) && (
@@ -759,7 +902,7 @@ export function TontineDetailPage() {
                           onClick={() => setCycleToClose(cycle.id)}
                           className="w-full text-xs font-semibold text-neutral-700 border border-neutral-200 rounded-lg py-1.5 hover:bg-neutral-100 transition-colors"
                         >
-                          Clôturer ce cycle
+                          {isEvenementielle ? 'Clôturer cette période' : 'Clôturer ce cycle'}
                         </button>
                       )}
                     </div>
@@ -1175,13 +1318,15 @@ export function TontineDetailPage() {
         </form>
       </Modal>
 
-      {/* Clôturer cycle */}
+      {/* Clôturer cycle / période */}
       <ConfirmDialog
         isOpen={!!cycleToClose}
         onClose={() => setCycleToClose(null)}
         onConfirm={onCloturerCycle}
-        title="Clôturer ce cycle ?"
-        message="Le jackpot sera calculé, les commissions déduites. En mode automatique, le cycle suivant démarrera."
+        title={isEvenementielle ? 'Clôturer cette période ?' : 'Clôturer ce cycle ?'}
+        message={isEvenementielle
+          ? 'La cagnotte sera calculée et distribuée à chaque membre selon ses cotisations validées, après déduction des commissions.'
+          : 'Le jackpot sera calculé, les commissions déduites. En mode automatique, le cycle suivant démarrera.'}
         confirmText="Clôturer"
         isDangerous
         isLoading={isClosingCycle}
@@ -1390,6 +1535,71 @@ export function TontineDetailPage() {
             {...commissionForm.register('description')}
           />
         </form>
+      </Modal>
+
+      {/* Distribution finale — EVENEMENTIELLE (après clôture de la dernière période) */}
+      <Modal
+        isOpen={!!distributionFinale}
+        onClose={() => setDistributionFinale(null)}
+        title="Distribution finale"
+        size="md"
+        footer={
+          <div className="flex gap-3 justify-end">
+            <Button variant="ghost" onClick={() => setDistributionFinale(null)}>Fermer</Button>
+          </div>
+        }
+      >
+        {distributionFinale && (
+          <div className="space-y-4">
+            {/* Hero */}
+            <div className="flex flex-col items-center py-4 bg-purple-50 rounded-xl">
+              <div className="w-14 h-14 rounded-full bg-purple-100 flex items-center justify-center mb-3">
+                <PartyPopper size={28} className="text-purple-600" />
+              </div>
+              <p className="font-bold text-purple-900 text-lg">Tontine clôturée !</p>
+              <p className="text-sm text-purple-500 mt-0.5">La cagnotte a été distribuée entre tous les membres</p>
+              <p className="mt-2 font-extrabold text-purple-700 text-2xl">
+                {distributionFinale.reduce((s, d) => s + d.montantNet, 0).toLocaleString('fr-FR')} FCFA
+                <span className="text-xs font-medium text-purple-400 ml-1">net total</span>
+              </p>
+            </div>
+
+            {/* Liste membres */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                Détail par membre ({distributionFinale.length})
+              </p>
+              {distributionFinale.map((d) => (
+                <div
+                  key={d.membreId}
+                  className="flex items-center justify-between p-3 bg-white border border-neutral-100 rounded-xl"
+                >
+                  <div className="flex items-center gap-3">
+                    <MiniAvatar name={`${d.firstName} ${d.lastName}`} />
+                    <div>
+                      <p className="text-sm font-semibold text-neutral-900">{d.firstName} {d.lastName}</p>
+                      <p className="text-xs text-neutral-400">
+                        Cotisé : {d.montantCotise.toLocaleString('fr-FR')} FCFA
+                        {d.montantCommission > 0 && (
+                          <span className="text-orange-400"> — comm. {d.montantCommission.toLocaleString('fr-FR')}</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="font-extrabold text-purple-700 text-sm">
+                    {d.montantNet.toLocaleString('fr-FR')} <span className="text-xs font-medium text-purple-400">FCFA</span>
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {/* Export hint */}
+            <p className="flex items-center gap-1.5 text-xs text-neutral-400 justify-center">
+              <Download size={11} />
+              Faites une capture d'écran pour conserver ce récapitulatif
+            </p>
+          </div>
+        )}
       </Modal>
     </AppLayout>
   )

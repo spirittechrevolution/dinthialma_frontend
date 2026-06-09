@@ -1,67 +1,133 @@
+import { useState } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { Spinner } from '@/components/ui/Spinner'
 import { Trophy, CheckCircle, AlertTriangle, Calendar, CreditCard, Bell } from 'lucide-react'
+import { useNotifications, useMarkAsRead, useMarkAllAsRead } from '@/hooks/useNotifications'
+import { NotificationItem, NotificationType } from '@/types/notification'
 
-// ─── Types ─────────────────────────────────────────────────────────────────────
-type NotifType = 'jackpot' | 'paiement' | 'retard' | 'rappel' | 'validation'
+// ─── Mapping type → catégorie visuelle ───────────────────────────────────────
+type VisualCategory = 'jackpot' | 'paiement' | 'validation' | 'retard' | 'rappel'
 
-interface Notification {
-  id: string
-  type: NotifType
-  title: string
-  body: string
-  time: string
-  read: boolean
+function getCategory(type: NotificationType): VisualCategory {
+  if (type === NotificationType.JACKPOT_DISTRIBUE || type === NotificationType.DISTRIBUTION_FINALE)
+    return 'jackpot'
+  if (type === NotificationType.PAIEMENT_RECU || type === NotificationType.COTISATION_SOUMISE)
+    return 'paiement'
+  if (type === NotificationType.COTISATION_VALIDEE)
+    return 'validation'
+  if (type === NotificationType.PAIEMENT_EN_RETARD)
+    return 'retard'
+  return 'rappel'
 }
 
-// ─── Données mockées (à remplacer par un vrai endpoint) ───────────────────────
-const MOCK_NOTIFS: Notification[] = [
-  { id: '1', type: 'jackpot',     title: 'Jackpot distribué 🎉',           body: 'Fatou Sow a reçu 500 000 FCFA · Tontine Famille',   time: "À l'instant",   read: false },
-  { id: '2', type: 'paiement',    title: 'Paiement reçu',                  body: 'Moussa Diallo a payé 10 000 FCFA via Wave',          time: 'Il y a 5 min',  read: false },
-  { id: '3', type: 'rappel',      title: 'Votre tour arrive dans 3 jours', body: 'Vous recevrez le jackpot de la Tontine Bureau',      time: 'Il y a 1h',     read: false },
-  { id: '4', type: 'validation',  title: 'Cotisation validée',             body: 'Votre paiement de 5 000 FCFA a été validé',          time: 'Hier, 14h30',   read: true  },
-  { id: '5', type: 'retard',      title: 'Paiement en retard',             body: 'Awa Ba n\'a pas encore cotisé · Tontine Famille',    time: 'Hier, 09h00',   read: true  },
-  { id: '6', type: 'paiement',    title: 'Paiement reçu',                  body: 'Khadija Camara a payé 25 000 FCFA via Orange Money', time: 'Lun. 02/06',    read: true  },
-  { id: '7', type: 'jackpot',     title: 'Jackpot distribué 🎉',           body: 'Moussa Diallo a reçu 490 000 FCFA · Tontine Amis',  time: 'Dim. 01/06',    read: true  },
-  { id: '8', type: 'rappel',      title: 'Cycle bientôt clôturé',          body: 'Le cycle #3 de Tontine Famille se termine dans 2 jours', time: 'Sam. 31/05', read: true },
-]
-
-// ─── Config visuelle par type ─────────────────────────────────────────────────
-const NOTIF_CONFIG: Record<NotifType, { icon: React.ReactNode; bg: string; dot: string }> = {
-  jackpot:    { icon: <Trophy size={18} />,        bg: 'bg-amber-50 text-amber-600',    dot: 'bg-amber-400'   },
+const NOTIF_CONFIG: Record<VisualCategory, { icon: React.ReactNode; bg: string; dot: string }> = {
+  jackpot:    { icon: <Trophy size={18} />,        bg: 'bg-amber-50 text-amber-600',     dot: 'bg-amber-400'   },
   paiement:   { icon: <CreditCard size={18} />,    bg: 'bg-primary-50 text-primary-600', dot: 'bg-primary-500' },
-  validation: { icon: <CheckCircle size={18} />,   bg: 'bg-green-50 text-green-600',    dot: 'bg-green-500'   },
-  retard:     { icon: <AlertTriangle size={18} />, bg: 'bg-red-50 text-red-500',        dot: 'bg-red-500'     },
-  rappel:     { icon: <Calendar size={18} />,      bg: 'bg-orange-50 text-orange-500',  dot: 'bg-orange-400'  },
+  validation: { icon: <CheckCircle size={18} />,   bg: 'bg-green-50 text-green-600',     dot: 'bg-green-500'   },
+  retard:     { icon: <AlertTriangle size={18} />, bg: 'bg-red-50 text-red-500',         dot: 'bg-red-500'     },
+  rappel:     { icon: <Calendar size={18} />,      bg: 'bg-orange-50 text-orange-500',   dot: 'bg-orange-400'  },
 }
 
-export function NotificationsPage() {
-  const unread = MOCK_NOTIFS.filter((n) => !n.read)
-  const read   = MOCK_NOTIFS.filter((n) =>  n.read)
+// ─── Formatage de date lisible ────────────────────────────────────────────────
+function formatDate(iso: string): string {
+  const date = new Date(iso)
+  const now  = new Date()
+  const diffMs  = now.getTime() - date.getTime()
+  const diffMin = Math.floor(diffMs / 60_000)
 
-  const NotifCard = ({ notif }: { notif: Notification }) => {
-    const cfg = NOTIF_CONFIG[notif.type]
-    return (
-      <div className={`flex items-start gap-3 px-4 py-3.5 rounded-2xl transition-colors ${notif.read ? 'bg-white' : 'bg-primary-50/60'}`}>
-        {/* Icône */}
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${cfg.bg}`}>
-          {cfg.icon}
-        </div>
+  if (diffMin < 1)  return "À l'instant"
+  if (diffMin < 60) return `Il y a ${diffMin} min`
 
-        {/* Texte */}
-        <div className="flex-1 min-w-0">
-          <p className={`text-sm font-semibold text-neutral-900 ${notif.read ? '' : 'font-bold'}`}>
-            {notif.title}
-          </p>
-          <p className="text-xs text-neutral-500 mt-0.5 leading-relaxed">{notif.body}</p>
-          <p className="text-[10px] text-neutral-400 mt-1">{notif.time}</p>
-        </div>
+  const isToday = date.toDateString() === now.toDateString()
+  if (isToday) {
+    return `Aujourd'hui, ${date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+  }
 
-        {/* Indicateur non lu */}
-        {!notif.read && (
-          <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1.5 ${cfg.dot}`} />
-        )}
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
+  if (date.toDateString() === yesterday.toDateString()) {
+    return `Hier, ${date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+  }
+
+  return `${date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}, ${date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+}
+
+// ─── Carte notification ───────────────────────────────────────────────────────
+function NotifCard({ notif, onRead }: { notif: NotificationItem; onRead: (id: string) => void }) {
+  const cfg = NOTIF_CONFIG[getCategory(notif.type)]
+  return (
+    <button
+      className={`w-full flex items-start gap-3 px-4 py-3.5 rounded-2xl transition-colors text-left ${notif.isRead ? 'bg-white' : 'bg-primary-50/60'}`}
+      onClick={() => { if (!notif.isRead) onRead(notif.id) }}
+    >
+      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${cfg.bg}`}>
+        {cfg.icon}
       </div>
-    )
+
+      <div className="flex-1 min-w-0">
+        <p className={`text-sm text-neutral-900 ${notif.isRead ? 'font-semibold' : 'font-bold'}`}>
+          {notif.title}
+        </p>
+        <p className="text-xs text-neutral-500 mt-0.5 leading-relaxed">{notif.body}</p>
+        <p className="text-[10px] text-neutral-400 mt-1">{formatDate(notif.createdAt)}</p>
+      </div>
+
+      {!notif.isRead && (
+        <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1.5 ${cfg.dot}`} />
+      )}
+    </button>
+  )
+}
+
+// ─── Page principale ──────────────────────────────────────────────────────────
+export function NotificationsPage() {
+  const [page, setPage] = useState(0)
+  const [allItems, setAllItems] = useState<NotificationItem[]>([])
+
+  const { data, isLoading } = useNotifications(page)
+  const { mutate: markAsRead }    = useMarkAsRead()
+  const { mutate: markAllAsRead, isPending: markingAll } = useMarkAllAsRead()
+
+  // Accumuler les résultats pour le "load more"
+  const items = (() => {
+    if (!data) return allItems
+    const incoming = data.content
+    if (page === 0) return incoming
+    const existingIds = new Set(allItems.map((n) => n.id))
+    const merged = [...allItems, ...incoming.filter((n) => !existingIds.has(n.id))]
+    return merged
+  })()
+
+  // Mettre à jour allItems quand les données changent
+  if (data && page === 0 && allItems.length === 0 && data.content.length > 0) {
+    setAllItems(data.content)
+  }
+  if (data && page > 0) {
+    const existingIds = new Set(allItems.map((n) => n.id))
+    const newOnes = data.content.filter((n) => !existingIds.has(n.id))
+    if (newOnes.length > 0) {
+      setAllItems((prev) => [...prev, ...newOnes])
+    }
+  }
+
+  const unread = items.filter((n) => !n.isRead)
+  const read   = items.filter((n) =>  n.isRead)
+  const hasMore = data ? !data.last : false
+
+  const handleRead = (id: string) => {
+    markAsRead(id, {
+      onSuccess: () => {
+        setAllItems((prev) => prev.map((n) => n.id === id ? { ...n, isRead: true } : n))
+      },
+    })
+  }
+
+  const handleMarkAll = () => {
+    markAllAsRead(undefined, {
+      onSuccess: () => {
+        setAllItems((prev) => prev.map((n) => ({ ...n, isRead: true })))
+      },
+    })
   }
 
   return (
@@ -76,47 +142,74 @@ export function NotificationsPage() {
             </p>
           )}
         </div>
-        <div className="w-10 h-10 rounded-xl bg-primary-50 flex items-center justify-center text-primary-600 relative">
-          <Bell size={20} />
+        <div className="flex items-center gap-2">
           {unread.length > 0 && (
-            <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
-              {unread.length}
-            </span>
+            <button
+              onClick={handleMarkAll}
+              disabled={markingAll}
+              className="text-xs font-medium text-primary-600 hover:text-primary-700 disabled:opacity-50 transition-colors"
+            >
+              Tout lire
+            </button>
           )}
+          <div className="w-10 h-10 rounded-xl bg-primary-50 flex items-center justify-center text-primary-600 relative">
+            <Bell size={20} />
+            {unread.length > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                {unread.length > 9 ? '9+' : unread.length}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Non lues */}
-      {unread.length > 0 && (
-        <div className="mb-5">
-          <p className="text-xs font-semibold text-neutral-400 uppercase tracking-widest mb-2 px-1">
-            Nouvelles
-          </p>
-          <div className="space-y-2">
-            {unread.map((n) => <NotifCard key={n.id} notif={n} />)}
-          </div>
-        </div>
-      )}
-
-      {/* Lues */}
-      {read.length > 0 && (
-        <div>
-          <p className="text-xs font-semibold text-neutral-400 uppercase tracking-widest mb-2 px-1">
-            Précédentes
-          </p>
-          <div className="space-y-1">
-            {read.map((n) => <NotifCard key={n.id} notif={n} />)}
-          </div>
-        </div>
-      )}
-
-      {MOCK_NOTIFS.length === 0 && (
+      {/* Chargement initial */}
+      {isLoading && items.length === 0 ? (
+        <div className="flex justify-center py-20"><Spinner /></div>
+      ) : items.length === 0 ? (
         <div className="flex flex-col items-center py-20 text-neutral-400 gap-3">
           <div className="w-14 h-14 rounded-full bg-neutral-100 flex items-center justify-center">
             <Bell size={24} className="text-neutral-300" />
           </div>
           <p className="font-medium text-neutral-500">Aucune notification</p>
         </div>
+      ) : (
+        <>
+          {/* Non lues */}
+          {unread.length > 0 && (
+            <div className="mb-5">
+              <p className="text-xs font-semibold text-neutral-400 uppercase tracking-widest mb-2 px-1">
+                Nouvelles
+              </p>
+              <div className="space-y-2">
+                {unread.map((n) => <NotifCard key={n.id} notif={n} onRead={handleRead} />)}
+              </div>
+            </div>
+          )}
+
+          {/* Lues */}
+          {read.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-neutral-400 uppercase tracking-widest mb-2 px-1">
+                Précédentes
+              </p>
+              <div className="space-y-1">
+                {read.map((n) => <NotifCard key={n.id} notif={n} onRead={handleRead} />)}
+              </div>
+            </div>
+          )}
+
+          {/* Load more */}
+          {hasMore && (
+            <button
+              onClick={() => setPage((p) => p + 1)}
+              disabled={isLoading}
+              className="w-full mt-4 py-3 text-sm font-medium text-primary-600 hover:text-primary-700 disabled:opacity-50 transition-colors"
+            >
+              {isLoading ? <Spinner /> : 'Charger plus'}
+            </button>
+          )}
+        </>
       )}
     </AppLayout>
   )

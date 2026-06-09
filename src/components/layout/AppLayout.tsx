@@ -12,6 +12,7 @@ import {
   CreditCard,
   RefreshCw,
   List,
+  UserCheck,
 } from 'lucide-react'
 
 interface AppLayoutProps {
@@ -43,6 +44,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         { label: 'Membres', path: '/admin/membres', icon: <Users size={20} /> },
         { label: 'Cycles', path: '/admin/cycles', icon: <RefreshCw size={20} /> },
         { label: 'Cotisations', path: '/admin/cotisations', icon: <CreditCard size={20} /> },
+        { label: 'Mes participations', path: '/member/dashboard', icon: <UserCheck size={20} /> },
       ]
     }
 
@@ -55,7 +57,7 @@ export function AppLayout({ children }: AppLayoutProps) {
     }
 
     return [
-      { label: 'Tableau de bord', path: '/member/dashboard', icon: <LayoutDashboard size={20} /> },
+      { label: 'Tableau de bord', path: '/user/dashboard', icon: <LayoutDashboard size={20} /> },
     ]
   }
 

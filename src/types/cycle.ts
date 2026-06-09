@@ -15,6 +15,18 @@ export interface GagnantInfo {
   dateJackpot: string | null
 }
 
+// ─── Distribution individuelle à la clôture finale EVENEMENTIELLE ────────────
+export interface MembreDistributionInfo {
+  membreId: string
+  userId: string
+  firstName: string
+  lastName: string
+  phone: string
+  montantCotise: number
+  montantCommission: number
+  montantNet: number
+}
+
 // ─── Réponse cycle ────────────────────────────────────────────────────────────
 export interface Cycle {
   id: string
@@ -29,6 +41,8 @@ export interface Cycle {
   dateRemise?: string
   /** Remplace l'ancien champ beneficiaire — liste des gagnants */
   gagnants?: GagnantInfo[]
+  /** Distribution individuelle — EVENEMENTIELLE clôture finale uniquement, null sinon */
+  distributionParMembre?: MembreDistributionInfo[] | null
   createdAt: string
   updatedAt: string
 }

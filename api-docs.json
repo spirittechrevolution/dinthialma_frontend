@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Dinthialma API",
-    "description": "# Dinthialma API – Gestion de tontines et d'épargne collective\n\nDinthialma digitalise la pratique de la **tontine** (épargne rotative communautaire) en\noffrant une plateforme transparente, traçable et accessible depuis tout appareil.\n\n---\n\n## 🔐 Authentification\n\nTous les endpoints sécurisés nécessitent un **JWT Keycloak** dans le header :\n```\nAuthorization: Bearer <access_token>\n```\n\n**Flux de connexion :**\n1. `POST /v1/auth/login` → renvoie `access_token` + `refresh_token`\n2. Coller l'`access_token` dans le bouton **Authorize** en haut de cette page\n3. Quand le token expire, utiliser `POST /v1/auth/refresh`\n\n---\n\n## 👥 Rôles et accès\n\n| Rôle Keycloak | Description | Portée |\n|---|---|---|\n| `DINTHIALMA_SUPER_ADMIN` | Équipe Dinthialma | Accès total plateforme |\n| `DINTHIALMA_ADMIN` | Créateur d'une tontine | Gère ses propres tontines |\n| `DINTHIALMA_MEMBER` | Cotisant d'une tontine | Accès lecture + ses cotisations |\n| `DINTHIALMA_USER` | Tout compte inscrit | Rôle de base attribué à l'inscription |\n\n> **Important :** Les rôles se cumulent. La logique d'accès par tontine est applicative :\n> être ADMIN ne suffit pas — il faut être le **créateur de cette tontine spécifique**.\n\n---\n\n## 📦 Format des réponses\n\nToutes les réponses sont enveloppées dans un objet `CustomResponse` :\n```json\n{\n  \"status\": \"success\",\n  \"statusCode\": 200,\n  \"message\": \"Opération réussie\",\n  \"data\": { ... }\n}\n```\n\nLes listes paginées retournent dans `data` un objet `Page` Spring Data :\n```json\n{\n  \"data\": {\n    \"content\": [ ... ],\n    \"totalElements\": 42,\n    \"totalPages\": 3,\n    \"size\": 20,\n    \"number\": 0,\n    \"first\": true,\n    \"last\": false\n  }\n}\n```\n\n---\n\n## 📄 Pagination\n\nTous les endpoints de liste acceptent les query params suivants :\n- `page` — numéro de page (base 0, défaut 0)\n- `size` — taille de page (défaut 20)\n- `sort` — champ de tri (ex: `createdAt,desc`)\n\n**Defaults par domaine :**\n\n| Endpoint | Tri par défaut |\n|---|---|\n| `GET /v1/tontines` | `createdAt DESC` |\n| `GET .../cycles` | `numeroCycle ASC` |\n| `GET .../membres` | `ordreJackpot ASC` |\n| `GET .../cotisations` | `createdAt DESC` |\n| `GET .../commissions` | `createdAt ASC` |\n| `GET /v1/admin/dashboard/users` | `createdAt DESC` |\n\n---\n\n## ⚠️ Codes d'erreur\n\n| Code HTTP | Signification |\n|---|---|\n| 400 | Données invalides (validation) |\n| 401 | Token JWT manquant ou expiré |\n| 403 | Accès interdit (mauvais rôle ou pas le créateur) |\n| 404 | Ressource introuvable |\n| 409 | Conflit (ex: téléphone déjà utilisé, cycle déjà ouvert) |\n| 429 | Trop de tentatives PIN (lockout 30 min) |\n| 500 | Erreur serveur interne |\n\n---\n\n## 💡 Concepts clés\n\n- **Tontine** : groupe d'épargne rotative. Chaque membre cotise périodiquement et, à tour\n  de rôle, reçoit le jackpot collecté (= la mise de tous les membres sur un cycle).\n- **Cycle** : période pendant laquelle les cotisations sont collectées et le jackpot remis.\n- **Bénéficiaire** : membre qui reçoit le jackpot du cycle en cours.\n- **Commission** : frais de gestion configurés par le gestionnaire (POURCENTAGE_JACKPOT,\n  FRAIS_FIXES_PAR_CYCLE, FRAIS_ADHESION). Déduits automatiquement à la clôture du cycle.\n- **Mode AUTOMATIQUE** : les cycles sont générés à l'activation de la tontine, chacun\n  démarrant automatiquement quand le précédent est clôturé.\n- **Mode MANUEL** : le gestionnaire ouvre chaque cycle manuellement au moment voulu.\n\n---\n\n## 📋 Référentiels de valeurs (Code Lists)\n\nEndpoint public (aucun token requis) : `GET /v1/code-list/type/{type}`\n\n| Type | Valeurs disponibles | Description |\n|------|---------------------|-------------|\n| `FREQUENCE_TONTINE` | `JOURNALIERE` · `HEBDOMADAIRE` · `BIMENSUEL` · `MENSUEL` · `TRIMESTRIEL` | Rythme de cotisation d'une tontine |\n| `METHODE_PAIEMENT` | `WAVE` · `ORANGE_MONEY` · `FREE_MONEY` · `CASH` | Moyen de paiement d'une cotisation |\n| `STATUT_COTISATION` | `EN_ATTENTE` · `VALIDE` · `EN_RETARD` | Cycle de vie d'une cotisation |\n| `ORDRE_BENEFICIAIRE` | `ALEATOIRE` · `MANUEL` · `ROTATION` | Règle de désignation du bénéficiaire |\n\n### Statuts métier (enums Java)\n\n| Enum | Valeurs |\n|------|---------|\n| `TontineStatut` | `BROUILLON` → `ACTIVE` → `SUSPENDUE` / `TERMINEE` |\n| `CycleStatut` | `EN_ATTENTE` → `EN_COURS` → `TERMINE` |\n| `ModeCycle` | `AUTOMATIQUE` · `MANUEL` |\n| `CommissionType` | `POURCENTAGE_JACKPOT` · `FRAIS_FIXES_PAR_CYCLE` · `FRAIS_ADHESION` |\n| `MembreStatut` | `ACTIF` · `SUSPENDU` · `SORTI` |\n| `CotisationStatut` | `EN_ATTENTE` · `VALIDE` · `EN_RETARD` |\n| `ClientType` | `WEB` (TTL 24 h) · `MOBILE` (TTL 30 jours) |\n| `UserRole` | `USER` · `MEMBER` · `ADMIN` · `SUPER_ADMIN` |\n",
+    "description": "# Dinthialma API – Gestion de tontines et d'épargne collective\n\nDinthialma digitalise la pratique de la **tontine** (épargne rotative communautaire) en\noffrant une plateforme transparente, traçable et accessible depuis tout appareil.\n\n---\n\n## 🔐 Authentification\n\nTous les endpoints sécurisés nécessitent un **JWT Keycloak** dans le header :\n```\nAuthorization: Bearer <access_token>\n```\n\n**Flux de connexion :**\n1. `POST /v1/auth/login` → renvoie `access_token` + `refresh_token`\n2. Coller l'`access_token` dans le bouton **Authorize** en haut de cette page\n3. Quand le token expire, utiliser `POST /v1/auth/refresh`\n\n---\n\n## 👥 Rôles et accès\n\n| Rôle Keycloak | Description | Portée |\n|---|---|---|\n| `DINTHIALMA_SUPER_ADMIN` | Équipe Dinthialma | Accès total plateforme |\n| `DINTHIALMA_ADMIN` | Créateur d'une tontine | Gère ses propres tontines |\n| `DINTHIALMA_MEMBER` | Cotisant d'une tontine | Accès lecture + ses cotisations |\n| `DINTHIALMA_USER` | Tout compte inscrit | Rôle de base attribué à l'inscription |\n\n> **Important :** Les rôles se cumulent. La logique d'accès par tontine est applicative :\n> être ADMIN ne suffit pas — il faut être le **créateur de cette tontine spécifique**.\n\n---\n\n## 📦 Format des réponses\n\nToutes les réponses sont enveloppées dans un objet `CustomResponse` :\n```json\n{\n  \"status\": \"success\",\n  \"statusCode\": 200,\n  \"message\": \"Opération réussie\",\n  \"data\": { ... }\n}\n```\n\nLes listes paginées retournent dans `data` un objet `Page` Spring Data :\n```json\n{\n  \"data\": {\n    \"content\": [ ... ],\n    \"totalElements\": 42,\n    \"totalPages\": 3,\n    \"size\": 20,\n    \"number\": 0,\n    \"first\": true,\n    \"last\": false\n  }\n}\n```\n\n---\n\n## 📄 Pagination\n\nTous les endpoints de liste acceptent les query params suivants :\n- `page` — numéro de page (base 0, défaut 0)\n- `size` — taille de page (défaut 20)\n- `sort` — champ de tri (ex: `createdAt,desc`)\n\n**Defaults par domaine :**\n\n| Endpoint | Tri par défaut |\n|---|---|\n| `GET /v1/tontines` | `createdAt DESC` |\n| `GET .../cycles` | `numeroCycle ASC` |\n| `GET .../membres` | `ordreJackpot ASC` |\n| `GET .../cotisations` | `createdAt DESC` |\n| `GET .../commissions` | `createdAt ASC` |\n| `GET /v1/admin/dashboard/users` | `createdAt DESC` |\n| `GET /v1/notifications` | `createdAt DESC` |\n\n---\n\n## ⚠️ Codes d'erreur\n\n| Code HTTP | Signification |\n|---|---|\n| 400 | Données invalides (validation) |\n| 401 | Token JWT manquant ou expiré |\n| 403 | Accès interdit (mauvais rôle ou pas le créateur) |\n| 404 | Ressource introuvable |\n| 409 | Conflit (ex: téléphone déjà utilisé, cycle déjà ouvert) |\n| 429 | Trop de tentatives PIN (lockout 30 min) |\n| 500 | Erreur serveur interne |\n\n---\n\n## 💡 Concepts clés\n\n### Tontine ROTATIVE (classique)\n- **Tontine** : groupe d'épargne rotative. Chaque membre cotise périodiquement et, à tour\n  de rôle, reçoit le jackpot collecté (= la mise de tous les membres sur un cycle).\n- **Cycle** : période pendant laquelle les cotisations sont collectées et le jackpot remis.\n- **Bénéficiaire** : membre qui reçoit le jackpot du cycle en cours.\n- **Mode AUTOMATIQUE** : les cycles sont générés à l'activation de la tontine, chacun\n  démarrant automatiquement quand le précédent est clôturé.\n- **Mode MANUEL** : le gestionnaire ouvre chaque cycle manuellement au moment voulu.\n\n### Tontine EVENEMENTIELLE (nouveau)\n- **Tontine événementielle** : groupe d'épargne collective vers un événement (Tabaski, Korité,\n  mariage, baptême…). Pas de rotation — chaque membre récupère sa propre mise à la clôture.\n- **Date d'échéance** (`dateEcheance`) : date cible de l'événement. Les sous-cycles sont\n  générés automatiquement entre `dateDebut` et `dateEcheance` selon la `frequence`.\n- **Cotisation libre** (`montantLibre=true`) : chaque membre cotise le montant qu'il veut\n  (avec plancher optionnel `montantMinimum`). Sinon, le montant fixe est imposé à tous.\n- **Distribution finale** : à la clôture du dernier sous-cycle, `CycleResponse.distributionParMembre`\n  indique pour chaque membre : montantCotise, montantCommission (proportionnel), montantNet.\n- **Fréquence** : utilisée à titre informatif pour structurer les sous-cycles et planifier\n  les rappels WhatsApp. Aucune pénalité si un sous-cycle est sauté.\n\n### Communs aux deux types\n- **Commission** : frais de gestion configurés par le gestionnaire (POURCENTAGE_JACKPOT,\n  FRAIS_FIXES_PAR_CYCLE, FRAIS_ADHESION). Déduits automatiquement à la clôture.\n\n---\n\n## 📋 Référentiels de valeurs (Code Lists)\n\nEndpoint public (aucun token requis) : `GET /v1/code-list/type/{type}`\n\n| Type | Valeurs disponibles | Description |\n|------|---------------------|-------------|\n| `FREQUENCE_TONTINE` | `JOURNALIERE` · `HEBDOMADAIRE` · `BIMENSUEL` · `MENSUEL` · `TRIMESTRIEL` | Rythme de cotisation d'une tontine |\n| `METHODE_PAIEMENT` | `WAVE` · `ORANGE_MONEY` · `FREE_MONEY` · `CASH` | Moyen de paiement d'une cotisation |\n| `STATUT_COTISATION` | `EN_ATTENTE` · `VALIDE` · `EN_RETARD` | Cycle de vie d'une cotisation |\n| `ORDRE_BENEFICIAIRE` | `ALEATOIRE` · `MANUEL` · `ROTATION` | Règle de désignation du bénéficiaire |\n\n### Statuts métier (enums Java)\n\n| Enum | Valeurs |\n|------|---------|\n| `TontineType` | `ROTATIVE` · `EVENEMENTIELLE` |\n| `TontineStatut` | `BROUILLON` → `ACTIVE` → `SUSPENDUE` / `TERMINEE` |\n| `CycleStatut` | `EN_ATTENTE` → `EN_COURS` → `TERMINE` |\n| `ModeCycle` | `AUTOMATIQUE` · `MANUEL` (ROTATIVE uniquement) |\n| `CommissionType` | `POURCENTAGE_JACKPOT` · `FRAIS_FIXES_PAR_CYCLE` · `FRAIS_ADHESION` |\n| `MembreStatut` | `ACTIF` · `SUSPENDU` · `SORTI` |\n| `CotisationStatut` | `EN_ATTENTE` · `VALIDE` · `EN_RETARD` |\n| `ClientType` | `WEB` (TTL 24 h) · `MOBILE` (TTL 30 jours) |\n| `UserRole` | `USER` · `MEMBER` · `ADMIN` · `SUPER_ADMIN` |\n| `NotificationType` | `PAIEMENT_RECU` · `COTISATION_SOUMISE` · `COTISATION_VALIDEE` · `JACKPOT_DISTRIBUE` · `DISTRIBUTION_FINALE` · `PAIEMENT_EN_RETARD` · `RAPPEL_COTISATION` · `TOUR_PROCHE` · `CYCLE_BIENTOT_CLOTURE` · `CYCLE_OUVERT` · `INVITATION_TONTINE` · `STATUT_MEMBRE` |\n",
     "contact": {
       "name": "Spirit Tech Revolution",
       "email": "spirittechrevolution@gmail.com"
@@ -41,12 +41,16 @@
       "description": "Gestion des groupes de tontine (CRUD + cycle de vie)"
     },
     {
-      "name": "Cycles",
-      "description": "Gestion des cycles de cotisation d'une tontine"
+      "name": "Notifications",
+      "description": "Notifications in-app de l'utilisateur connecté"
     },
     {
       "name": "Tontines",
-      "description": "CRUD des groupes de tontine + cycle de vie (BROUILLON → ACTIVE → SUSPENDUE)"
+      "description": "CRUD des groupes de tontine + cycle de vie (BROUILLON → ACTIVE → SUSPENDUE). Deux types : **ROTATIVE** (jackpot tournant entre membres) et **EVENEMENTIELLE** (épargne collective vers un événement – Tabaski, Korité, mariage…)"
+    },
+    {
+      "name": "Cycles",
+      "description": "Gestion des cycles de cotisation d'une tontine"
     },
     {
       "name": "Commissions",
@@ -55,6 +59,14 @@
     {
       "name": "Administration",
       "description": "Dashboard et gestion des utilisateurs"
+    },
+    {
+      "name": "Cycles",
+      "description": "Gestion des cycles de cotisation : liste, détail, ouverture manuelle (ROTATIVE MANUEL uniquement) et clôture avec calcul automatique du jackpot. Pour les tontines EVENEMENTIELLE, la clôture du dernier cycle déclenche le calcul de la distribution finale par membre."
+    },
+    {
+      "name": "Notifications",
+      "description": "Notifications in-app de l'utilisateur connecté : liste paginée, compteur de non-lues (badge cloche), marquer lue, tout marquer lu. Les notifications sont créées automatiquement par les services métier (cotisation, cycle, membre) et le scheduler quotidien. 12 types couverts : PAIEMENT_RECU, COTISATION_SOUMISE, COTISATION_VALIDEE, JACKPOT_DISTRIBUE, DISTRIBUTION_FINALE, PAIEMENT_EN_RETARD, RAPPEL_COTISATION, TOUR_PROCHE, CYCLE_BIENTOT_CLOTURE, CYCLE_OUVERT, INVITATION_TONTINE, STATUT_MEMBRE"
     },
     {
       "name": "Profil",
@@ -71,10 +83,6 @@
     {
       "name": "Commissions",
       "description": "Configuration des commissions du gestionnaire par tontine : pourcentage du jackpot, frais fixes par cycle ou frais d'adhésion"
-    },
-    {
-      "name": "Cycles",
-      "description": "Gestion des cycles de cotisation : liste, détail, ouverture manuelle et clôture avec calcul automatique du jackpot"
     },
     {
       "name": "CodeList",
@@ -96,9 +104,7 @@
   "paths": {
     "/v1/tontines/{tontineId}/cycles/{cycleId}/cloturer": {
       "put": {
-        "tags": [
-          "Cycles"
-        ],
+        "tags": ["Cycles"],
         "summary": "Clôturer un cycle",
         "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nPasse le cycle **EN_COURS → TERMINÉ** avec le traitement automatique suivant :\n\n1. Calcul du jackpot brut = somme des cotisations **VALIDÉES** du cycle\n2. Calcul des commissions actives (POURCENTAGE_JACKPOT, FRAIS_FIXES_PAR_CYCLE)\n3. Stockage de montantJackpot, montantCommission, montantNet\n4. Cotisations **EN_ATTENTE** restantes → marquées **EN_RETARD**\n5. En mode AUTOMATIQUE : le cycle suivant (EN_ATTENTE) passe **EN_COURS** et un SMS est envoyé au bénéficiaire suivant",
         "operationId": "closeCycle",
@@ -187,9 +193,7 @@
     },
     "/v1/tontines/{tontineId}/cotisations/{cotisationId}/valider": {
       "put": {
-        "tags": [
-          "Cotisations"
-        ],
+        "tags": ["Cotisations"],
         "summary": "Valider une cotisation",
         "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nL'admin confirme la réception du paiement : statut **EN_ATTENTE → VALIDÉ**.\n\nRemplit automatiquement :\n- `validePar` : l'admin appelant\n- `dateValidation` : date/heure courante\n\nUne cotisation VALIDÉE est prise en compte dans le jackpot à la clôture du cycle.",
         "operationId": "validateCotisation",
@@ -278,9 +282,7 @@
     },
     "/v1/tontines/{tontineId}/commissions/{commissionId}": {
       "put": {
-        "tags": [
-          "Commissions"
-        ],
+        "tags": ["Commissions"],
         "summary": "Modifier une commission",
         "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nMet à jour la valeur et/ou la description d'une commission existante. Les champs null ne sont pas modifiés.",
         "operationId": "updateCommission",
@@ -377,9 +379,7 @@
         ]
       },
       "delete": {
-        "tags": [
-          "Commissions"
-        ],
+        "tags": ["Commissions"],
         "summary": "Supprimer une commission (soft delete)",
         "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nSuppression logique. La commission ne sera plus appliquée aux prochains cycles. Le même type peut être recréé ultérieurement.",
         "operationId": "deleteCommission",
@@ -458,9 +458,7 @@
     },
     "/v1/tontines/{id}": {
       "get": {
-        "tags": [
-          "Tontines"
-        ],
+        "tags": ["Tontines"],
         "summary": "Récupérer une tontine",
         "description": "🔒 Rôles : créateur de la tontine, membres de la tontine, SUPER_ADMIN.\n\nRetourne le détail complet de la tontine avec les informations du créateur.",
         "operationId": "getTontine",
@@ -526,9 +524,7 @@
         ]
       },
       "put": {
-        "tags": [
-          "Tontines"
-        ],
+        "tags": ["Tontines"],
         "summary": "Mettre à jour une tontine",
         "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nModification autorisée **uniquement si la tontine est en statut BROUILLON**. Les champs null dans la requête ne sont pas modifiés.",
         "operationId": "updateTontine",
@@ -614,9 +610,7 @@
         ]
       },
       "delete": {
-        "tags": [
-          "Tontines"
-        ],
+        "tags": ["Tontines"],
         "summary": "Supprimer une tontine (soft delete)",
         "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nSuppression logique (deletedAt renseigné) – la tontine disparaît des listes mais les données restent en base. Autorisé **uniquement en statut BROUILLON**.",
         "operationId": "deleteTontine",
@@ -694,9 +688,7 @@
     },
     "/v1/tontines/{id}/suspendre": {
       "put": {
-        "tags": [
-          "Tontines"
-        ],
+        "tags": ["Tontines"],
         "summary": "Suspendre une tontine",
         "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nPasse la tontine de **ACTIVE** à **SUSPENDUE**. Les cycles et cotisations existants sont conservés. La tontine peut être réactivée via `PUT /{id}/activer`.",
         "operationId": "suspendTontine",
@@ -774,11 +766,9 @@
     },
     "/v1/tontines/{id}/activer": {
       "put": {
-        "tags": [
-          "Tontines"
-        ],
+        "tags": ["Tontines"],
         "summary": "Activer une tontine",
-        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nPasse la tontine de **BROUILLON** (ou SUSPENDUE) à **ACTIVE**.\n\nEn mode **AUTOMATIQUE** : génère immédiatement tous les cycles (N cycles = N membres attendus), le premier passe EN_COURS.\n\nEn mode **MANUEL** : la tontine est active mais les cycles doivent être ouverts manuellement.",
+        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nPasse la tontine de **BROUILLON** (ou SUSPENDUE) à **ACTIVE**.\n\n**ROTATIVE – Mode AUTOMATIQUE** : génère immédiatement tous les cycles (N membres → N cycles), le premier passe EN_COURS.\n\n**ROTATIVE – Mode MANUEL** : active la tontine sans générer de cycles. Ouvrir les cycles via `POST .../cycles`.\n\n**EVENEMENTIELLE** : génère automatiquement tous les sous-cycles de `dateDebut` à `dateEcheance` selon la `frequence` (JOURNALIERE, HEBDOMADAIRE, BIMENSUEL, MENSUEL, TRIMESTRIEL). Le dernier sous-cycle se termine exactement sur `dateEcheance`.",
         "operationId": "activateTontine",
         "parameters": [
           {
@@ -854,9 +844,7 @@
     },
     "/v1/profile": {
       "get": {
-        "tags": [
-          "Profil"
-        ],
+        "tags": ["Profil"],
         "summary": "Voir mon profil",
         "description": "🔒 Accès : USER, MEMBER, ADMIN, SUPER_ADMIN",
         "operationId": "getProfile",
@@ -879,9 +867,7 @@
         ]
       },
       "put": {
-        "tags": [
-          "Profil"
-        ],
+        "tags": ["Profil"],
         "summary": "Modifier mon profil (nom, prénom, email)",
         "description": "🔒 Accès : USER, MEMBER, ADMIN, SUPER_ADMIN — Met à jour DB + Keycloak.",
         "operationId": "updateProfile",
@@ -926,9 +912,7 @@
     },
     "/v1/code-list/{id}": {
       "get": {
-        "tags": [
-          "CodeList"
-        ],
+        "tags": ["CodeList"],
         "summary": "Détail d'un code list par id",
         "operationId": "findById",
         "parameters": [
@@ -983,9 +967,7 @@
         ]
       },
       "put": {
-        "tags": [
-          "CodeList"
-        ],
+        "tags": ["CodeList"],
         "summary": "Modifier un code list (admin)",
         "description": "🛡 **Rôle requis :** `ADMIN` ou `SUPER_ADMIN`.\n\nMet à jour un code list existant. Le couple type/value doit rester unique.",
         "operationId": "update",
@@ -1083,9 +1065,7 @@
     },
     "/v1/admin/dashboard/users/{userId}/roles": {
       "put": {
-        "tags": [
-          "Administration"
-        ],
+        "tags": ["Administration"],
         "summary": "Modifier les rôles d'un utilisateur",
         "description": "🔒 Rôle requis : **SUPER_ADMIN**.\n\n**Replace-all idempotent** : les rôles fournis remplacent complètement les rôles existants.\n\nRègles :\n- Le rôle USER est toujours conservé même s'il n'est pas dans la liste\n- Les rôles Keycloak sont synchronisés simultanément\n\nExemple : `{\"roles\": [\"USER\", \"ADMIN\"]}` → attribue ADMIN, retire MEMBER si présent",
         "operationId": "updateUserRoles",
@@ -1173,9 +1153,7 @@
     },
     "/v1/tontines": {
       "get": {
-        "tags": [
-          "Tontines"
-        ],
+        "tags": ["Tontines"],
         "summary": "Lister les tontines",
         "description": "🔒 Rôles : tout utilisateur authentifié.\n\n- **SUPER_ADMIN** : voit toutes les tontines de la plateforme.\n- **Autres** : voit uniquement les tontines dont il est créateur + celles où il est cotisant.\n\nPagination : `?page=0&size=20&sort=createdAt,desc`",
         "operationId": "listTontines",
@@ -1218,11 +1196,9 @@
         ]
       },
       "post": {
-        "tags": [
-          "Tontines"
-        ],
+        "tags": ["Tontines"],
         "summary": "Créer une tontine",
-        "description": "🔒 Rôles : tout utilisateur authentifié.\n\nL'appelant devient automatiquement l'administrateur de la tontine et reçoit le rôle DINTHIALMA_ADMIN. La tontine est créée en statut **BROUILLON** – elle doit être activée (`PUT /{id}/activer`) pour démarrer les cotisations.",
+        "description": "🔒 Rôles : tout utilisateur authentifié.\n\nL'appelant devient automatiquement l'administrateur de la tontine et reçoit le rôle DINTHIALMA_ADMIN. La tontine est créée en statut **BROUILLON**.\n\n**Types disponibles :**\n\n- `ROTATIVE` *(défaut)* – jackpot tournant. Champs obligatoires supplémentaires : `ordreBeneficiaire`, `nombreMembres` (≥2), `modeCycle`, `montant`.\n- `EVENEMENTIELLE` – épargne vers un événement (Tabaski, Korité…). Champs obligatoires supplémentaires : `dateEcheance` (> `dateDebut`), `montant` si `montantLibre=false`. Champ optionnel : `nomEvenement`, `montantMinimum`.",
         "operationId": "createTontine",
         "requestBody": {
           "content": {
@@ -1275,9 +1251,7 @@
     },
     "/v1/tontines/{tontineId}/membres": {
       "get": {
-        "tags": [
-          "Membres"
-        ],
+        "tags": ["Membres"],
         "summary": "Lister les cotisants d'une tontine",
         "description": "🔒 Rôles : membres de la tontine, créateur, SUPER_ADMIN.\n\nRetourne les cotisants triés par ordre jackpot (position dans la rotation).\n\nPagination : `?page=0&size=20&sort=ordreJackpot,asc`",
         "operationId": "listMembres",
@@ -1351,9 +1325,7 @@
         ]
       },
       "post": {
-        "tags": [
-          "Membres"
-        ],
+        "tags": ["Membres"],
         "summary": "Ajouter un cotisant",
         "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nAjoute un cotisant via son **numéro de téléphone**, son **prénom** et son **nom**.\n\n- Si le numéro est déjà inscrit (ACTIVE) → ajout direct, rôle MEMBER attribué. Le nom fourni est ignoré (l'utilisateur a son propre profil).\n- Si le numéro est inconnu → un compte **pré-inscrit (PRE_ENROLLED)** est créé avec le prénom et nom fournis. Le membre apparaît immédiatement dans la tontine avec son nom. Un SMS d'invitation est envoyé.\n- Si le numéro existe déjà en PRE_ENROLLED (ajouté par un autre admin) et que le nom est encore vide → le nom est complété.\n\nSi `ordreJackpot` est null, le membre est placé en fin de liste.",
         "operationId": "addMembre",
@@ -1441,9 +1413,7 @@
     },
     "/v1/tontines/{tontineId}/cycles": {
       "get": {
-        "tags": [
-          "Cycles"
-        ],
+        "tags": ["Cycles"],
         "summary": "Lister les cycles d'une tontine",
         "description": "🔒 Rôles : membres de la tontine, créateur, SUPER_ADMIN.\n\nRetourne tous les cycles triés par numéro croissant (1, 2, 3, ...).\n\nStatuts possibles : EN_ATTENTE (généré mais pas encore démarré), EN_COURS (actif), TERMINE (clôturé).\n\nPagination : `?page=0&size=20&sort=numeroCycle,asc`",
         "operationId": "listCycles",
@@ -1517,9 +1487,7 @@
         ]
       },
       "post": {
-        "tags": [
-          "Cycles"
-        ],
+        "tags": ["Cycles"],
         "summary": "Ouvrir un cycle manuellement",
         "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\n**Mode MANUEL uniquement.** Crée et ouvre un nouveau cycle avec les dates et le bénéficiaire spécifiés.\n\nConditions : tontine ACTIVE, aucun autre cycle EN_COURS, dateDebut ≤ dateFin.\n\nSi `beneficiaireId` est fourni, un SMS d'annonce est envoyé au bénéficiaire.",
         "operationId": "openCycle",
@@ -1607,9 +1575,7 @@
     },
     "/v1/tontines/{tontineId}/cotisations": {
       "get": {
-        "tags": [
-          "Cotisations"
-        ],
+        "tags": ["Cotisations"],
         "summary": "Lister les cotisations",
         "description": "🔒 Rôles : membres, créateur, SUPER_ADMIN.\n\n- **SUPER_ADMIN** et **créateur** : voient toutes les cotisations de la tontine.\n- **MEMBER** : voit uniquement ses propres cotisations.\n\nParamètre optionnel `cycleId` pour filtrer par cycle.\n\nPagination : `?page=0&size=20&sort=createdAt,desc&cycleId=<uuid>`",
         "operationId": "listCotisations",
@@ -1694,9 +1660,7 @@
         ]
       },
       "post": {
-        "tags": [
-          "Cotisations"
-        ],
+        "tags": ["Cotisations"],
         "summary": "Enregistrer une cotisation",
         "description": "🔒 Rôles : cotisant (MEMBER) de la tontine.\n\nLe membre signale son paiement. La cotisation est créée en statut **EN_ATTENTE** – l'admin devra la valider.\n\nContrainte : **une seule cotisation par membre par cycle** – une 2ème tentative retourne une erreur 409.",
         "operationId": "recordCotisation",
@@ -1794,9 +1758,7 @@
     },
     "/v1/tontines/{tontineId}/cotisations/admin": {
       "post": {
-        "tags": [
-          "Cotisations"
-        ],
+        "tags": ["Cotisations"],
         "summary": "Enregistrer et valider une cotisation (admin)",
         "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nPermet à l'admin d'enregistrer un paiement reçu directement (cash ou mobile money) pour n'importe quel membre de la tontine, y compris les membres **PRE_ENROLLED** qui n'ont pas encore de compte.\n\nLa cotisation est créée **directement en statut VALIDÉ** – pas de passage par EN_ATTENTE. Les champs `enregistrePar`, `validePar` et `dateValidation` sont remplis automatiquement avec les informations de l'admin appelant.\n\nUne notification WhatsApp est envoyée au membre à l'issue de l'enregistrement.",
         "operationId": "adminRecordCotisation",
@@ -1894,9 +1856,7 @@
     },
     "/v1/tontines/{tontineId}/commissions": {
       "get": {
-        "tags": [
-          "Commissions"
-        ],
+        "tags": ["Commissions"],
         "summary": "Lister les commissions actives",
         "description": "🔒 Rôles : membres de la tontine, créateur, SUPER_ADMIN.\n\nRetourne toutes les commissions non supprimées de la tontine. Les membres peuvent ainsi voir les frais de gestion appliqués.",
         "operationId": "listCommissions",
@@ -1970,9 +1930,7 @@
         ]
       },
       "post": {
-        "tags": [
-          "Commissions"
-        ],
+        "tags": ["Commissions"],
         "summary": "Créer une commission",
         "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nDéfinit une règle de commission appliquée automatiquement à chaque clôture de cycle.\n\n**Types disponibles :**\n- `POURCENTAGE_JACKPOT` : ex. 4 % → 20 000 FCFA prélevés sur un jackpot de 500 000 FCFA\n- `FRAIS_FIXES_PAR_CYCLE` : montant fixe FCFA déduit à chaque clôture\n- `FRAIS_ADHESION` : prélevé à l'entrée du membre, **ne réduit pas le jackpot**\n\n**Contrainte** : maximum 1 commission par type (erreur 409 si doublon).",
         "operationId": "createCommission",
@@ -2070,9 +2028,7 @@
     },
     "/v1/profile/phone/verify": {
       "post": {
-        "tags": [
-          "Profil"
-        ],
+        "tags": ["Profil"],
         "summary": "Confirmer le changement de numéro – étape 2/2",
         "description": "🔒 Vérifie l'OTP et applique le changement : met à jour Keycloak + DB + révoque toutes les sessions. Re-connexion obligatoire après cette opération.",
         "operationId": "verifyPhoneChange",
@@ -2117,9 +2073,7 @@
     },
     "/v1/profile/phone/request-change": {
       "post": {
-        "tags": [
-          "Profil"
-        ],
+        "tags": ["Profil"],
         "summary": "Demander un changement de numéro – étape 1/2",
         "description": "🔒 Envoie un OTP SMS au NOUVEAU numéro. Les tontines et memberships sont conservés (liés à l'UUID, pas au numéro).",
         "operationId": "requestPhoneChange",
@@ -2174,9 +2128,7 @@
     },
     "/v1/code-list": {
       "get": {
-        "tags": [
-          "CodeList"
-        ],
+        "tags": ["CodeList"],
         "summary": "Liste paginée de tous les code lists",
         "description": "🔒 Accessible à tout utilisateur authentifié.\n\nRetourne l'ensemble des entrées de tous les référentiels. Supporte pagination et tri.\n\nPagination : `?page=0&size=25&sort=type,asc`",
         "operationId": "findAll",
@@ -2210,9 +2162,7 @@
             "required": false,
             "schema": {
               "type": "array",
-              "default": [
-                "type,ASC"
-              ],
+              "default": ["type,ASC"],
               "items": {
                 "type": "string"
               }
@@ -2248,9 +2198,7 @@
         ]
       },
       "post": {
-        "tags": [
-          "CodeList"
-        ],
+        "tags": ["CodeList"],
         "summary": "Créer un code list (admin)",
         "description": "🛡 **Rôle requis :** `ADMIN` ou `SUPER_ADMIN`.\n\nCrée une nouvelle valeur de référentiel. Le couple type/value doit être unique.",
         "operationId": "create",
@@ -2325,9 +2273,7 @@
     },
     "/v1/auth/register/verify-otp": {
       "post": {
-        "tags": [
-          "Auth"
-        ],
+        "tags": ["Auth"],
         "summary": "Étape 2/3 – Vérifier l'OTP reçu par SMS",
         "operationId": "verifyOtp",
         "requestBody": {
@@ -2366,9 +2312,7 @@
     },
     "/v1/auth/register/send-otp": {
       "post": {
-        "tags": [
-          "Auth"
-        ],
+        "tags": ["Auth"],
         "summary": "Étape 1/3 – Envoyer un OTP par SMS",
         "description": "Envoie un code OTP au numéro fourni.\n\n- Numéro inconnu → nouveau compte.\n- Numéro **PRE_ENROLLED** (ajouté à une tontine par un gestionnaire) → OTP envoyé pour activer le compte. HTTP 200 dans les deux cas.\n- Numéro déjà inscrit (ACTIVE) → HTTP 409.",
         "operationId": "sendOtp",
@@ -2408,9 +2352,7 @@
     },
     "/v1/auth/register/complete": {
       "post": {
-        "tags": [
-          "Auth"
-        ],
+        "tags": ["Auth"],
         "summary": "Étape 3/3 – Finaliser l'inscription",
         "description": "Crée le compte Keycloak et finalise l'enregistrement local.\n\n**Cas PRE_ENROLLED** : si le numéro appartient à un compte pré-inscrit par un gestionnaire de tontine, cette étape **active** le compte existant (keycloakId, firstName, lastName mis à jour, statut → ACTIVE, rôles USER + MEMBER attribués). Les memberships tontine déjà créés sont conservés.",
         "operationId": "completeRegistration",
@@ -2460,9 +2402,7 @@
     },
     "/v1/auth/refresh": {
       "post": {
-        "tags": [
-          "Auth"
-        ],
+        "tags": ["Auth"],
         "summary": "Rafraîchir les tokens JWT",
         "description": "Échange un refresh_token Keycloak valide contre de nouveaux tokens JWT.",
         "operationId": "refresh",
@@ -2502,9 +2442,7 @@
     },
     "/v1/auth/pin/setup": {
       "post": {
-        "tags": [
-          "Auth"
-        ],
+        "tags": ["Auth"],
         "summary": "Configurer le code PIN",
         "description": "Accessible uniquement après connexion complète (JWT requis).",
         "operationId": "setupPin",
@@ -2559,9 +2497,7 @@
     },
     "/v1/auth/pin/reset": {
       "post": {
-        "tags": [
-          "Auth"
-        ],
+        "tags": ["Auth"],
         "summary": "Reset PIN 3/3 – Choisir un nouveau code PIN",
         "operationId": "resetPin",
         "requestBody": {
@@ -2600,9 +2536,7 @@
     },
     "/v1/auth/pin/reset/verify-otp": {
       "post": {
-        "tags": [
-          "Auth"
-        ],
+        "tags": ["Auth"],
         "summary": "Reset PIN 2/3 – Vérifier l'OTP",
         "operationId": "verifyResetPinOtp",
         "requestBody": {
@@ -2631,9 +2565,7 @@
     },
     "/v1/auth/pin/reset/send-otp": {
       "post": {
-        "tags": [
-          "Auth"
-        ],
+        "tags": ["Auth"],
         "summary": "Reset PIN 1/3 – Envoyer un OTP par SMS",
         "description": "Anti-énumération : répond toujours HTTP 200.",
         "operationId": "sendResetPinOtp",
@@ -2663,10 +2595,9 @@
     },
     "/v1/auth/logout": {
       "post": {
-        "tags": [
-          "Auth"
-        ],
-        "summary": "Déconnexion – invalide la session Keycloak",
+        "tags": ["Auth"],
+        "summary": "Déconnexion – invalide la session Keycloak et supprime la session PIN",
+        "description": "Révoque le refresh token côté Keycloak et supprime la session PIN en base. `clientType` optionnel : si absent, toutes les sessions de l'utilisateur sont supprimées (déconnexion totale de tous les appareils).",
         "operationId": "logout",
         "requestBody": {
           "content": {
@@ -2694,9 +2625,7 @@
     },
     "/v1/auth/login": {
       "post": {
-        "tags": [
-          "Auth"
-        ],
+        "tags": ["Auth"],
         "summary": "Connexion par téléphone ou email + mot de passe",
         "description": "L'identifiant peut être le numéro de téléphone (avec ou sans +) ou l'adresse email.\n\n**Compte PRE_ENROLLED** : si l'utilisateur a été ajouté à une tontine par un gestionnaire avant de s'inscrire, la connexion retourne HTTP 403 avec un message invitant à s'inscrire sur l'application.",
         "operationId": "login",
@@ -2746,9 +2675,7 @@
     },
     "/v1/auth/login-pin": {
       "post": {
-        "tags": [
-          "Auth"
-        ],
+        "tags": ["Auth"],
         "summary": "Connexion rapide par code PIN (WEB + MOBILE)",
         "description": "Pré-requis : PIN configuré et session active existante (connexion mot de passe préalable).",
         "operationId": "loginWithPin",
@@ -2818,9 +2745,7 @@
     },
     "/v1/auth/forgot-password/verify-otp": {
       "post": {
-        "tags": [
-          "Auth"
-        ],
+        "tags": ["Auth"],
         "summary": "Reset mot de passe 2/3 – Vérifier l'OTP",
         "operationId": "verifyForgotPasswordOtp",
         "requestBody": {
@@ -2849,9 +2774,7 @@
     },
     "/v1/auth/forgot-password/send-otp": {
       "post": {
-        "tags": [
-          "Auth"
-        ],
+        "tags": ["Auth"],
         "summary": "Reset mot de passe 1/3 – Envoyer OTP par SMS",
         "description": "Anti-énumération : répond toujours HTTP 200, même si le numéro est inconnu.",
         "operationId": "sendForgotPasswordOtp",
@@ -2881,9 +2804,7 @@
     },
     "/v1/auth/forgot-password/reset": {
       "post": {
-        "tags": [
-          "Auth"
-        ],
+        "tags": ["Auth"],
         "summary": "Reset mot de passe 3/3 – Choisir un nouveau mot de passe",
         "operationId": "resetPasswordByPhone",
         "requestBody": {
@@ -2922,9 +2843,7 @@
     },
     "/v1/admin/dashboard/users/{userId}/enable": {
       "post": {
-        "tags": [
-          "Administration"
-        ],
+        "tags": ["Administration"],
         "summary": "Réactiver un compte utilisateur",
         "description": "🔒 Rôle requis : **SUPER_ADMIN**.\n\nRéactive un compte désactivé (active = true) et le réactive dans Keycloak.",
         "operationId": "enableUser",
@@ -2992,9 +2911,7 @@
     },
     "/v1/admin/dashboard/users/{userId}/disable": {
       "post": {
-        "tags": [
-          "Administration"
-        ],
+        "tags": ["Administration"],
         "summary": "Désactiver un compte utilisateur",
         "description": "🔒 Rôle requis : **SUPER_ADMIN**.\n\nDésactive le compte (active = false) et le désactive également dans Keycloak. L'utilisateur ne peut plus se connecter.\n\nUn SUPER_ADMIN ne peut pas se désactiver lui-même.",
         "operationId": "disableUser",
@@ -3072,9 +2989,7 @@
     },
     "/v1/tontines/{tontineId}/membres/{membreId}/statut": {
       "patch": {
-        "tags": [
-          "Membres"
-        ],
+        "tags": ["Membres"],
         "summary": "Modifier le statut d'un cotisant",
         "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nTransitions de statut autorisées :\n\n- **ACTIF** : activer ou réactiver un membre suspendu\n- **SUSPENDU** : suspension temporaire (ne peut plus cotiser)\n- **SORTI** : retrait définitif",
         "operationId": "updateStatut",
@@ -3173,11 +3088,9 @@
     },
     "/v1/tontines/{tontineId}/cycles/{cycleId}/beneficiaire": {
       "patch": {
-        "tags": [
-          "Cycles"
-        ],
-        "summary": "Sélectionner le bénéficiaire du jackpot",
-        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nDisponible uniquement en **mode MANUEL** sur un cycle **TERMINE**.\n\n- `membreId` fourni → désignation manuelle du bénéficiaire\n- `membreId` absent ou null → sélection **aléatoire** parmi les membres ACTIF n'ayant pas encore reçu de jackpot dans cette tontine\n\nLe membre sélectionné est marqué `aRecuJackpot=true` et ne sera plus éligible lors des prochains cycles. Une notification WhatsApp est envoyée au bénéficiaire et à l'admin.",
+        "tags": ["Cycles"],
+        "summary": "Désigner les gagnants du jackpot (mode MANUEL)",
+        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nDisponible uniquement sur une tontine avec **ordreBeneficiaire = MANUEL** et un cycle **TERMINÉ** sans gagnants.\n\n- `membreIds` fourni → désignation manuelle (liste de 1 à N membres)\n- `membreIds` absent ou vide → sélection **aléatoire** du bon nombre de membres\n\nN = `nombreGagnants` de la tontine. Le jackpot est divisé équitablement. Chaque gagnant est marqué `aRecuJackpot=true` et reçoit une notification WhatsApp.",
         "operationId": "selectionnerBeneficiaire",
         "parameters": [
           {
@@ -3270,11 +3183,70 @@
         ]
       }
     },
+    "/v1/notifications/{id}/read": {
+      "patch": {
+        "tags": ["Notifications"],
+        "summary": "Marquer une notification comme lue",
+        "description": "🔒 Rôles : tout utilisateur authentifié. Idempotent.",
+        "operationId": "markAsRead",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/v1/notifications/read-all": {
+      "patch": {
+        "tags": ["Notifications"],
+        "summary": "Tout marquer comme lu",
+        "description": "🔒 Rôles : tout utilisateur authentifié.\n\nMarque toutes les notifications non lues comme lues en une seule opération (bouton « Tout lire »).",
+        "operationId": "markAllAsRead",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/v1/users/search": {
       "get": {
-        "tags": [
-          "Utilisateurs"
-        ],
+        "tags": ["Utilisateurs"],
         "summary": "Rechercher un utilisateur par numéro de téléphone",
         "description": "🔒 Accès : tout utilisateur authentifié.\n\nRecherche sur **l'ensemble des comptes non supprimés** : `ACTIVE` et `PRE_ENROLLED` sont tous les deux retournés. Les comptes soft-deleted (`deletedAt` non null) sont exclus.\n\nUtilisé par un gestionnaire de tontine avant d'ajouter un membre (flux 2 étapes) :\n\n- **200 / accountStatus = ACTIVE** → utilisateur inscrit, ajout direct possible sans resaisir son nom.\n- **200 / accountStatus = PRE_ENROLLED** → déjà ajouté à une autre tontine par un autre gestionnaire, profil connu, ajout direct possible.\n- **404** → numéro totalement inconnu, l'admin doit saisir firstName et lastName pour créer un compte pré-inscrit.",
         "operationId": "searchByPhone",
@@ -3301,8 +3273,8 @@
               }
             }
           },
-          "404": {
-            "description": "Aucun compte avec ce numéro",
+          "401": {
+            "description": "JWT manquant ou expiré",
             "content": {
               "application/json": {
                 "schema": {
@@ -3311,8 +3283,8 @@
               }
             }
           },
-          "401": {
-            "description": "JWT manquant ou expiré",
+          "404": {
+            "description": "Aucun compte avec ce numéro",
             "content": {
               "application/json": {
                 "schema": {
@@ -3331,9 +3303,7 @@
     },
     "/v1/tontines/{tontineId}/cycles/{cycleId}": {
       "get": {
-        "tags": [
-          "Cycles"
-        ],
+        "tags": ["Cycles"],
         "summary": "Récupérer un cycle",
         "description": "🔒 Rôles : membres de la tontine, créateur, SUPER_ADMIN.\n\nRetourne le détail complet d'un cycle : dates, statut, bénéficiaire, montant jackpot brut, commissions et montant net (renseignés à la clôture).",
         "operationId": "getCycle",
@@ -3412,9 +3382,7 @@
     },
     "/v1/tontines/{tontineId}/cycles/beneficiaires": {
       "get": {
-        "tags": [
-          "Cycles"
-        ],
+        "tags": ["Cycles"],
         "summary": "Historique des bénéficiaires de jackpot",
         "description": "🔒 Rôles : membres de la tontine, créateur, SUPER_ADMIN.\n\nRetourne la liste des cycles **TERMINÉ** ayant un bénéficiaire désigné, triés par numéro de cycle croissant. Chaque entrée contient le bénéficiaire et les montants (jackpot brut, commissions, net).\n\nPagination : `?page=0&size=20&sort=numeroCycle,asc`",
         "operationId": "listBeneficiaires",
@@ -3489,9 +3457,7 @@
     },
     "/v1/tontines/{tontineId}/cotisations/{cotisationId}": {
       "get": {
-        "tags": [
-          "Cotisations"
-        ],
+        "tags": ["Cotisations"],
         "summary": "Récupérer une cotisation",
         "description": "🔒 Rôles : propriétaire de la cotisation (MEMBER), créateur de la tontine, SUPER_ADMIN.\n\nRetourne le détail complet : montant, méthode de paiement, référence, statut, valideur et date de validation.",
         "operationId": "getCotisation",
@@ -3568,11 +3534,69 @@
         ]
       }
     },
+    "/v1/notifications": {
+      "get": {
+        "tags": ["Notifications"],
+        "summary": "Mes notifications",
+        "description": "🔒 Rôles : tout utilisateur authentifié.\n\nRetourne toutes les notifications de l'utilisateur (lues et non lues) triées par date décroissante. Le frontend peut distinguer NOUVELLES (isRead=false) et PRÉCÉDENTES (isRead=true) en filtrant côté client.\n\nPagination : `?page=0&size=20`",
+        "operationId": "getMyNotifications",
+        "parameters": [
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/v1/notifications/unread-count": {
+      "get": {
+        "tags": ["Notifications"],
+        "summary": "Nombre de notifications non lues",
+        "description": "🔒 Rôles : tout utilisateur authentifié.\n\nRetourne le compteur pour le badge (cloche). Appeler à chaque montée en premier plan de l'application.",
+        "operationId": "countUnread",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/v1/code-list/type/{type}": {
       "get": {
-        "tags": [
-          "CodeList"
-        ],
+        "tags": ["CodeList"],
         "summary": "Valeurs d'un type de code list (public)",
         "description": "🌐 **Public** — Retourne toutes les entrées d'un type donné. Aucun token requis.\n\n---\n\n### Référentiels disponibles\n\n| Type | Valeurs | Usage |\n|------|---------|-------|\n| `FREQUENCE_TONTINE` | `JOURNALIERE` · `HEBDOMADAIRE` · `BIMENSUEL` · `MENSUEL` · `TRIMESTRIEL` | Fréquence de cotisation lors de la création d'une tontine |\n| `METHODE_PAIEMENT` | `WAVE` · `ORANGE_MONEY` · `FREE_MONEY` · `CASH` | Moyen de paiement d'une cotisation |\n| `STATUT_COTISATION` | `EN_ATTENTE` · `VALIDE` · `EN_RETARD` | Cycle de vie d'une cotisation |\n| `ORDRE_BENEFICIAIRE` | `ALEATOIRE` · `MANUEL` · `ROTATION` | Règle de désignation du bénéficiaire du jackpot |\n\n> ⚠️ **`ROLE_INTERNE`** est restreint — utiliser `GET /v1/code-list/admin/type/ROLE_INTERNE`.",
         "operationId": "findAllByType",
@@ -3614,9 +3638,7 @@
     },
     "/v1/code-list/admin/type/{type}": {
       "get": {
-        "tags": [
-          "CodeList"
-        ],
+        "tags": ["CodeList"],
         "summary": "Valeurs d'un type (admin)",
         "description": "🛡 **Rôle requis :** `ADMIN` ou `SUPER_ADMIN`.\n\nIdentique à l'endpoint public mais donne accès aux types restreints (ex : `ROLE_INTERNE`).",
         "operationId": "findAllByTypeAdmin",
@@ -3673,9 +3695,7 @@
     },
     "/v1/admin/my-dashboard": {
       "get": {
-        "tags": [
-          "Administration"
-        ],
+        "tags": ["Administration"],
         "summary": "Mon tableau de bord admin",
         "description": "🔒 Rôles : tout utilisateur authentifié ayant créé au moins une tontine.\n\nMétriques personnelles pour chaque tontine gérée par l'appelant :\n\n- Cotisations EN_ATTENTE et EN_RETARD\n- Montant total validé\n- Cycle EN_COURS avec bénéficiaire désigné",
         "operationId": "getMyDashboard",
@@ -3710,9 +3730,7 @@
     },
     "/v1/admin/dashboard": {
       "get": {
-        "tags": [
-          "Administration"
-        ],
+        "tags": ["Administration"],
         "summary": "Dashboard global plateforme",
         "description": "🔒 Rôle requis : **SUPER_ADMIN**.\n\nMétriques globales en temps réel :\n\n- **Utilisateurs** : total, actifs, désactivés, nouveaux ce mois\n- **Tontines** : total, par statut (BROUILLON, ACTIVE, SUSPENDUE, TERMINEE)\n- **Finances** : cotisations EN_ATTENTE, EN_RETARD, montant validé ce mois\n- **Activité 24h** : nouveaux inscrits, cotisations enregistrées",
         "operationId": "getGlobalDashboard",
@@ -3757,9 +3775,7 @@
     },
     "/v1/admin/dashboard/users": {
       "get": {
-        "tags": [
-          "Administration"
-        ],
+        "tags": ["Administration"],
         "summary": "Liste paginée des utilisateurs",
         "description": "🔒 Rôle requis : **SUPER_ADMIN**.\n\nRetourne tous les utilisateurs non supprimés de la plateforme.\n\nPagination : `?page=0&size=20&sort=createdAt,desc`",
         "operationId": "listUsers",
@@ -3814,9 +3830,7 @@
     },
     "/v1/admin/dashboard/users/{userId}": {
       "get": {
-        "tags": [
-          "Administration"
-        ],
+        "tags": ["Administration"],
         "summary": "Détail d'un utilisateur",
         "description": "🔒 Rôle requis : **SUPER_ADMIN**.\n\nRetourne le profil complet d'un utilisateur.",
         "operationId": "getUserDetail",
@@ -3884,9 +3898,7 @@
     },
     "/v1/tontines/{tontineId}/membres/{membreId}": {
       "delete": {
-        "tags": [
-          "Membres"
-        ],
+        "tags": ["Membres"],
         "summary": "Retirer un cotisant (soft delete)",
         "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nSuppression logique du cotisant (statut → SORTI, deletedAt renseigné). Le membre ne voit plus la tontine.",
         "operationId": "removeMembre",
@@ -3966,48 +3978,6 @@
   },
   "components": {
     "schemas": {
-      "BeneficiaireInfo": {
-        "type": "object",
-        "description": "Informations du bénéficiaire",
-        "properties": {
-          "membreId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "UUID du membre (tontine_membres.id)"
-          },
-          "userId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "UUID de l'utilisateur (users.id)"
-          },
-          "firstName": {
-            "type": "string",
-            "description": "Prénom",
-            "example": "Fatou"
-          },
-          "lastName": {
-            "type": "string",
-            "description": "Nom de famille",
-            "example": "Sow"
-          },
-          "phone": {
-            "type": "string",
-            "description": "Numéro de téléphone",
-            "example": 221770000001
-          },
-          "ordreJackpot": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Position dans la rotation des jackpots",
-            "example": 2
-          },
-          "dateJackpot": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Date/heure de remise du jackpot au membre"
-          }
-        }
-      },
       "CycleResponse": {
         "type": "object",
         "description": "Représentation d'un cycle de tontine",
@@ -4042,37 +4012,43 @@
           },
           "montantJackpot": {
             "type": "number",
-            "description": "Jackpot brut = somme des cotisations VALIDÉES du cycle (calculé à la clôture)",
-            "example": 60000
+            "description": "Jackpot brut = somme des cotisations VALIDÉES (calculé à la clôture)",
+            "example": 500000
           },
           "montantCommission": {
             "type": "number",
             "description": "Total des commissions déduites (calculé à la clôture)",
-            "example": 2400
+            "example": 10000
           },
           "montantNet": {
             "type": "number",
-            "description": "Montant net remis au bénéficiaire = jackpot brut - commissions (calculé à la clôture)",
-            "example": 57600
+            "description": "Montant net total = jackpot brut - commissions (calculé à la clôture)",
+            "example": 490000
           },
           "statut": {
             "type": "string",
             "description": "Statut courant du cycle",
-            "enum": [
-              "EN_ATTENTE",
-              "EN_COURS",
-              "TERMINE"
-            ]
+            "enum": ["EN_ATTENTE", "EN_COURS", "TERMINE"]
           },
           "dateRemise": {
             "type": "string",
             "format": "date",
-            "description": "Date de remise effective du jackpot (date de clôture du cycle)",
+            "description": "Date de clôture effective du cycle",
             "example": "2024-07-31"
           },
-          "beneficiaire": {
-            "$ref": "#/components/schemas/BeneficiaireInfo",
-            "description": "Bénéficiaire du jackpot – null si pas encore désigné"
+          "gagnants": {
+            "type": "array",
+            "description": "Gagnants du jackpot (ROTATIVE) – vide si pas encore désignés",
+            "items": {
+              "$ref": "#/components/schemas/GagnantInfo"
+            }
+          },
+          "distributionParMembre": {
+            "type": "array",
+            "description": "Distribution individuelle (EVENEMENTIELLE – clôture finale uniquement). Null pour les cycles ROTATIVE et les sous-cycles intermédiaires EVENEMENTIELLE.",
+            "items": {
+              "$ref": "#/components/schemas/MembreDistributionInfo"
+            }
           },
           "createdAt": {
             "type": "string",
@@ -4083,6 +4059,99 @@
             "type": "string",
             "format": "date-time",
             "description": "Date de dernière modification"
+          }
+        }
+      },
+      "GagnantInfo": {
+        "type": "object",
+        "description": "Informations d'un gagnant",
+        "properties": {
+          "membreId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID du membre (tontine_membres.id)"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID de l'utilisateur (users.id)"
+          },
+          "firstName": {
+            "type": "string",
+            "description": "Prénom",
+            "example": "Fatou"
+          },
+          "lastName": {
+            "type": "string",
+            "description": "Nom de famille",
+            "example": "Sow"
+          },
+          "phone": {
+            "type": "string",
+            "description": "Numéro de téléphone",
+            "example": 221770000001
+          },
+          "ordreJackpot": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Position dans la rotation",
+            "example": 2
+          },
+          "montantRecu": {
+            "type": "number",
+            "description": "Montant effectivement reçu",
+            "example": 245000
+          },
+          "dateJackpot": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date/heure de remise du jackpot"
+          }
+        }
+      },
+      "MembreDistributionInfo": {
+        "type": "object",
+        "description": "Part individuelle de chaque membre à la clôture finale (EVENEMENTIELLE)",
+        "properties": {
+          "membreId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID du membre (tontine_membres.id)"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID de l'utilisateur (users.id)"
+          },
+          "firstName": {
+            "type": "string",
+            "description": "Prénom",
+            "example": "Aïssatou"
+          },
+          "lastName": {
+            "type": "string",
+            "description": "Nom de famille",
+            "example": "Ba"
+          },
+          "phone": {
+            "type": "string",
+            "description": "Numéro de téléphone normalisé",
+            "example": 221770000002
+          },
+          "montantCotise": {
+            "type": "number",
+            "description": "Somme totale des cotisations VALIDÉES de ce membre",
+            "example": 50000
+          },
+          "montantCommission": {
+            "type": "number",
+            "description": "Quote-part de commission déduite",
+            "example": 1000
+          },
+          "montantNet": {
+            "type": "number",
+            "description": "Montant net à restituer à ce membre",
+            "example": 49000
           }
         }
       },
@@ -4145,11 +4214,7 @@
           "statut": {
             "type": "string",
             "description": "Statut de la cotisation",
-            "enum": [
-              "EN_ATTENTE",
-              "VALIDE",
-              "EN_RETARD"
-            ]
+            "enum": ["EN_ATTENTE", "VALIDE", "EN_RETARD"]
           },
           "note": {
             "type": "string",
@@ -4266,7 +4331,7 @@
           "valeur": {
             "type": "number",
             "description": "Nouvelle valeur de la commission (null = inchangée, doit être > 0 si fournie)",
-            "example": 5.0,
+            "example": 5,
             "minimum": 0.01
           },
           "description": {
@@ -4302,7 +4367,7 @@
           "valeur": {
             "type": "number",
             "description": "Valeur : taux en % pour POURCENTAGE_JACKPOT, montant FCFA pour les autres types",
-            "example": 4.0
+            "example": 4
           },
           "description": {
             "type": "string",
@@ -4365,6 +4430,35 @@
             "example": 15,
             "maximum": 100,
             "minimum": 2
+          },
+          "nombreGagnants": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nouveau nombre de gagnants par cycle (min 1, null = inchangé)",
+            "example": 2,
+            "minimum": 1
+          },
+          "dateEcheance": {
+            "type": "string",
+            "format": "date",
+            "description": "Nouvelle date d'échéance de l'événement (EVENEMENTIELLE, doit être future)",
+            "example": "2026-06-06"
+          },
+          "nomEvenement": {
+            "type": "string",
+            "description": "Nouveau nom de l'événement (max 200 caractères)",
+            "example": "Korité 2026",
+            "maxLength": 200,
+            "minLength": 0
+          },
+          "montantMinimum": {
+            "type": "number",
+            "description": "Nouveau montant minimum de cotisation (EVENEMENTIELLE libre, null = inchangé)",
+            "example": 1000
+          },
+          "montantLibre": {
+            "type": "boolean",
+            "description": "Basculer entre cotisation libre et cotisation fixe (null = inchangé)"
           }
         }
       },
@@ -4403,6 +4497,11 @@
             "format": "uuid",
             "description": "UUID de la tontine"
           },
+          "tontineType": {
+            "type": "string",
+            "description": "Type de tontine",
+            "enum": ["ROTATIVE", "EVENEMENTIELLE"]
+          },
           "nom": {
             "type": "string",
             "description": "Nom du groupe de tontine",
@@ -4414,7 +4513,7 @@
           },
           "montant": {
             "type": "number",
-            "description": "Montant de cotisation par membre par cycle en FCFA",
+            "description": "Montant fixe de cotisation par cycle en FCFA",
             "example": 5000
           },
           "frequence": {
@@ -4424,16 +4523,13 @@
           },
           "ordreBeneficiaire": {
             "type": "string",
-            "description": "Code de l'ordre des bénéficiaires (ORDRE_BENEFICIAIRE)",
+            "description": "Code de l'ordre des bénéficiaires (ROTATIVE uniquement)",
             "example": "FIXE"
           },
           "modeCycle": {
             "type": "string",
-            "description": "Mode de gestion des cycles",
-            "enum": [
-              "AUTOMATIQUE",
-              "MANUEL"
-            ],
+            "description": "Mode de gestion des cycles (ROTATIVE uniquement)",
+            "enum": ["AUTOMATIQUE", "MANUEL"],
             "example": "AUTOMATIQUE"
           },
           "dateDebut": {
@@ -4445,8 +4541,14 @@
           "nombreMembres": {
             "type": "integer",
             "format": "int32",
-            "description": "Nombre total de membres attendus (= nombre de cycles)",
-            "example": 12
+            "description": "Nombre total de membres attendus (ROTATIVE)",
+            "example": 10
+          },
+          "nombreGagnants": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre de gagnants du jackpot par cycle (ROTATIVE)",
+            "example": 2
           },
           "nombreMembresActuels": {
             "type": "integer",
@@ -4457,12 +4559,27 @@
           "statut": {
             "type": "string",
             "description": "Statut courant de la tontine",
-            "enum": [
-              "BROUILLON",
-              "ACTIVE",
-              "SUSPENDUE",
-              "TERMINEE"
-            ]
+            "enum": ["BROUILLON", "ACTIVE", "SUSPENDUE", "TERMINEE"]
+          },
+          "dateEcheance": {
+            "type": "string",
+            "format": "date",
+            "description": "Date cible de l'événement (EVENEMENTIELLE)",
+            "example": "2026-03-20"
+          },
+          "nomEvenement": {
+            "type": "string",
+            "description": "Nom de l'événement cible",
+            "example": "Tabaski 2026"
+          },
+          "montantLibre": {
+            "type": "boolean",
+            "description": "true = cotisation libre par le membre, false = montant fixe imposé",
+            "example": false
+          },
+          "montantMinimum": {
+            "type": "number",
+            "description": "Montant minimum de cotisation en mode libre (null = aucun plancher)"
           },
           "creePar": {
             "$ref": "#/components/schemas/CreateurInfo",
@@ -4555,26 +4672,12 @@
           "roles": {
             "type": "array",
             "description": "Nouvel ensemble de rôles souhaité. USER est toujours conservé même s'il n'est pas dans la liste.",
-            "enum": [
-              "USER",
-              "ADMIN",
-              "MEMBER",
-              "SUPER_ADMIN"
-            ],
-            "example": [
-              "USER",
-              "ADMIN",
-              "MEMBER"
-            ],
+            "enum": ["USER", "ADMIN", "MEMBER", "SUPER_ADMIN"],
+            "example": ["USER", "ADMIN", "MEMBER"],
             "items": {
               "type": "string",
               "description": "Rôle Keycloak de l'utilisateur. Les rôles sont cumulatifs. USER = base (inscription), MEMBER = cotisant d'une tontine, ADMIN = créateur d'une tontine, SUPER_ADMIN = équipe Dinthialma (accès total).",
-              "enum": [
-                "USER",
-                "MEMBER",
-                "ADMIN",
-                "SUPER_ADMIN"
-              ]
+              "enum": ["USER", "MEMBER", "ADMIN", "SUPER_ADMIN"]
             },
             "minItems": 1,
             "uniqueItems": true
@@ -4630,10 +4733,7 @@
           "roles": {
             "type": "array",
             "description": "Liste des rôles Keycloak triés alphabétiquement",
-            "example": [
-              "DINTHIALMA_ADMIN",
-              "DINTHIALMA_USER"
-            ],
+            "example": ["DINTHIALMA_ADMIN", "DINTHIALMA_USER"],
             "items": {
               "type": "string"
             }
@@ -4652,8 +4752,14 @@
       },
       "CreateTontineRequest": {
         "type": "object",
-        "description": "Corps de la requête de création d'une tontine. L'utilisateur appelant devient automatiquement l'administrateur (créateur) de la tontine et se voit attribuer le rôle DINTHIALMA_ADMIN. La tontine est créée en statut BROUILLON.",
+        "description": "Corps de la requête de création d'une tontine. L'utilisateur appelant devient automatiquement l'administrateur (créateur) de la tontine. La tontine est créée en statut BROUILLON.\n\n**ROTATIVE** : ordreBeneficiaire, nombreMembres, modeCycle et montant sont obligatoires.\n**EVENEMENTIELLE** : dateEcheance est obligatoire ; montant est obligatoire si montantLibre=false ; ordreBeneficiaire et nombreMembres sont ignorés.",
         "properties": {
+          "tontineType": {
+            "type": "string",
+            "description": "Type de tontine",
+            "enum": ["ROTATIVE", "EVENEMENTIELLE"],
+            "example": "ROTATIVE"
+          },
           "nom": {
             "type": "string",
             "description": "Nom du groupe de tontine (max 150 caractères)",
@@ -4668,28 +4774,24 @@
           },
           "montant": {
             "type": "number",
-            "description": "Montant de cotisation par membre par cycle en FCFA",
+            "description": "Montant fixe de cotisation par cycle en FCFA",
             "example": 5000
           },
           "frequence": {
             "type": "string",
-            "description": "Fréquence de cotisation – code de la liste FREQUENCE_TONTINE. Exemples : HEBDOMADAIRE, MENSUEL, TRIMESTRIEL. Voir GET /v1/code-list/type/FREQUENCE_TONTINE pour la liste complète.",
+            "description": "Fréquence de cotisation – code de la liste FREQUENCE_TONTINE. Exemples : JOURNALIERE, HEBDOMADAIRE, BIMENSUEL, MENSUEL, TRIMESTRIEL.",
             "example": "MENSUEL",
             "minLength": 1
           },
           "ordreBeneficiaire": {
             "type": "string",
-            "description": "Ordre de désignation des bénéficiaires – code de la liste ORDRE_BENEFICIAIRE. Exemples : FIXE (défini à l'avance), ALEATOIRE (tirage au sort). Voir GET /v1/code-list/type/ORDRE_BENEFICIAIRE.",
-            "example": "FIXE",
-            "minLength": 1
+            "description": "Ordre de désignation des bénéficiaires (ROTATIVE uniquement). Codes ORDRE_BENEFICIAIRE : FIXE, ALEATOIRE, ROTATION, MANUEL.",
+            "example": "FIXE"
           },
           "modeCycle": {
             "type": "string",
-            "description": "Mode de gestion des cycles : AUTOMATIQUE = tous les cycles générés à l'activation, MANUEL = l'admin ouvre chaque cycle manuellement.",
-            "enum": [
-              "AUTOMATIQUE",
-              "MANUEL"
-            ],
+            "description": "Mode de gestion des cycles (ROTATIVE uniquement). AUTOMATIQUE = cycles générés à l'activation, MANUEL = l'admin ouvre chaque cycle.",
+            "enum": ["AUTOMATIQUE", "MANUEL"],
             "example": "AUTOMATIQUE"
           },
           "dateDebut": {
@@ -4701,17 +4803,43 @@
           "nombreMembres": {
             "type": "integer",
             "format": "int32",
-            "description": "Nombre total de membres attendus = nombre de cycles à générer (min 2, max 100). Ex : 12 membres → 12 cycles.",
-            "example": 12,
+            "description": "Nombre total de membres attendus (ROTATIVE uniquement, min 2, max 100). Détermine le nombre de cycles en mode AUTOMATIQUE.",
+            "example": 10,
             "maximum": 100,
-            "minimum": 2
+            "minimum": 0
+          },
+          "nombreGagnants": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre de membres qui reçoivent le jackpot à chaque cycle (ROTATIVE, défaut 1).",
+            "example": 2,
+            "minimum": 1
+          },
+          "dateEcheance": {
+            "type": "string",
+            "format": "date",
+            "description": "Date cible de l'événement (EVENEMENTIELLE obligatoire). Exemples : Tabaski, Korité, mariage, baptême.",
+            "example": "2026-03-20"
+          },
+          "nomEvenement": {
+            "type": "string",
+            "description": "Nom de l'événement (optionnel, max 200 caractères)",
+            "example": "Tabaski 2026",
+            "maxLength": 200,
+            "minLength": 0
+          },
+          "montantLibre": {
+            "type": "boolean",
+            "description": "Si true, chaque membre cotise librement le montant qu'il souhaite. Si false (défaut), le champ montant est imposé à tous.",
+            "example": false
+          },
+          "montantMinimum": {
+            "type": "number",
+            "description": "Montant minimum de cotisation (EVENEMENTIELLE + montantLibre=true uniquement). Null = aucun plancher.",
+            "example": 500
           }
         },
-        "required": [
-          "dateDebut",
-          "modeCycle",
-          "montant"
-        ]
+        "required": ["dateDebut", "tontineType"]
       },
       "AddMembreRequest": {
         "type": "object",
@@ -4768,11 +4896,7 @@
           "statut": {
             "type": "string",
             "description": "Statut du cotisant",
-            "enum": [
-              "ACTIF",
-              "SUSPENDU",
-              "SORTI"
-            ]
+            "enum": ["ACTIF", "SUSPENDU", "SORTI"]
           },
           "dateAdhesion": {
             "type": "string",
@@ -4823,16 +4947,13 @@
           "accountStatus": {
             "type": "string",
             "description": "Statut d'activation du compte. PRE_ENROLLED = ajouté par l'admin, pas encore inscrit sur l'application.",
-            "enum": [
-              "ACTIVE",
-              "PRE_ENROLLED"
-            ]
+            "enum": ["ACTIVE", "PRE_ENROLLED"]
           }
         }
       },
       "OpenCycleRequest": {
         "type": "object",
-        "description": "Corps de la requête d'ouverture manuelle d'un cycle. Disponible uniquement si la tontine est en mode MANUEL. Un seul cycle EN_COURS est autorisé à la fois.",
+        "description": "Corps de la requête d'ouverture manuelle d'un cycle. Disponible uniquement si la tontine est en mode MANUEL. Un seul cycle EN_COURS est autorisé à la fois. Les gagnants sont désignés après clôture via PATCH /{cycleId}/gagnants.",
         "properties": {
           "dateDebut": {
             "type": "string",
@@ -4845,18 +4966,9 @@
             "format": "date",
             "description": "Date de fin prévue du cycle (doit être après dateDebut)",
             "example": "2024-07-31"
-          },
-          "beneficiaireId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "UUID du membre bénéficiaire du jackpot (tontine_membres.id). Optionnel – peut être désigné plus tard.",
-            "example": "550e8400-e29b-41d4-a716-446655440000"
           }
         },
-        "required": [
-          "dateDebut",
-          "dateFin"
-        ]
+        "required": ["dateDebut", "dateFin"]
       },
       "RecordCotisationRequest": {
         "type": "object",
@@ -4889,10 +5001,7 @@
             "example": "Paiement pour juillet 2024"
           }
         },
-        "required": [
-          "cycleId",
-          "montant"
-        ]
+        "required": ["cycleId", "montant"]
       },
       "AdminRecordCotisationRequest": {
         "type": "object",
@@ -4931,11 +5040,7 @@
             "example": "Reçu cash le 01/06/2026"
           }
         },
-        "required": [
-          "cycleId",
-          "membreId",
-          "montant"
-        ]
+        "required": ["cycleId", "membreId", "montant"]
       },
       "CreateCommissionRequest": {
         "type": "object",
@@ -4954,7 +5059,7 @@
           "valeur": {
             "type": "number",
             "description": "Valeur de la commission :\n- Pour POURCENTAGE_JACKPOT : taux en % (ex : 4.00 = 4 %)\n- Pour les autres types : montant en FCFA (ex : 1000.00)\nDoit être strictement positif.",
-            "example": 4.0,
+            "example": 4,
             "minimum": 0.01
           },
           "description": {
@@ -4963,10 +5068,7 @@
             "example": "Frais de gestion du groupe"
           }
         },
-        "required": [
-          "type",
-          "valeur"
-        ]
+        "required": ["type", "valeur"]
       },
       "PhoneChangeVerifyRequest": {
         "type": "object",
@@ -5135,12 +5237,17 @@
       },
       "LogoutRequest": {
         "type": "object",
-        "description": "Requête de déconnexion. Le refresh_token est invalidé côté Keycloak, rendant tout renouvellement de l'access_token impossible.",
+        "description": "Requête de déconnexion. Le refresh_token est invalidé côté Keycloak et la session PIN correspondante est supprimée en base.",
         "properties": {
           "refreshToken": {
             "type": "string",
             "description": "Token de rafraîchissement à invalider",
             "minLength": 1
+          },
+          "clientType": {
+            "type": "string",
+            "description": "Type de client concerné (WEB ou MOBILE). Si absent, toutes les sessions sont révoquées.",
+            "enum": ["WEB", "MOBILE"]
           }
         }
       },
@@ -5163,10 +5270,7 @@
           "clientType": {
             "type": "string",
             "description": "Type de client – détermine la durée de vie de la session PIN : WEB = 24h, MOBILE = 30 jours",
-            "enum": [
-              "WEB",
-              "MOBILE"
-            ],
+            "enum": ["WEB", "MOBILE"],
             "example": "WEB"
           },
           "deviceInfo": {
@@ -5175,9 +5279,7 @@
             "example": "Chrome 124 / Windows 11"
           }
         },
-        "required": [
-          "clientType"
-        ]
+        "required": ["clientType"]
       },
       "PinLoginRequest": {
         "type": "object",
@@ -5199,10 +5301,7 @@
           "clientType": {
             "type": "string",
             "description": "Type de client : WEB (session 24h) ou MOBILE (session 30 jours)",
-            "enum": [
-              "WEB",
-              "MOBILE"
-            ],
+            "enum": ["WEB", "MOBILE"],
             "example": "MOBILE"
           },
           "deviceInfo": {
@@ -5211,9 +5310,7 @@
             "example": "iPhone 15 / iOS 17"
           }
         },
-        "required": [
-          "clientType"
-        ]
+        "required": ["clientType"]
       },
       "ResetPasswordByPhoneRequest": {
         "type": "object",
@@ -5249,11 +5346,7 @@
           "statut": {
             "type": "string",
             "description": "Nouveau statut du cotisant :\n- ACTIF : activer ou réactiver un membre suspendu\n- SUSPENDU : suspendre temporairement (ne peut plus cotiser)\n- SORTI : retrait définitif (irréversible sans intervention SUPER_ADMIN)",
-            "enum": [
-              "ACTIF",
-              "SUSPENDU",
-              "SORTI"
-            ],
+            "enum": ["ACTIF", "SUSPENDU", "SORTI"],
             "example": "SUSPENDU"
           },
           "motif": {
@@ -5262,19 +5355,19 @@
             "example": "Membre parti en voyage"
           }
         },
-        "required": [
-          "statut"
-        ]
+        "required": ["statut"]
       },
       "SelectionnerBeneficiaireRequest": {
         "type": "object",
-        "description": "Corps de la requête de sélection du bénéficiaire du jackpot après clôture d'un cycle. Si `membreId` est absent, la sélection est aléatoire parmi les membres éligibles (ACTIF et n'ayant pas encore reçu de jackpot dans cette tontine).",
+        "description": "Corps de la requête de désignation des gagnants du jackpot après clôture d'un cycle. Disponible uniquement pour les tontines avec ordreBeneficiaire = MANUEL. Le nombre de membreIds doit correspondre au nombreGagnants de la tontine (ou être inférieur si moins de membres éligibles restants).",
         "properties": {
-          "membreId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "UUID du membre à désigner comme bénéficiaire (tontine_membres.id). Laisser null pour une sélection aléatoire.",
-            "example": "550e8400-e29b-41d4-a716-446655440099"
+          "membreIds": {
+            "type": "array",
+            "description": "UUIDs des membres à désigner comme gagnants (tontine_membres.id). Doit contenir entre 1 et nombreGagnants entrées. Null ou liste vide = sélection aléatoire parmi les membres éligibles.",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         }
       },
@@ -5301,7 +5394,7 @@
       },
       "BeneficiaireHistoriqueResponse": {
         "type": "object",
-        "description": "Bénéficiaire d'un jackpot pour un cycle terminé",
+        "description": "Historique d'un cycle terminé avec ses gagnants",
         "properties": {
           "cycleId": {
             "type": "string",
@@ -5317,27 +5410,35 @@
           "dateRemise": {
             "type": "string",
             "format": "date",
-            "description": "Date de remise du jackpot",
+            "description": "Date de clôture du cycle",
             "example": "2024-07-31"
           },
           "montantJackpot": {
             "type": "number",
             "description": "Jackpot brut = somme des cotisations validées",
-            "example": 60000
+            "example": 500000
           },
           "montantCommission": {
             "type": "number",
             "description": "Commissions prélevées",
-            "example": 2400
+            "example": 10000
           },
           "montantNet": {
             "type": "number",
-            "description": "Montant net remis au bénéficiaire",
-            "example": 57600
+            "description": "Montant net total distribué aux gagnants",
+            "example": 490000
           },
-          "beneficiaire": {
-            "$ref": "#/components/schemas/BeneficiaireInfo",
-            "description": "Bénéficiaire du jackpot"
+          "montantParGagnant": {
+            "type": "number",
+            "description": "Montant reçu par chaque gagnant = montantNet / nombreGagnants",
+            "example": 245000
+          },
+          "gagnants": {
+            "type": "array",
+            "description": "Liste des gagnants du cycle",
+            "items": {
+              "$ref": "#/components/schemas/GagnantInfo"
+            }
           }
         }
       },
@@ -5416,12 +5517,7 @@
           "statut": {
             "type": "string",
             "description": "Statut courant",
-            "enum": [
-              "BROUILLON",
-              "ACTIVE",
-              "SUSPENDUE",
-              "TERMINEE"
-            ]
+            "enum": ["BROUILLON", "ACTIVE", "SUSPENDUE", "TERMINEE"]
           },
           "nombreMembres": {
             "type": "integer",

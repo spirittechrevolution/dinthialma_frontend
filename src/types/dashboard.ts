@@ -53,6 +53,12 @@ export interface TontineStats {
   frequence?: string
   dateDebut?: string
   cycleEnCours?: CycleEnCoursInfo
+  // Champs EVENEMENTIELLE (présents si tontineType = EVENEMENTIELLE)
+  tontineType?: string
+  dateEcheance?: string | null
+  nomEvenement?: string | null
+  montantLibre?: boolean | null
+  nombreMembresCotise?: number
 }
 
 export interface CycleEnCoursInfo {
