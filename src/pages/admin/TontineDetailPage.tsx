@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Spinner } from '@/components/ui/Spinner'
 import { Table, Column } from '@/components/ui/Table'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { AdminEnregistrerPaiementModal } from '@/components/shared/AdminEnregistrerPaiementModal'
 import { useTontine, useActiverTontine, useSuspendreTontine, useCommissions, useDeleteCommission } from '@/hooks/useTontines'
 import { useMembres, useRemoveMembre, useUpdateMembreStatut } from '@/hooks/useMembres'
 import { useCycles, useCloturerCycle } from '@/hooks/useCycles'
@@ -16,8 +17,8 @@ import { useCotisations, useValiderCotisation } from '@/hooks/useCotisations'
 import { Membre } from '@/types/membre'
 import { Cycle } from '@/types/cycle'
 import { Cotisation } from '@/types/cotisation'
-import { TontineStatut, CycleStatut, CotisationStatut, MembreStatut } from '@/types/common'
-import { ArrowLeft, Play, Pause, Trash2, CheckCircle, UserMinus } from 'lucide-react'
+import { TontineStatut, CycleStatut, CotisationStatut, MembreStatut, AccountStatus } from '@/types/common'
+import { ArrowLeft, Play, Pause, Trash2, CheckCircle, UserMinus, AlertTriangle, CreditCard } from 'lucide-react'
 
 type Tab = 'infos' | 'membres' | 'cycles' | 'cotisations' | 'commissions'
 
@@ -28,11 +29,25 @@ const statutVariants: Record<TontineStatut, 'success' | 'warning' | 'error' | 'd
   TERMINEE: 'default',
 }
 
+// ─── Types locaux ──────────────────────────────────────────────────────────────
+interface PaiementModalState {
+  isOpen: boolean
+  membreId: string
+  membreNom: string
+  cycleId: string
+}
+
 export function TontineDetailPage() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
   const [activeTab, setActiveTab] = useState<Tab>('infos')
   const [confirm, setConfirm] = useState<{ action: string; label: string; danger?: boolean } | null>(null)
+  const [paiementModal, setPaiementModal] = useState<PaiementModalState>({
+    isOpen: false,
+    membreId: '',
+    membreNom: '',
+    cycleId: '',
+  })
 
   const { data: tontine, isLoading } = useTontine(id || '')
   const { mutate: activer, isPending: isActivating } = useActiverTontine()
@@ -57,6 +72,22 @@ export function TontineDetailPage() {
 
   if (isLoading) return <AppLayout><div className="flex justify-center py-20 bg-neutral-50 min-h-screen"><Spinner /></div></AppLayout>
   if (!tontine) return <AppLayout><div className="text-center py-12 text-neutral-600 bg-neutral-50 min-h-screen">Tontine non trouvée</div></AppLayout>
+
+  // ─── Cycle en cours + membres pre-enrolled sans cotisation ────────────────
+  const cycles = cyclesData?.content || []
+  const cycleEnCours = cycles.find((c) => c.statut === CycleStatut.EN_COURS)
+  const membres = membresData?.content || []
+  const cotisations = cotisationsData?.content || []
+
+  const membresPreEnrolledSansCotisation = cycleEnCours
+    ? membres.filter((m) => {
+        const isPreEnrolled = m.user.accountStatus === AccountStatus.PRE_ENROLLED
+        const aCotise = cotisations.some(
+          (c) => c.membre.membreId === m.id && c.cycleId === cycleEnCours.id
+        )
+        return isPreEnrolled && !aCotise
+      })
+    : []
 
   const handleConfirm = () => {
     if (!confirm || !id) return
@@ -141,9 +172,11 @@ export function TontineDetailPage() {
       render: (row) => row.montantNet ? `${row.montantNet.toLocaleString()} FCFA` : '—',
     },
     {
-      key: 'beneficiaire',
+      key: 'gagnants',
       header: 'Bénéficiaire',
-      render: (row) => row.beneficiaire ? `${row.beneficiaire.firstName} ${row.beneficiaire.lastName}` : '—',
+      render: (row) => row.gagnants && row.gagnants.length > 0
+        ? row.gagnants.map(g => `${g.firstName} ${g.lastName}`).join(', ')
+        : '—',
     },
     {
       key: 'statut',
@@ -296,7 +329,89 @@ export function TontineDetailPage() {
                 <Table columns={cycleColumns} data={cyclesData?.content || []} isLoading={cyclesLoading} emptyMessage="Aucun cycle" />
               )}
               {activeTab === 'cotisations' && (
-                <Table columns={cotisationColumns} data={cotisationsData?.content || []} isLoading={cotisationsLoading} emptyMessage="Aucune cotisation" />
+                <div>
+                  {/* ── Section Action requise : membres pre-enrolled sans cotisation ── */}
+                  {membresPreEnrolledSansCotisation.length > 0 && (
+                    <div className="mb-6 rounded-2xl border-l-4 border-orange-400 bg-orange-50 overflow-hidden">
+                      {/* Header */}
+                      <div className="flex items-center gap-2 px-5 pt-4 pb-3">
+                        <AlertTriangle size={16} className="text-orange-500 shrink-0" />
+                        <span className="text-sm font-bold text-orange-700 uppercase tracking-wide">
+                          Action requise —{' '}
+                          {membresPreEnrolledSansCotisation.length}{' '}
+                          {membresPreEnrolledSansCotisation.length > 1
+                            ? 'membres sans cotisation'
+                            : 'membre sans cotisation'}
+                        </span>
+                        {cycleEnCours && (
+                          <span className="ml-auto text-xs text-orange-500 font-medium">
+                            Cycle #{cycleEnCours.numeroCycle} en cours
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Cards membres */}
+                      <div className="px-4 pb-4 space-y-2">
+                        {membresPreEnrolledSansCotisation.map((m) => {
+                          const initials = `${m.user.firstName[0]}${m.user.lastName[0]}`.toUpperCase()
+                          const nomComplet = `${m.user.firstName} ${m.user.lastName}`
+                          return (
+                            <div
+                              key={m.id}
+                              className="flex items-center gap-3 bg-white rounded-xl border border-orange-200 px-4 py-3 shadow-sm"
+                            >
+                              {/* Avatar */}
+                              <div className="w-10 h-10 rounded-full bg-primary-500 flex items-center justify-center text-white text-sm font-bold shrink-0">
+                                {initials}
+                              </div>
+
+                              {/* Nom + badges */}
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-neutral-900 text-sm truncate">{nomComplet}</p>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 text-xs font-semibold">
+                                    Sans compte
+                                  </span>
+                                  <span className="text-xs text-neutral-400">{m.user.phone}</span>
+                                  {tontine && (
+                                    <span className="text-xs text-neutral-500 font-medium">
+                                      · {tontine.montant.toLocaleString('fr-FR')} FCFA attendus
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* CTA */}
+                              <Button
+                                size="sm"
+                                onClick={() =>
+                                  setPaiementModal({
+                                    isOpen: true,
+                                    membreId: m.id,
+                                    membreNom: nomComplet,
+                                    cycleId: cycleEnCours!.id,
+                                  })
+                                }
+                                className="shrink-0 gap-1.5"
+                              >
+                                <CreditCard size={14} />
+                                Déclarer le paiement
+                              </Button>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── Tableau cotisations ── */}
+                  <Table
+                    columns={cotisationColumns}
+                    data={cotisationsData?.content || []}
+                    isLoading={cotisationsLoading}
+                    emptyMessage="Aucune cotisation"
+                  />
+                </div>
               )}
               {activeTab === 'commissions' && (
                 <div>
@@ -342,6 +457,19 @@ export function TontineDetailPage() {
               confirmText="Confirmer"
               isDangerous={confirm.danger}
               isLoading={isActivating || isSuspending}
+            />
+          )}
+
+          {/* Modal paiement admin pour membres pre-enrolled */}
+          {id && cycleEnCours && (
+            <AdminEnregistrerPaiementModal
+              isOpen={paiementModal.isOpen}
+              onClose={() => setPaiementModal((s) => ({ ...s, isOpen: false }))}
+              tontineId={id}
+              cycleId={paiementModal.cycleId}
+              membreId={paiementModal.membreId}
+              membreNom={paiementModal.membreNom}
+              montantDefaut={tontine.montant}
             />
           )}
         </div>

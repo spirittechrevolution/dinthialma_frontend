@@ -5,12 +5,15 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { AddMembreModal } from '@/components/shared/AddMembreModal'
+import { AdminEnregistrerPaiementModal } from '@/components/shared/AdminEnregistrerPaiementModal'
 import { Spinner } from '@/components/ui/Spinner'
 import { useTontines } from '@/hooks/useTontines'
 import { useMembres, useUpdateMembreStatut, useRemoveMembre } from '@/hooks/useMembres'
+import { useCycles } from '@/hooks/useCycles'
 import { Membre } from '@/types/membre'
-import { MembreStatut, AccountStatus } from '@/types/common'
-import { Plus, MoreHorizontal, Search, Clock } from 'lucide-react'
+import { Cycle } from '@/types/cycle'
+import { MembreStatut, AccountStatus, CycleStatut } from '@/types/common'
+import { Plus, MoreHorizontal, Search, Clock, CreditCard } from 'lucide-react'
 
 type MembreAction = { type: 'suspendre' | 'activer' | 'retirer'; membreId: string; nom: string; tontineId: string } | null
 
@@ -31,13 +34,16 @@ function MiniAvatar({ name }: { name: string }) {
   )
 }
 
-function MembreActionsMenu({ membre, tontineId, onAction }: {
+function MembreActionsMenu({ membre, tontineId, onAction, canPay, onPayment }: {
   membre: Membre
   tontineId: string
   onAction: (a: MembreAction) => void
+  canPay?: boolean
+  onPayment?: () => void
 }) {
   const [open, setOpen] = useState(false)
   const nom = `${membre.user.firstName} ${membre.user.lastName}`
+  const isEligiblePayment = membre.statut !== MembreStatut.SORTI && membre.statut !== MembreStatut.SUSPENDU
 
   return (
     <div className="relative">
@@ -47,11 +53,19 @@ function MembreActionsMenu({ membre, tontineId, onAction }: {
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 mt-1 w-40 bg-white rounded-xl shadow-lg border border-neutral-200 z-20 overflow-hidden text-sm">
+          <div className="absolute right-0 mt-1 w-52 bg-white rounded-xl shadow-lg border border-neutral-200 z-20 overflow-hidden text-sm">
+            {canPay && isEligiblePayment && (
+              <button
+                onClick={() => { setOpen(false); onPayment?.() }}
+                className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-primary-50 text-primary-700 font-medium transition-colors"
+              >
+                <CreditCard size={14} /> Enregistrer paiement
+              </button>
+            )}
             {membre.statut === MembreStatut.ACTIF && (
               <button
                 onClick={() => { setOpen(false); onAction({ type: 'suspendre', membreId: membre.id, nom, tontineId }) }}
-                className="w-full flex items-center px-4 py-2.5 hover:bg-neutral-50 text-orange-600 transition-colors"
+                className={`w-full flex items-center px-4 py-2.5 hover:bg-neutral-50 text-orange-600 transition-colors ${canPay && isEligiblePayment ? 'border-t border-neutral-100' : ''}`}
               >
                 Suspendre
               </button>
@@ -85,6 +99,7 @@ export function MembresPage() {
   const [search, setSearch] = useState('')
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [action, setAction] = useState<MembreAction>(null)
+  const [paymentModal, setPaymentModal] = useState<{ membreId: string; membreNom: string; cycleId: string } | null>(null)
 
   const { data: tontinesData, isLoading: loadingTontines } = useTontines(0, 50)
   const tontines = tontinesData?.content || []
@@ -92,6 +107,9 @@ export function MembresPage() {
   const activeTontineId = selectedTontineId || tontines[0]?.id || ''
 
   const { data: membresData, isLoading: loadingMembres } = useMembres(activeTontineId, page, 20)
+  const { data: cyclesData } = useCycles(activeTontineId, 0, 50)
+  const currentCycle = cyclesData?.content?.find((c: Cycle) => c.statut === CycleStatut.EN_COURS)
+  const activeTontine = tontines.find((t) => t.id === activeTontineId)
   const { mutate: updateStatut, isPending: isUpdating } = useUpdateMembreStatut()
   const { mutate: removeMembre, isPending: isRemoving } = useRemoveMembre()
 
@@ -131,12 +149,12 @@ export function MembresPage() {
 
   return (
     <AppLayout>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-neutral-900">Membres</h1>
           <p className="text-sm text-neutral-500 mt-1">Gérez les participants de vos tontines.</p>
         </div>
-        <Button size="sm" onClick={() => setIsAddOpen(true)} disabled={!activeTontineId}>
+        <Button size="sm" onClick={() => setIsAddOpen(true)} disabled={!activeTontineId} className="self-start sm:self-auto">
           <Plus size={16} className="mr-1" /> Ajouter
         </Button>
       </div>
@@ -176,8 +194,53 @@ export function MembresPage() {
           </div>
         </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto mt-3">
+        {/* Cards — mobile */}
+        <div className="md:hidden divide-y divide-neutral-50 mt-3">
+          {loadingMembres ? (
+            <div className="flex justify-center py-10"><Spinner /></div>
+          ) : filtered.length === 0 ? (
+            <p className="text-center py-10 text-neutral-400 text-sm">Aucun membre</p>
+          ) : (
+            filtered.map((m: Membre) => {
+              const nom = `${m.user.firstName} ${m.user.lastName}`
+              const tontine = tontines.find((t) => t.id === activeTontineId)
+              const isPreEnrolled = m.user.accountStatus === AccountStatus.PRE_ENROLLED
+              return (
+                <div key={m.id} className="px-4 py-3 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <MiniAvatar name={nom} />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="font-semibold text-sm text-neutral-900 truncate">{nom}</p>
+                        {isPreEnrolled && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-700">
+                            <Clock size={9} /> Non inscrit
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-neutral-400">{tontine?.nom || m.user.phone}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <Badge variant={STATUT_VARIANT[m.statut]}>
+                      {m.statut === 'ACTIF' ? 'Actif' : m.statut === 'SUSPENDU' ? 'Susp.' : 'Sorti'}
+                    </Badge>
+                    <MembreActionsMenu
+                      membre={m}
+                      tontineId={activeTontineId}
+                      onAction={setAction}
+                      canPay={!!currentCycle}
+                      onPayment={() => setPaymentModal({ membreId: m.id, membreNom: nom, cycleId: currentCycle!.id })}
+                    />
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+
+        {/* Table — desktop */}
+        <div className="hidden md:block overflow-x-auto mt-3">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-neutral-100">
@@ -190,9 +253,9 @@ export function MembresPage() {
             </thead>
             <tbody>
               {loadingMembres ? (
-                <tr><td colSpan={6} className="text-center py-10"><Spinner /></td></tr>
+                <tr><td colSpan={7} className="text-center py-10"><Spinner /></td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={6} className="text-center py-10 text-neutral-400">Aucun membre dans cette tontine</td></tr>
+                <tr><td colSpan={7} className="text-center py-10 text-neutral-400">Aucun membre dans cette tontine</td></tr>
               ) : (
                 filtered.map((m: Membre) => {
                   const nom = `${m.user.firstName} ${m.user.lastName}`
@@ -221,10 +284,7 @@ export function MembresPage() {
                       </td>
                       <td className="px-5 py-4">
                         {isPreEnrolled ? (
-                          <span
-                            title="Ce membre n'a pas encore activé son compte sur Dinthialma"
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 cursor-help"
-                          >
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 cursor-help" title="Ce membre n'a pas encore activé son compte">
                             <Clock size={10} /> Non inscrit
                           </span>
                         ) : (
@@ -236,6 +296,8 @@ export function MembresPage() {
                           membre={m}
                           tontineId={activeTontineId}
                           onAction={setAction}
+                          canPay={!!currentCycle}
+                          onPayment={() => setPaymentModal({ membreId: m.id, membreNom: nom, cycleId: currentCycle!.id })}
                         />
                       </td>
                     </tr>
@@ -267,6 +329,19 @@ export function MembresPage() {
         isOpen={isAddOpen}
         onClose={() => setIsAddOpen(false)}
       />
+
+      {/* Modal enregistrer paiement admin */}
+      {paymentModal && currentCycle && (
+        <AdminEnregistrerPaiementModal
+          isOpen={!!paymentModal}
+          onClose={() => setPaymentModal(null)}
+          tontineId={activeTontineId}
+          cycleId={paymentModal.cycleId}
+          membreId={paymentModal.membreId}
+          membreNom={paymentModal.membreNom}
+          montantDefaut={activeTontine?.montant}
+        />
+      )}
 
       {action && confirmConfig && (
         <ConfirmDialog

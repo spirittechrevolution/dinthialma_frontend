@@ -160,7 +160,7 @@ export interface AuthContextType {
   user: AuthUser | null
   isLoading: boolean
   isAuthenticated: boolean
-  login: (username: string, password: string) => Promise<AuthUser | null>
+  login: (username: string, password: string) => Promise<{ user: AuthUser | null; pinConfigured?: boolean }>
   logout: () => Promise<void>
   hasRole: (role: UserRole) => boolean
   isSuperAdmin: () => boolean

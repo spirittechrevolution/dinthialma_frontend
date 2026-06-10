@@ -23,6 +23,8 @@ const ROLE_TABS = [
   { label: 'Membre', value: 'MEMBER' },
 ]
 
+const PAGE_SIZE = 10
+
 const STATUS_TABS = [
   { label: 'Tous', value: '' },
   { label: 'Inscrits', value: 'ACTIVE' },
@@ -101,7 +103,7 @@ export function UsersPage() {
 
   const { data: usersData, isLoading } = useQuery({
     queryKey: ['adminUsers', page],
-    queryFn: () => userService.listUsers(page, 20),
+    queryFn: () => userService.listUsers(page, PAGE_SIZE),
   })
 
   const { mutate: enableUser, isPending: isEnabling } = useMutation({
@@ -180,7 +182,7 @@ export function UsersPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-visible">
         {/* Filtres */}
         <div className="px-5 pt-4 pb-3 border-b border-neutral-100 space-y-3">
           {/* Barre de recherche */}
@@ -242,7 +244,7 @@ export function UsersPage() {
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto pb-16">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-neutral-100">
