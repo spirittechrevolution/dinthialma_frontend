@@ -4,6 +4,8 @@ import { Spinner } from '@/components/ui/Spinner'
 import { ProtectedRoute } from './ProtectedRoute'
 import { RoleRoute } from './RoleRoute'
 import { UserRole } from '@/types/common'
+import { getAccessToken, getUserPhone, getPinConfigured, isTokenExpired } from '@/lib/tokenStorage'
+import { isMobilePWA, hasSeenOnboarding } from '@/pages/OnboardingPage'
 
 function S({ children }: { children: ReactNode }) {
   return (
@@ -17,10 +19,45 @@ function S({ children }: { children: ReactNode }) {
   )
 }
 
+/**
+ * Composant de démarrage — décide de la destination au lancement de l'app :
+ *
+ * 0. PWA mobile + première ouverture → onboarding
+ * 1. Token valide                    → dashboard
+ * 2. Phone stocké + PIN configuré   → écran PIN
+ * 3. Sinon                           → login complet
+ */
+function StartRoute() {
+  const access = getAccessToken()
+  const phone  = getUserPhone()
+
+  // 0. PWA mobile, première ouverture → onboarding
+  if (isMobilePWA() && !hasSeenOnboarding()) {
+    return <Navigate to="/onboarding" replace />
+  }
+
+  // 1. Token valide → dashboard directement
+  if (access && !isTokenExpired(access)) {
+    return <Navigate to="/dashboard" replace />
+  }
+
+  // 2. Phone connu + PIN configuré (ou état inconnu = ancien localStorage) → écran PIN
+  if (phone && getPinConfigured() !== false) {
+    return <Navigate to="/pin" replace />
+  }
+
+  // 3. Sinon → login complet
+  return <Navigate to="/login" replace />
+}
+
 // Publiques
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage').then(m => ({ default: m.LoginPage })))
 const RegisterPage = lazy(() => import('@/pages/auth/RegisterPage').then(m => ({ default: m.RegisterPage })))
 const ForgotPasswordPage = lazy(() => import('@/pages/auth/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })))
+const PinLoginPage = lazy(() => import('@/pages/auth/PinLoginPage').then(m => ({ default: m.PinLoginPage })))
+const PinSetupPage = lazy(() => import('@/pages/auth/PinSetupPage').then(m => ({ default: m.PinSetupPage })))
+const PinResetPage = lazy(() => import('@/pages/auth/PinResetPage').then(m => ({ default: m.PinResetPage })))
+const OnboardingPage = lazy(() => import('@/pages/OnboardingPage').then(m => ({ default: m.OnboardingPage })))
 
 // Protégées
 const ProfilePage = lazy(() => import('@/pages/profile/ProfilePage').then(m => ({ default: m.ProfilePage })))
@@ -29,6 +66,7 @@ const ProfilePage = lazy(() => import('@/pages/profile/ProfilePage').then(m => (
 const SuperAdminDashboard = lazy(() => import('@/pages/superadmin/Dashboard').then(m => ({ default: m.SuperAdminDashboard })))
 const UsersPage = lazy(() => import('@/pages/superadmin/UsersPage').then(m => ({ default: m.UsersPage })))
 const AllTontinesPage = lazy(() => import('@/pages/superadmin/AllTontinesPage').then(m => ({ default: m.AllTontinesPage })))
+const CodeListPage = lazy(() => import('@/pages/superadmin/CodeListPage').then(m => ({ default: m.CodeListPage })))
 
 // Page détail tontine unifiée (SuperAdmin + Admin + Membre)
 const TontineDetailPage = lazy(() => import('@/pages/tontines/TontineDetailPage').then(m => ({ default: m.TontineDetailPage })))
@@ -44,13 +82,25 @@ const CotisationsPage = lazy(() => import('@/pages/admin/CotisationsPage').then(
 const MemberDashboard = lazy(() => import('@/pages/member/Dashboard').then(m => ({ default: m.MemberDashboard })))
 const MesTontinesPage = lazy(() => import('@/pages/member/MesTontinesPage').then(m => ({ default: m.MesTontinesPage })))
 const MesCotisationsPage = lazy(() => import('@/pages/member/MesCotisationsPage').then(m => ({ default: m.MesCotisationsPage })))
+const NotificationsPage = lazy(() => import('@/pages/NotificationsPage').then(m => ({ default: m.NotificationsPage })))
+const UserDashboard = lazy(() => import('@/pages/user/Dashboard').then(m => ({ default: m.UserDashboard })))
 
 const router = createBrowserRouter([
-  // Publiques
+  // ── Démarrage intelligent ─────────────────────────────────────────────────
+  { path: '/', element: <StartRoute /> },
+
+  // ── Onboarding PWA mobile (première ouverture) ────────────────────────────
+  { path: '/onboarding', element: <S><OnboardingPage /></S> },
+
+  // ── Auth publique ─────────────────────────────────────────────────────────
   { path: '/login', element: <S><LoginPage /></S> },
   { path: '/register', element: <S><RegisterPage /></S> },
   { path: '/forgot-password', element: <S><ForgotPasswordPage /></S> },
-  { path: '/', element: <Navigate to="/dashboard" replace /> },
+
+  // ── Flux PIN ──────────────────────────────────────────────────────────────
+  { path: '/pin', element: <S><PinLoginPage /></S> },
+  { path: '/pin/setup', element: <ProtectedRoute><S><PinSetupPage /></S></ProtectedRoute> },
+  { path: '/pin/reset', element: <S><PinResetPage /></S> },
 
   // Super Admin
   {
@@ -68,6 +118,10 @@ const router = createBrowserRouter([
   {
     path: '/superadmin/tontines/:id',
     element: <RoleRoute requiredRoles={[UserRole.SUPER_ADMIN]}><S><TontineDetailPage /></S></RoleRoute>,
+  },
+  {
+    path: '/superadmin/code-list',
+    element: <RoleRoute requiredRoles={[UserRole.SUPER_ADMIN]}><S><CodeListPage /></S></RoleRoute>,
   },
 
   // Admin
@@ -110,28 +164,40 @@ const router = createBrowserRouter([
     element: <RoleRoute requiredRoles={[UserRole.ADMIN]}><S><CotisationsPage /></S></RoleRoute>,
   },
 
-  // Member
+  // User (rôle USER — pas encore membre)
+  {
+    path: '/user/dashboard',
+    element: <ProtectedRoute><S><UserDashboard /></S></ProtectedRoute>,
+  },
+
+  // Member (ADMIN inclus — un admin est souvent aussi membre de ses tontines)
   {
     path: '/member/dashboard',
-    element: <RoleRoute requiredRoles={[UserRole.MEMBER]}><S><MemberDashboard /></S></RoleRoute>,
+    element: <RoleRoute requiredRoles={[UserRole.MEMBER, UserRole.ADMIN]}><S><MemberDashboard /></S></RoleRoute>,
   },
   {
     path: '/member/tontines',
-    element: <RoleRoute requiredRoles={[UserRole.MEMBER]}><S><MesTontinesPage /></S></RoleRoute>,
+    element: <RoleRoute requiredRoles={[UserRole.MEMBER, UserRole.ADMIN]}><S><MesTontinesPage /></S></RoleRoute>,
   },
   {
     path: '/member/tontines/:id',
-    element: <RoleRoute requiredRoles={[UserRole.MEMBER]}><S><TontineDetailPage /></S></RoleRoute>,
+    element: <RoleRoute requiredRoles={[UserRole.MEMBER, UserRole.ADMIN]}><S><TontineDetailPage /></S></RoleRoute>,
   },
   {
     path: '/member/cotisations',
-    element: <RoleRoute requiredRoles={[UserRole.MEMBER]}><S><MesCotisationsPage /></S></RoleRoute>,
+    element: <RoleRoute requiredRoles={[UserRole.MEMBER, UserRole.ADMIN]}><S><MesCotisationsPage /></S></RoleRoute>,
   },
 
   // Profil
   {
     path: '/profile',
     element: <ProtectedRoute><S><ProfilePage /></S></ProtectedRoute>,
+  },
+
+  // Notifications (toutes les rôles)
+  {
+    path: '/notifications',
+    element: <ProtectedRoute><S><NotificationsPage /></S></ProtectedRoute>,
   },
 
   // Catch-all

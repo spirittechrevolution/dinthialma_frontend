@@ -1,5 +1,5 @@
 import api from './api'
-import { Cotisation, RecordCotisationRequest } from '@/types/cotisation'
+import { Cotisation, RecordCotisationRequest, AdminRecordCotisationRequest } from '@/types/cotisation'
 import { PageResponse, CustomResponse } from '@/types/common'
 
 export const cotisationService = {
@@ -39,6 +39,15 @@ export const cotisationService = {
   validerCotisation: async (tontineId: string, cotisationId: string): Promise<Cotisation> => {
     const response = await api.put<CustomResponse<Cotisation>>(
       `/v1/tontines/${tontineId}/cotisations/${cotisationId}/valider`
+    )
+    return response.data.data
+  },
+
+  // ─── Enregistrement admin d'une cotisation (directement VALIDÉE) ──────────────
+  adminRecordCotisation: async (tontineId: string, request: AdminRecordCotisationRequest): Promise<Cotisation> => {
+    const response = await api.post<CustomResponse<Cotisation>>(
+      `/v1/tontines/${tontineId}/cotisations/admin`,
+      request
     )
     return response.data.data
   },

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { cotisationService } from '@/services/cotisationService'
-import { RecordCotisationRequest } from '@/types/cotisation'
+import { RecordCotisationRequest, AdminRecordCotisationRequest } from '@/types/cotisation'
 
 export function useCotisations(tontineId: string, cycleId?: string, page = 0, size = 20) {
   return useQuery({
@@ -34,6 +34,17 @@ export function useValiderCotisation() {
   return useMutation({
     mutationFn: ({ tontineId, cotisationId }: { tontineId: string; cotisationId: string }) =>
       cotisationService.validerCotisation(tontineId, cotisationId),
+    onSuccess: (_, { tontineId }) => {
+      queryClient.invalidateQueries({ queryKey: ['cotisations', tontineId] })
+    },
+  })
+}
+
+export function useAdminRecordCotisation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ tontineId, request }: { tontineId: string; request: AdminRecordCotisationRequest }) =>
+      cotisationService.adminRecordCotisation(tontineId, request),
     onSuccess: (_, { tontineId }) => {
       queryClient.invalidateQueries({ queryKey: ['cotisations', tontineId] })
     },

@@ -35,7 +35,7 @@ export function RoleRoute({ children, requiredRoles }: RoleRouteProps) {
       ? '/admin/dashboard'
       : hasRole(UserRole.MEMBER)
       ? '/member/dashboard'
-      : '/profile'
+      : '/user/dashboard'
 
     return (
       <div className="min-h-screen flex items-center justify-center bg-neutral-50">

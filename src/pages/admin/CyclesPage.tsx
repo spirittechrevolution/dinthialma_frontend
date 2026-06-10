@@ -21,7 +21,6 @@ const openCycleSchema = z.object({
   numeroCycle: z.coerce.number().int().positive('Requis'),
   dateDebut: z.string().min(1, 'Requis'),
   dateFin: z.string().min(1, 'Requis'),
-  beneficiaireId: z.string().uuid().optional().or(z.literal('')),
 })
 type OpenCycleForm = z.infer<typeof openCycleSchema>
 
@@ -70,7 +69,6 @@ export function CyclesPage() {
         request: {
           dateDebut: data.dateDebut,
           dateFin: data.dateFin,
-          beneficiaireId: data.beneficiaireId || undefined,
         },
       },
       {
@@ -95,12 +93,12 @@ export function CyclesPage() {
 
   return (
     <AppLayout>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-neutral-900">Cycles</h1>
           <p className="text-sm text-neutral-500 mt-1">Ouvrez et clôturez les cycles de cotisation.</p>
         </div>
-        <Button size="sm" onClick={() => setIsOpenModal(true)}>
+        <Button size="sm" onClick={() => setIsOpenModal(true)} className="self-start sm:self-auto">
           <Plus size={16} className="mr-1" /> Nouveau cycle
         </Button>
       </div>
@@ -182,11 +180,16 @@ export function CyclesPage() {
                 </div>
               </div>
 
-              {/* Bénéficiaire */}
-              {cycle.beneficiaire && (
+              {/* Gagnants */}
+              {cycle.gagnants && cycle.gagnants.length > 0 && (
                 <div className="flex items-center gap-2 text-sm text-neutral-600 mb-4">
-                  <User size={14} className="text-neutral-400" />
-                  <span>Bénéficiaire : <span className="font-semibold">{cycle.beneficiaire.firstName} {cycle.beneficiaire.lastName}</span></span>
+                  <User size={14} className="text-neutral-400 flex-shrink-0" />
+                  <span className="truncate">
+                    {cycle.gagnants.length === 1
+                      ? <>{cycle.gagnants[0].firstName} {cycle.gagnants[0].lastName}</>
+                      : <>{cycle.gagnants.map(g => g.firstName).join(', ')}</>
+                    }
+                  </span>
                 </div>
               )}
 
