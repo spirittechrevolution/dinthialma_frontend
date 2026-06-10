@@ -12,7 +12,8 @@ import { Tontine } from '@/types/tontine'
 import { TontineStatut, CotisationStatut, CycleStatut } from '@/types/common'
 import { Cotisation } from '@/types/cotisation'
 import { Cycle } from '@/types/cycle'
-import { Bell, ChevronRight, Calendar, Plus, Trophy, Users } from 'lucide-react'
+import { Bell, BellRing, ChevronRight, Calendar, Plus, Trophy, Users } from 'lucide-react'
+import { useUnreadCount } from '@/hooks/useNotifications'
 
 // ─── Donut cycle ──────────────────────────────────────────────────────────────
 function CycleDonut({ pct }: { pct: number }) {
@@ -74,6 +75,7 @@ export function MemberDashboard() {
   const actives = tontines.filter((t: Tontine) => t.statut === TontineStatut.ACTIVE).length
 
   const prenom = user?.firstName || 'Membre'
+  const { data: unreadCount = 0 } = useUnreadCount()
 
   if (isLoading) return <AppLayout><div className="flex justify-center py-20"><Spinner /></div></AppLayout>
 
@@ -95,8 +97,12 @@ export function MemberDashboard() {
           </button>
           <Link to="/notifications"
             className="relative w-9 h-9 rounded-xl bg-white border border-neutral-100 shadow-sm flex items-center justify-center text-neutral-500">
-            <Bell size={17} />
-            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">3</span>
+            {unreadCount > 0 ? <BellRing size={17} className="text-primary-500" /> : <Bell size={17} />}
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
           </Link>
         </div>
       </div>
@@ -249,9 +255,13 @@ export function MemberDashboard() {
         </Link>
         <Link to="/notifications"
           className="bg-white border border-neutral-100 shadow-sm rounded-2xl p-4 flex flex-col items-center gap-2 hover:border-primary-200 transition-colors">
-          <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 relative">
-            <Bell size={18} />
-            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">3</span>
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center relative ${unreadCount > 0 ? 'bg-primary-50 text-primary-600' : 'bg-amber-50 text-amber-600'}`}>
+            {unreadCount > 0 ? <BellRing size={18} /> : <Bell size={18} />}
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
           </div>
           <p className="text-xs font-semibold text-neutral-700 text-center">Notifications</p>
         </Link>

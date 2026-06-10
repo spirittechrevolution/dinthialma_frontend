@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { Spinner } from '@/components/ui/Spinner'
-import { Trophy, CheckCircle, AlertTriangle, Calendar, CreditCard, Bell } from 'lucide-react'
+import { Trophy, CheckCircle, AlertTriangle, Calendar, CreditCard, Bell, BellRing } from 'lucide-react'
 import { useNotifications, useMarkAsRead, useMarkAllAsRead } from '@/hooks/useNotifications'
 import { NotificationItem, NotificationType } from '@/types/notification'
 
@@ -57,22 +57,22 @@ function NotifCard({ notif, onRead }: { notif: NotificationItem; onRead: (id: st
   const cfg = NOTIF_CONFIG[getCategory(notif.type)]
   return (
     <button
-      className={`w-full flex items-start gap-3 px-4 py-3.5 rounded-2xl transition-colors text-left ${notif.isRead ? 'bg-white' : 'bg-primary-50/60'}`}
-      onClick={() => { if (!notif.isRead) onRead(notif.id) }}
+      className={`w-full flex items-start gap-3 px-4 py-3.5 rounded-2xl transition-colors text-left ${notif.read ? 'bg-white' : 'bg-primary-50/60'}`}
+      onClick={() => { if (!notif.read) onRead(notif.id) }}
     >
       <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${cfg.bg}`}>
         {cfg.icon}
       </div>
 
       <div className="flex-1 min-w-0">
-        <p className={`text-sm text-neutral-900 ${notif.isRead ? 'font-semibold' : 'font-bold'}`}>
+        <p className={`text-sm text-neutral-900 ${notif.read ? 'font-semibold' : 'font-bold'}`}>
           {notif.title}
         </p>
         <p className="text-xs text-neutral-500 mt-0.5 leading-relaxed">{notif.body}</p>
         <p className="text-[10px] text-neutral-400 mt-1">{formatDate(notif.createdAt)}</p>
       </div>
 
-      {!notif.isRead && (
+      {!notif.read && (
         <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1.5 ${cfg.dot}`} />
       )}
     </button>
@@ -88,36 +88,28 @@ export function NotificationsPage() {
   const { mutate: markAsRead }    = useMarkAsRead()
   const { mutate: markAllAsRead, isPending: markingAll } = useMarkAllAsRead()
 
-  // Accumuler les résultats pour le "load more"
-  const items = (() => {
-    if (!data) return allItems
-    const incoming = data.content
-    if (page === 0) return incoming
-    const existingIds = new Set(allItems.map((n) => n.id))
-    const merged = [...allItems, ...incoming.filter((n) => !existingIds.has(n.id))]
-    return merged
-  })()
-
-  // Mettre à jour allItems quand les données changent
-  if (data && page === 0 && allItems.length === 0 && data.content.length > 0) {
-    setAllItems(data.content)
-  }
-  if (data && page > 0) {
-    const existingIds = new Set(allItems.map((n) => n.id))
-    const newOnes = data.content.filter((n) => !existingIds.has(n.id))
-    if (newOnes.length > 0) {
-      setAllItems((prev) => [...prev, ...newOnes])
+  // Accumuler les pages via useEffect pour éviter les setState pendant le render
+  useEffect(() => {
+    if (!data) return
+    if (page === 0) {
+      setAllItems(data.content)
+    } else {
+      setAllItems((prev) => {
+        const existingIds = new Set(prev.map((n) => n.id))
+        const newOnes = data.content.filter((n) => !existingIds.has(n.id))
+        return newOnes.length > 0 ? [...prev, ...newOnes] : prev
+      })
     }
-  }
+  }, [data, page])
 
-  const unread = items.filter((n) => !n.isRead)
-  const read   = items.filter((n) =>  n.isRead)
+  const unread  = allItems.filter((n) => !n.read)
+  const read    = allItems.filter((n) =>  n.read)
   const hasMore = data ? !data.last : false
 
   const handleRead = (id: string) => {
     markAsRead(id, {
       onSuccess: () => {
-        setAllItems((prev) => prev.map((n) => n.id === id ? { ...n, isRead: true } : n))
+        setAllItems((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n))
       },
     })
   }
@@ -125,7 +117,7 @@ export function NotificationsPage() {
   const handleMarkAll = () => {
     markAllAsRead(undefined, {
       onSuccess: () => {
-        setAllItems((prev) => prev.map((n) => ({ ...n, isRead: true })))
+        setAllItems((prev) => prev.map((n) => ({ ...n, read: true })))
       },
     })
   }
@@ -152,8 +144,8 @@ export function NotificationsPage() {
               Tout lire
             </button>
           )}
-          <div className="w-10 h-10 rounded-xl bg-primary-50 flex items-center justify-center text-primary-600 relative">
-            <Bell size={20} />
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center relative ${unread.length > 0 ? 'bg-primary-100 text-primary-600' : 'bg-neutral-100 text-neutral-400'}`}>
+            {unread.length > 0 ? <BellRing size={20} /> : <Bell size={20} />}
             {unread.length > 0 && (
               <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
                 {unread.length > 9 ? '9+' : unread.length}
@@ -164,9 +156,9 @@ export function NotificationsPage() {
       </div>
 
       {/* Chargement initial */}
-      {isLoading && items.length === 0 ? (
+      {isLoading && allItems.length === 0 ? (
         <div className="flex justify-center py-20"><Spinner /></div>
-      ) : items.length === 0 ? (
+      ) : allItems.length === 0 ? (
         <div className="flex flex-col items-center py-20 text-neutral-400 gap-3">
           <div className="w-14 h-14 rounded-full bg-neutral-100 flex items-center justify-center">
             <Bell size={24} className="text-neutral-300" />

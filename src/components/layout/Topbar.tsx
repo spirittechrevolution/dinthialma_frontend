@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useAppTheme } from '@/App'
 import { useUnreadCount } from '@/hooks/useNotifications'
 import { UserRole } from '@/types/common'
-import { Bell, LogOut, User, Sun, Moon } from 'lucide-react'
+import { Bell, BellRing, LogOut, User, Sun, Moon } from 'lucide-react'
 import { useState } from 'react'
 import { LogoIcon } from '@/components/ui/LogoIcon'
 
@@ -56,7 +56,7 @@ export function Topbar() {
             onClick={() => navigate('/notifications')}
             className="relative p-1.5 text-neutral-500 dark:text-[#9ca3af] hover:text-neutral-700 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-[#1f2937] rounded-lg transition-colors"
           >
-            <Bell size={18} />
+            {unreadCount > 0 ? <BellRing size={18} className="text-primary-500" /> : <Bell size={18} />}
             {unreadCount > 0 && (
               <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
                 {unreadCount > 9 ? '9+' : unreadCount}

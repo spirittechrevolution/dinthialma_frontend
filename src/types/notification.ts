@@ -18,7 +18,7 @@ export interface NotificationItem {
   type: NotificationType
   title: string
   body: string
-  isRead: boolean
+  read: boolean
   tontineId: string | null
   createdAt: string
 }
