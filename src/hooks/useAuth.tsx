@@ -32,7 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(true)
     try {
       const { data } = await api.post<{
-        data: { access_token: string; refresh_token: string; pinConfigured?: boolean }
+        data: { access_token: string; refresh_token: string; pin_configured?: boolean }
       }>('/v1/auth/login', {
         username,
         password,
@@ -40,7 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         deviceInfo: navigator.userAgent,
       })
 
-      const { access_token, refresh_token, pinConfigured } = data.data
+      const { access_token, refresh_token, pin_configured: pinConfigured } = data.data
       storeSession(access_token, refresh_token, username)
 
       if (pinConfigured !== undefined) setPinConfigured(pinConfigured)

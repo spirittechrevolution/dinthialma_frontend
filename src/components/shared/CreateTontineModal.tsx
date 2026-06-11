@@ -76,6 +76,8 @@ export function CreateTontineModal({ isOpen, onClose, onCreated }: CreateTontine
     },
   })
 
+  const today = new Date().toISOString().slice(0, 10)
+
   const tontineType  = watch('tontineType')
   const montantLibre = watch('montantLibre')
   const nombreMembres  = watch('nombreMembres')
@@ -177,7 +179,7 @@ export function CreateTontineModal({ isOpen, onClose, onCreated }: CreateTontine
             <Input label="Description (optionnel)" placeholder="Description du groupe..." {...register('description')} />
           </div>
           <div className="mt-3">
-            <Input label="Date de début" type="date" error={errors.dateDebut?.message} {...register('dateDebut')} />
+            <Input label="Date de début" type="date" max={today} error={errors.dateDebut?.message} {...register('dateDebut')} />
           </div>
           <div className="mt-3">
             <Select
