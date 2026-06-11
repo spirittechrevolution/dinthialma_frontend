@@ -209,51 +209,51 @@ export function RegisterPage() {
   )
 
   return (
-    <>
-      {/* Desktop */}
-      <div className="hidden lg:flex min-h-screen">
-        <div className="w-1/2 bg-[#0d1f0f] flex flex-col justify-between px-12 py-10">
-          <div className="flex items-center gap-3">
-            <svg width="36" height="36" viewBox="0 0 32 32" fill="none">
-              <rect width="32" height="32" rx="8" fill="#16a34a"/>
-              <path d="M16 6L8 10v6c0 5.25 3.4 10.15 8 11.35C20.6 26.15 24 21.25 24 16v-6l-8-4z" fill="white" fillOpacity="0.9"/>
-              <path d="M13 16l2 2 4-4" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            <div>
-              <h1 className="text-white text-lg font-bold leading-none">Dinthialma</h1>
-              <p className="text-neutral-400 text-xs">Gestion de tontines</p>
-            </div>
-          </div>
+    <div className="min-h-screen flex flex-col lg:flex-row">
+      {/* Panneau gauche — desktop uniquement */}
+      <div className="hidden lg:flex w-1/2 bg-[#0d1f0f] flex-col justify-between px-12 py-10">
+        <div className="flex items-center gap-3">
+          <svg width="36" height="36" viewBox="0 0 32 32" fill="none">
+            <rect width="32" height="32" rx="8" fill="#16a34a"/>
+            <path d="M16 6L8 10v6c0 5.25 3.4 10.15 8 11.35C20.6 26.15 24 21.25 24 16v-6l-8-4z" fill="white" fillOpacity="0.9"/>
+            <path d="M13 16l2 2 4-4" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
           <div>
-            <h2 className="text-white text-4xl font-bold leading-tight mb-4">Rejoignez la</h2>
-            <h2 className="text-primary-400 text-4xl font-bold leading-tight mb-6">communauté.</h2>
-            <p className="text-neutral-400 text-base leading-relaxed">
-              Créez votre compte en quelques étapes et commencez<br/>à gérer vos tontines dès aujourd'hui.
-            </p>
+            <h1 className="text-white text-lg font-bold leading-none">Dinthialma</h1>
+            <p className="text-neutral-400 text-xs">Gestion de tontines</p>
           </div>
-          <p className="text-neutral-600 text-sm">© 2026 Dinthialma</p>
         </div>
-        <div className="flex-1 flex items-center justify-center bg-neutral-50 px-8">
+        <div>
+          <h2 className="text-white text-4xl font-bold leading-tight mb-4">Rejoignez la</h2>
+          <h2 className="text-primary-400 text-4xl font-bold leading-tight mb-6">communauté.</h2>
+          <p className="text-neutral-400 text-base leading-relaxed">
+            Créez votre compte en quelques étapes et commencez<br/>à gérer vos tontines dès aujourd'hui.
+          </p>
+        </div>
+        <p className="text-neutral-600 text-sm">© 2026 Dinthialma</p>
+      </div>
+
+      {/* Zone de contenu — partagée mobile/desktop */}
+      <div className="flex-1 flex flex-col bg-neutral-50">
+        {/* En-tête mobile */}
+        <div className="lg:hidden">
+          <AuthHeader step={step} />
+        </div>
+
+        {/* Formulaire — rendu une seule fois */}
+        <div className="flex-1 flex flex-col lg:items-center lg:justify-center px-5 lg:px-8 py-6">
           <div className="w-full max-w-md">
-            <div className="mb-6">
+            <div className="hidden lg:block mb-6">
               <h2 className="text-2xl font-bold text-neutral-900">Créer un compte</h2>
               <p className="text-neutral-500 mt-1">{['Entrez votre numéro', 'Confirmez par SMS', 'Finalisez votre compte'][step - 1]}</p>
             </div>
             <Stepper current={step} />
-            <StepContent />
+            {StepContent()}
           </div>
         </div>
-      </div>
 
-      {/* Mobile */}
-      <div className="lg:hidden min-h-screen flex flex-col bg-neutral-50">
-        <AuthHeader step={step} />
-        <div className="flex-1 px-5 py-6 -mt-1">
-          <Stepper current={step} />
-          <StepContent />
-        </div>
         <p className="lg:hidden text-center text-xs text-neutral-400 py-4">© 2026 Dinthialma</p>
       </div>
-    </>
+    </div>
   )
 }
