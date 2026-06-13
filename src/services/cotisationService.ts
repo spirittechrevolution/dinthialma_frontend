@@ -1,5 +1,5 @@
 import api from './api'
-import { Cotisation, RecordCotisationRequest, AdminRecordCotisationRequest } from '@/types/cotisation'
+import { Cotisation, RecordCotisationRequest, AdminRecordCotisationRequest, UpdateCotisationRequest, CotisationRecapItem } from '@/types/cotisation'
 import { PageResponse, CustomResponse } from '@/types/common'
 
 export const cotisationService = {
@@ -48,6 +48,27 @@ export const cotisationService = {
     const response = await api.post<CustomResponse<Cotisation>>(
       `/v1/tontines/${tontineId}/cotisations/admin`,
       request
+    )
+    return response.data.data
+  },
+
+  // ─── Modifier une cotisation (PATCH — seuls les champs fournis sont mis à jour) ──
+  updateCotisation: async (
+    tontineId: string,
+    cotisationId: string,
+    request: UpdateCotisationRequest
+  ): Promise<Cotisation> => {
+    const response = await api.patch<CustomResponse<Cotisation>>(
+      `/v1/tontines/${tontineId}/cotisations/${cotisationId}`,
+      request
+    )
+    return response.data.data
+  },
+
+  // ─── Récapitulatif cotisations d'un cycle par membre ─────────────────────────
+  getCotisationRecap: async (tontineId: string, cycleId: string): Promise<CotisationRecapItem[]> => {
+    const response = await api.get<CustomResponse<CotisationRecapItem[]>>(
+      `/v1/tontines/${tontineId}/cotisations/recap/${cycleId}`
     )
     return response.data.data
   },

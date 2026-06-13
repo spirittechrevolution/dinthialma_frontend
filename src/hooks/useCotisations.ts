@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { cotisationService } from '@/services/cotisationService'
-import { RecordCotisationRequest, AdminRecordCotisationRequest } from '@/types/cotisation'
+import { RecordCotisationRequest, AdminRecordCotisationRequest, UpdateCotisationRequest } from '@/types/cotisation'
 
 export function useCotisations(tontineId: string, cycleId?: string, page = 0, size = 20) {
   return useQuery({
@@ -47,6 +47,34 @@ export function useAdminRecordCotisation() {
       cotisationService.adminRecordCotisation(tontineId, request),
     onSuccess: (_, { tontineId }) => {
       queryClient.invalidateQueries({ queryKey: ['cotisations', tontineId] })
+      queryClient.invalidateQueries({ queryKey: ['cotisationRecap', tontineId] })
     },
+  })
+}
+
+export function useUpdateCotisation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      tontineId,
+      cotisationId,
+      request,
+    }: {
+      tontineId: string
+      cotisationId: string
+      request: UpdateCotisationRequest
+    }) => cotisationService.updateCotisation(tontineId, cotisationId, request),
+    onSuccess: (_, { tontineId }) => {
+      queryClient.invalidateQueries({ queryKey: ['cotisations', tontineId] })
+      queryClient.invalidateQueries({ queryKey: ['cotisationRecap', tontineId] })
+    },
+  })
+}
+
+export function useCotisationRecap(tontineId: string, cycleId: string, enabled = true) {
+  return useQuery({
+    queryKey: ['cotisationRecap', tontineId, cycleId],
+    queryFn: () => cotisationService.getCotisationRecap(tontineId, cycleId),
+    enabled: !!tontineId && !!cycleId && enabled,
   })
 }

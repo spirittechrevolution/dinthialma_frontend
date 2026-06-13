@@ -1,4 +1,4 @@
-import { CotisationStatut, MembreInfo, ValideurInfo } from './common'
+import { CotisationStatut, MembreInfo, ValideurInfo, AccountStatus, MembreStatut } from './common'
 
 // ─── Qui a enregistré la cotisation ──────────────────────────────────────────
 export interface EnregistreParInfo {
@@ -43,4 +43,33 @@ export interface AdminRecordCotisationRequest {
   methodePaiement?: string
   referenceTransaction?: string
   note?: string
+}
+
+// ─── Requête modification cotisation (PATCH — seuls les champs envoyés sont mis à jour) ──
+export interface UpdateCotisationRequest {
+  montant?: number
+  methodePaiement?: string
+  referenceTransaction?: string
+  note?: string
+}
+
+// ─── Item du récapitulatif cotisations par cycle/membre ──────────────────────
+export interface CotisationRecapItem {
+  membreId: string
+  userId: string
+  firstName: string
+  lastName: string
+  phone: string
+  accountStatus: AccountStatus
+  statutMembre: MembreStatut
+  ordreJackpot: number
+  cotisationId: string | null
+  montant: number | null
+  methodePaiement: string | null
+  referenceTransaction: string | null
+  note: string | null
+  statutCotisation: CotisationStatut | null
+  dateValidation: string | null
+  cotisationCreatedAt: string | null
+  enregistrePar: EnregistreParInfo | null
 }

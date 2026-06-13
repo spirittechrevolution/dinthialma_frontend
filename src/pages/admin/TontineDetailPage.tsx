@@ -10,6 +10,8 @@ import { Spinner } from '@/components/ui/Spinner'
 import { Table, Column } from '@/components/ui/Table'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { AdminEnregistrerPaiementModal } from '@/components/shared/AdminEnregistrerPaiementModal'
+import { AdminEditCotisationModal, EditCotisationInitialValues } from '@/components/shared/AdminEditCotisationModal'
+import { CycleRecapModal } from '@/components/shared/CycleRecapModal'
 import { useTontine, useActiverTontine, useSuspendreTontine, useCommissions, useDeleteCommission } from '@/hooks/useTontines'
 import { useMembres, useRemoveMembre, useUpdateMembreStatut } from '@/hooks/useMembres'
 import { useCycles, useCloturerCycle } from '@/hooks/useCycles'
@@ -18,7 +20,7 @@ import { Membre } from '@/types/membre'
 import { Cycle } from '@/types/cycle'
 import { Cotisation } from '@/types/cotisation'
 import { TontineStatut, CycleStatut, CotisationStatut, MembreStatut, AccountStatus } from '@/types/common'
-import { ArrowLeft, Play, Pause, Trash2, CheckCircle, UserMinus, AlertTriangle, CreditCard } from 'lucide-react'
+import { ArrowLeft, Play, Pause, Trash2, CheckCircle, UserMinus, AlertTriangle, CreditCard, Edit2, BarChart2 } from 'lucide-react'
 
 type Tab = 'infos' | 'membres' | 'cycles' | 'cotisations' | 'commissions'
 
@@ -37,6 +39,13 @@ interface PaiementModalState {
   cycleId: string
 }
 
+interface EditCotisationState {
+  isOpen: boolean
+  cotisationId: string
+  membreNom: string
+  initialValues: EditCotisationInitialValues
+}
+
 export function TontineDetailPage() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
@@ -48,6 +57,13 @@ export function TontineDetailPage() {
     membreNom: '',
     cycleId: '',
   })
+  const [editCotisationState, setEditCotisationState] = useState<EditCotisationState>({
+    isOpen: false,
+    cotisationId: '',
+    membreNom: '',
+    initialValues: { montant: 0, methodePaiement: 'CASH' },
+  })
+  const [recapCycle, setRecapCycle] = useState<Cycle | null>(null)
 
   const { data: tontine, isLoading } = useTontine(id || '')
   const { mutate: activer, isPending: isActivating } = useActiverTontine()
@@ -191,15 +207,31 @@ export function TontineDetailPage() {
     {
       key: 'id',
       header: 'Actions',
-      render: (row) => row.statut === CycleStatut.EN_COURS ? (
-        <Button variant="secondary" size="sm"
-          onClick={() => cloturerCycle(
-            { tontineId: id!, cycleId: row.id },
-            { onSuccess: () => toast.success('Cycle clôturé'), onError: () => toast.error('Erreur') }
-          )}>
-          Clôturer
-        </Button>
-      ) : null,
+      render: (row) => (
+        <div className="flex gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            title="Récapitulatif des cotisations"
+            onClick={() => setRecapCycle(row)}
+          >
+            <BarChart2 size={16} />
+            Récap
+          </Button>
+          {row.statut === CycleStatut.EN_COURS && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => cloturerCycle(
+                { tontineId: id!, cycleId: row.id },
+                { onSuccess: () => toast.success('Cycle clôturé'), onError: () => toast.error('Erreur') }
+              )}
+            >
+              Clôturer
+            </Button>
+          )}
+        </div>
+      ),
     },
   ]
 
@@ -226,15 +258,51 @@ export function TontineDetailPage() {
     {
       key: 'id',
       header: 'Actions',
-      render: (row) => row.statut === CotisationStatut.EN_ATTENTE ? (
-        <Button variant="secondary" size="sm"
-          onClick={() => validerCotisation(
-            { tontineId: id!, cotisationId: row.id },
-            { onSuccess: () => toast.success('Cotisation validée'), onError: () => toast.error('Erreur') }
-          )}>
-          <CheckCircle size={16} />
-        </Button>
-      ) : null,
+      render: (row) => {
+        const cycleOfCotisation = cycles.find((c) => c.id === row.cycleId)
+        const cycleIsEnCours = cycleOfCotisation?.statut === CycleStatut.EN_COURS
+        const showEdit =
+          row.statut === CotisationStatut.EN_ATTENTE ||
+          (row.statut === CotisationStatut.VALIDE && cycleIsEnCours)
+
+        return (
+          <div className="flex gap-2">
+            {row.statut === CotisationStatut.EN_ATTENTE && (
+              <Button
+                variant="secondary"
+                size="sm"
+                title="Valider"
+                onClick={() => validerCotisation(
+                  { tontineId: id!, cotisationId: row.id },
+                  { onSuccess: () => toast.success('Cotisation validée'), onError: () => toast.error('Erreur') }
+                )}
+              >
+                <CheckCircle size={16} />
+              </Button>
+            )}
+            {showEdit && (
+              <Button
+                variant="secondary"
+                size="sm"
+                title="Modifier"
+                onClick={() => setEditCotisationState({
+                  isOpen: true,
+                  cotisationId: row.id,
+                  membreNom: `${row.membre.firstName} ${row.membre.lastName}`,
+                  initialValues: {
+                    montant: row.montant,
+                    methodePaiement: row.methodePaiement,
+                    referenceTransaction: row.referenceTransaction,
+                    note: row.note,
+                  },
+                })}
+              >
+                <Edit2 size={16} />
+              </Button>
+            )}
+          </div>
+        )
+      },
     },
   ]
 
@@ -469,6 +537,29 @@ export function TontineDetailPage() {
               cycleId={paiementModal.cycleId}
               membreId={paiementModal.membreId}
               membreNom={paiementModal.membreNom}
+              montantDefaut={tontine.montant}
+            />
+          )}
+
+          {/* Modal modification cotisation */}
+          {id && (
+            <AdminEditCotisationModal
+              isOpen={editCotisationState.isOpen}
+              onClose={() => setEditCotisationState((s) => ({ ...s, isOpen: false }))}
+              tontineId={id}
+              cotisationId={editCotisationState.cotisationId}
+              membreNom={editCotisationState.membreNom}
+              initialValues={editCotisationState.initialValues}
+            />
+          )}
+
+          {/* Modal récapitulatif cotisations d'un cycle */}
+          {id && recapCycle && (
+            <CycleRecapModal
+              isOpen={!!recapCycle}
+              onClose={() => setRecapCycle(null)}
+              tontineId={id}
+              cycle={recapCycle}
               montantDefaut={tontine.montant}
             />
           )}
