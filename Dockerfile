@@ -26,6 +26,8 @@ COPY . .
 ARG VITE_API_URL=http://localhost:8081
 ENV VITE_API_URL=${VITE_API_URL}
 
+# BUILD_DATE varie à chaque run CI → invalide le cache Docker pour npm run build
+ARG BUILD_DATE
 RUN npm run build
 
 
