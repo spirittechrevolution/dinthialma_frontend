@@ -4,11 +4,20 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { Badge } from '@/components/ui/Badge'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { Spinner } from '@/components/ui/Spinner'
+import { AdminEditCotisationModal, EditCotisationInitialValues } from '@/components/shared/AdminEditCotisationModal'
 import { useTontines } from '@/hooks/useTontines'
+import { useCycles } from '@/hooks/useCycles'
 import { useCotisations, useValiderCotisation } from '@/hooks/useCotisations'
 import { Cotisation, EnregistreParInfo } from '@/types/cotisation'
-import { CotisationStatut } from '@/types/common'
-import { Search, Download, CheckCircle, XCircle } from 'lucide-react'
+import { CotisationStatut, CycleStatut } from '@/types/common'
+import { Search, Download, CheckCircle, XCircle, Edit2 } from 'lucide-react'
+
+interface EditCotisationState {
+  isOpen: boolean
+  cotisationId: string
+  membreNom: string
+  initialValues: EditCotisationInitialValues
+}
 
 const STATUT_TABS = [
   { label: 'Toutes', value: '' },
@@ -46,12 +55,20 @@ export function CotisationsPage() {
   const [statutTab, setStatutTab] = useState('')
   const [selectedTontineId, setSelectedTontineId] = useState('')
   const [cotisationToValidate, setCotisationToValidate] = useState<string | null>(null)
+  const [editCotisationState, setEditCotisationState] = useState<EditCotisationState>({
+    isOpen: false,
+    cotisationId: '',
+    membreNom: '',
+    initialValues: { montant: 0, methodePaiement: 'CASH' },
+  })
 
   const { data: tontinesData } = useTontines(0, 50)
   const tontines = tontinesData?.content || []
   const activeTontineId = selectedTontineId || tontines[0]?.id || ''
 
   const { data: cotisationsData, isLoading } = useCotisations(activeTontineId, undefined, page, 50)
+  const { data: cyclesData } = useCycles(activeTontineId, 0, 50)
+  const cycles = cyclesData?.content || []
   const { mutate: valider, isPending: isValidating } = useValiderCotisation()
 
   const allCotisations = cotisationsData?.content || []
@@ -190,6 +207,32 @@ export function CotisationsPage() {
                           <CheckCircle size={14} />
                         </button>
                       )}
+                      {(() => {
+                        const cycleOfCotisation = cycles.find((cy) => cy.id === c.cycleId)
+                        const cycleIsEnCours = cycleOfCotisation?.statut === CycleStatut.EN_COURS
+                        const showEdit =
+                          c.statut === CotisationStatut.EN_ATTENTE ||
+                          (c.statut === CotisationStatut.VALIDE && cycleIsEnCours)
+                        return showEdit ? (
+                          <button
+                            onClick={() => setEditCotisationState({
+                              isOpen: true,
+                              cotisationId: c.id,
+                              membreNom: `${c.membre.firstName} ${c.membre.lastName}`,
+                              initialValues: {
+                                montant: c.montant,
+                                methodePaiement: c.methodePaiement,
+                                referenceTransaction: c.referenceTransaction,
+                                note: c.note,
+                              },
+                            })}
+                            className="w-7 h-7 rounded-full bg-neutral-100 text-neutral-600 flex items-center justify-center hover:bg-neutral-200"
+                            title="Modifier"
+                          >
+                            <Edit2 size={14} />
+                          </button>
+                        ) : null
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -235,12 +278,42 @@ export function CotisationsPage() {
                         }
                       </td>
                       <td className="px-5 py-4">
-                        {c.statut === CotisationStatut.EN_ATTENTE && (
-                          <div className="flex gap-2">
-                            <button onClick={() => setCotisationToValidate(c.id)} className="w-7 h-7 rounded-full bg-primary-50 text-primary-600 flex items-center justify-center hover:bg-primary-100" title="Valider"><CheckCircle size={14} /></button>
-                            <button className="w-7 h-7 rounded-full bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100" title="Refuser"><XCircle size={14} /></button>
-                          </div>
-                        )}
+                        {(() => {
+                          const cycleOfCotisation = cycles.find((cy) => cy.id === c.cycleId)
+                          const cycleIsEnCours = cycleOfCotisation?.statut === CycleStatut.EN_COURS
+                          const showEdit =
+                            c.statut === CotisationStatut.EN_ATTENTE ||
+                            (c.statut === CotisationStatut.VALIDE && cycleIsEnCours)
+                          return (
+                            <div className="flex gap-2">
+                              {c.statut === CotisationStatut.EN_ATTENTE && (
+                                <>
+                                  <button onClick={() => setCotisationToValidate(c.id)} className="w-7 h-7 rounded-full bg-primary-50 text-primary-600 flex items-center justify-center hover:bg-primary-100" title="Valider"><CheckCircle size={14} /></button>
+                                  <button className="w-7 h-7 rounded-full bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100" title="Refuser"><XCircle size={14} /></button>
+                                </>
+                              )}
+                              {showEdit && (
+                                <button
+                                  onClick={() => setEditCotisationState({
+                                    isOpen: true,
+                                    cotisationId: c.id,
+                                    membreNom: `${c.membre.firstName} ${c.membre.lastName}`,
+                                    initialValues: {
+                                      montant: c.montant,
+                                      methodePaiement: c.methodePaiement,
+                                      referenceTransaction: c.referenceTransaction,
+                                      note: c.note,
+                                    },
+                                  })}
+                                  className="w-7 h-7 rounded-full bg-neutral-100 text-neutral-600 flex items-center justify-center hover:bg-neutral-200"
+                                  title="Modifier"
+                                >
+                                  <Edit2 size={14} />
+                                </button>
+                              )}
+                            </div>
+                          )
+                        })()}
                       </td>
                     </tr>
                   )
@@ -273,6 +346,15 @@ export function CotisationsPage() {
         message="Cette cotisation sera marquée comme VALIDÉE et prise en compte dans le jackpot à la clôture du cycle."
         confirmText="Valider"
         isLoading={isValidating}
+      />
+
+      <AdminEditCotisationModal
+        isOpen={editCotisationState.isOpen}
+        onClose={() => setEditCotisationState((s) => ({ ...s, isOpen: false }))}
+        tontineId={activeTontineId}
+        cotisationId={editCotisationState.cotisationId}
+        membreNom={editCotisationState.membreNom}
+        initialValues={editCotisationState.initialValues}
       />
     </AppLayout>
   )
