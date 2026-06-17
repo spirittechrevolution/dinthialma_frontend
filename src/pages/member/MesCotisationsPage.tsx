@@ -60,14 +60,16 @@ export function MesCotisationsPage() {
   const { data: cyclesData }   = useCycles(selectedTontineId, 0, 50)
   const { mutate: recordCotisation, isPending } = useRecordCotisation()
 
-  // Pour un ADMIN/SUPER_ADMIN, l'API retourne toutes les cotisations → on filtre par user.sub.
+  // Pour un ADMIN/SUPER_ADMIN, l'API retourne toutes les cotisations → on filtre par phone normalisé.
+  // Keycloak stocke "221XXXXXXXX", l'API stocke "7XXXXXXXX" → on retire l'indicatif.
   // Pour un MEMBER pur, l'API filtre déjà côté backend → pas de filtre client.
+  const normalizePhone = (p: string) => p.replace(/^\+?221/, '')
+  const myPhone        = normalizePhone(user?.phone || '')
   const rawPage        = cotisationsData?.content || []
   const rawAll         = allCotisationsData?.content || []
-  // Pour ADMIN/SUPER_ADMIN : l'API retourne tout → on isole par phone (userId backend ≠ Keycloak sub)
   const isAdminUser    = isAdmin() || isSuperAdmin()
-  const cotisations    = isAdminUser ? rawPage.filter((c: Cotisation) => c.membre.phone === user?.phone) : rawPage
-  const allCotisations = isAdminUser ? rawAll.filter((c: Cotisation) => c.membre.phone === user?.phone) : rawAll
+  const cotisations    = isAdminUser ? rawPage.filter((c: Cotisation) => normalizePhone(c.membre.phone) === myPhone) : rawPage
+  const allCotisations = isAdminUser ? rawAll.filter((c: Cotisation) => normalizePhone(c.membre.phone) === myPhone) : rawAll
   const totalPages     = cotisationsData?.totalPages || 1
   const cycles         = (cyclesData?.content || []).filter((c) => c.statut === 'EN_COURS')
 

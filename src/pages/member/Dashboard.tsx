@@ -59,17 +59,13 @@ export function MemberDashboard() {
   const { data: cotisationsData } = useCotisations(activeTontine?.id || '', undefined, 0, 200)
   const { data: cyclesData } = useCycles(activeTontine?.id || '', 0, 10)
   // Pour un ADMIN/SUPER_ADMIN, l'API retourne toutes les cotisations de la tontine
-  // → on filtre par user.sub pour ne voir que les siennes.
+  // → on filtre par phone normalisé (Keycloak stocke "221..." vs API stocke "7...")
   // Pour un MEMBER pur, l'API filtre déjà côté backend → pas de filtre client.
+  const normalizePhone = (p: string) => p.replace(/^\+?221/, '')
+  const myPhone = normalizePhone(user?.phone || '')
   const allCotisations = cotisationsData?.content || []
-  // DEBUG temporaire — à retirer après diagnostic
-  if (allCotisations.length > 0) {
-    console.log('[DEBUG] user.sub:', user?.sub, '| user.phone:', user?.phone, '| user.email:', user?.email)
-    console.log('[DEBUG] cotisations[0].membre:', allCotisations[0]?.membre)
-  }
-  // Pour ADMIN/SUPER_ADMIN : l'API retourne tout → on isole par phone (userId backend ≠ Keycloak sub)
   const cotisations = (isAdmin() || isSuperAdmin())
-    ? allCotisations.filter((c: Cotisation) => c.membre.phone === user?.phone)
+    ? allCotisations.filter((c: Cotisation) => normalizePhone(c.membre.phone) === myPhone)
     : allCotisations
   const cycles = cyclesData?.content || []
 
