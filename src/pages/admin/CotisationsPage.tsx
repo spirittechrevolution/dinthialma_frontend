@@ -6,6 +6,7 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { Spinner } from '@/components/ui/Spinner'
 import { AdminEditCotisationModal, EditCotisationInitialValues } from '@/components/shared/AdminEditCotisationModal'
 import { useTontines } from '@/hooks/useTontines'
+import { useMyDashboard } from '@/hooks/useDashboard'
 import { useCycles } from '@/hooks/useCycles'
 import { useCotisations, useValiderCotisation } from '@/hooks/useCotisations'
 import { Cotisation, EnregistreParInfo } from '@/types/cotisation'
@@ -69,10 +70,17 @@ export function CotisationsPage() {
   const { data: cotisationsData, isLoading } = useCotisations(activeTontineId, undefined, page, 50)
   const { data: cyclesData } = useCycles(activeTontineId, 0, 50)
   const cycles = cyclesData?.content || []
+  const { data: dashboard } = useMyDashboard()
   const { mutate: valider, isPending: isValidating } = useValiderCotisation()
 
   const allCotisations = cotisationsData?.content || []
   const totalPages = cotisationsData?.totalPages || 1
+
+  // Stats précalculées côté backend — fiables quel que soit le nombre de cotisations
+  const activeTontineStats = dashboard?.tontines.find((t) => t.tontineId === activeTontineId)
+  const montantValide  = activeTontineStats?.montantTotalValide  ?? 0
+  const enAttenteCount = activeTontineStats?.cotisationsEnAttente ?? 0
+  const enRetardCount  = activeTontineStats?.cotisationsEnRetard  ?? 0
 
   const filtered = allCotisations.filter((c: Cotisation) => {
     const q = search.toLowerCase()
@@ -82,11 +90,6 @@ export function CotisationsPage() {
     const matchStatut = !statutTab || c.statut === statutTab
     return matchSearch && matchStatut
   })
-
-  const valideCount = allCotisations.filter((c: Cotisation) => c.statut === CotisationStatut.VALIDE)
-  const enAttenteCount = allCotisations.filter((c: Cotisation) => c.statut === CotisationStatut.EN_ATTENTE).length
-  const enRetardCount = allCotisations.filter((c: Cotisation) => c.statut === CotisationStatut.EN_RETARD).length
-  const montantValide = valideCount.reduce((s: number, c: Cotisation) => s + c.montant, 0)
 
   const handleValider = () => {
     if (!cotisationToValidate || !activeTontineId) return
@@ -114,7 +117,7 @@ export function CotisationsPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 mb-6">
         <div className="bg-white rounded-xl border border-neutral-100 shadow-sm p-4">
-          <p className="text-xs text-neutral-500 mb-1">Validé ce mois</p>
+          <p className="text-xs text-neutral-500 mb-1">Total validé</p>
           <p className="text-xl font-bold text-primary-600">{montantValide.toLocaleString('fr-FR')} FCFA</p>
         </div>
         <div className="bg-white rounded-xl border border-neutral-100 shadow-sm p-4">

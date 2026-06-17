@@ -53,16 +53,20 @@ export function MesCotisationsPage() {
   const firstTontineId = tontines[0]?.id || ''
 
   const { data: cotisationsData, isLoading } = useCotisations(firstTontineId, undefined, page, 20)
+  // Requête dédiée aux stats : charge toutes les cotisations sans pagination
+  const { data: allCotisationsData } = useCotisations(firstTontineId, undefined, 0, 200)
   const { data: cyclesData }   = useCycles(selectedTontineId, 0, 50)
   const { mutate: recordCotisation, isPending } = useRecordCotisation()
 
-  const cotisations = cotisationsData?.content || []
-  const totalPages  = cotisationsData?.totalPages || 1
-  const cycles      = (cyclesData?.content || []).filter((c) => c.statut === 'EN_COURS')
+  const cotisations    = cotisationsData?.content || []
+  const allCotisations = allCotisationsData?.content || []
+  const totalPages     = cotisationsData?.totalPages || 1
+  const cycles         = (cyclesData?.content || []).filter((c) => c.statut === 'EN_COURS')
 
-  const totalVerse     = cotisations.filter((c: Cotisation) => c.statut === CotisationStatut.VALIDE).reduce((s: number, c: Cotisation) => s + c.montant, 0)
-  const enAttenteCount = cotisations.filter((c: Cotisation) => c.statut === CotisationStatut.EN_ATTENTE).length
-  const jackpotVerse   = cotisations.filter((c: Cotisation) => c.statut === CotisationStatut.VALIDE && c.montant > 50000)
+  // Stats calculées sur l'ensemble des cotisations, pas seulement la page affichée
+  const totalVerse     = allCotisations.filter((c: Cotisation) => c.statut === CotisationStatut.VALIDE).reduce((s: number, c: Cotisation) => s + c.montant, 0)
+  const enAttenteCount = allCotisations.filter((c: Cotisation) => c.statut === CotisationStatut.EN_ATTENTE).length
+  const jackpotVerse   = allCotisations.filter((c: Cotisation) => c.statut === CotisationStatut.VALIDE && c.montant > 50000)
 
   const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),

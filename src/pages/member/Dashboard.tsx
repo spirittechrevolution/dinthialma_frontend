@@ -56,7 +56,7 @@ export function MemberDashboard() {
   const tontines = tontinesData?.content || []
 
   const activeTontine = tontines.find((t: Tontine) => t.statut === TontineStatut.ACTIVE)
-  const { data: cotisationsData } = useCotisations(activeTontine?.id || '', undefined, 0, 50)
+  const { data: cotisationsData } = useCotisations(activeTontine?.id || '', undefined, 0, 200)
   const { data: cyclesData } = useCycles(activeTontine?.id || '', 0, 10)
   const cotisations = cotisationsData?.content || []
   const cycles = cyclesData?.content || []
