@@ -64,9 +64,10 @@ export function MesCotisationsPage() {
   // Pour un MEMBER pur, l'API filtre déjà côté backend → pas de filtre client.
   const rawPage        = cotisationsData?.content || []
   const rawAll         = allCotisationsData?.content || []
+  // Pour ADMIN/SUPER_ADMIN : l'API retourne tout → on isole par phone (userId backend ≠ Keycloak sub)
   const isAdminUser    = isAdmin() || isSuperAdmin()
-  const cotisations    = isAdminUser ? rawPage.filter((c: Cotisation) => c.membre.userId === user?.sub) : rawPage
-  const allCotisations = isAdminUser ? rawAll.filter((c: Cotisation) => c.membre.userId === user?.sub) : rawAll
+  const cotisations    = isAdminUser ? rawPage.filter((c: Cotisation) => c.membre.phone === user?.phone) : rawPage
+  const allCotisations = isAdminUser ? rawAll.filter((c: Cotisation) => c.membre.phone === user?.phone) : rawAll
   const totalPages     = cotisationsData?.totalPages || 1
   const cycles         = (cyclesData?.content || []).filter((c) => c.statut === 'EN_COURS')
 
