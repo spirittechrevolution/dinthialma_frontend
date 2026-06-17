@@ -58,7 +58,10 @@ export function MemberDashboard() {
   const activeTontine = tontines.find((t: Tontine) => t.statut === TontineStatut.ACTIVE)
   const { data: cotisationsData } = useCotisations(activeTontine?.id || '', undefined, 0, 200)
   const { data: cyclesData } = useCycles(activeTontine?.id || '', 0, 10)
-  const cotisations = cotisationsData?.content || []
+  // Filtre par userId du membre courant : un admin est aussi membre de ses tontines
+  // et l'API lui retourne toutes les cotisations — on isole les siennes
+  const allCotisations = cotisationsData?.content || []
+  const cotisations = allCotisations.filter((c: Cotisation) => c.membre.userId === user?.sub)
   const cycles = cyclesData?.content || []
 
   const totalValide = cotisations

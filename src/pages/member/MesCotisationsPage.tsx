@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Spinner } from '@/components/ui/Spinner'
 import { Modal } from '@/components/ui/Modal'
+import { useAuth } from '@/hooks/useAuth'
 import { useCotisations, useRecordCotisation } from '@/hooks/useCotisations'
 import { useTontines } from '@/hooks/useTontines'
 import { useCycles } from '@/hooks/useCycles'
@@ -48,6 +49,7 @@ export function MesCotisationsPage() {
   const [selectedTontineId, setSelectedTontineId] = useState('')
   const [selectedMethode, setSelectedMethode]     = useState('')
 
+  const { user } = useAuth()
   const { data: tontinesData } = useTontines(0, 50)
   const tontines    = (tontinesData?.content || []).filter((t) => t.statut === TontineStatut.ACTIVE)
   const firstTontineId = tontines[0]?.id || ''
@@ -58,8 +60,12 @@ export function MesCotisationsPage() {
   const { data: cyclesData }   = useCycles(selectedTontineId, 0, 50)
   const { mutate: recordCotisation, isPending } = useRecordCotisation()
 
-  const cotisations    = cotisationsData?.content || []
-  const allCotisations = allCotisationsData?.content || []
+  // Filtre par userId du membre courant : un admin reçoit toutes les cotisations,
+  // on isole les siennes pour la vue "Mes cotisations"
+  const rawPage        = cotisationsData?.content || []
+  const rawAll         = allCotisationsData?.content || []
+  const cotisations    = rawPage.filter((c: Cotisation) => c.membre.userId === user?.sub)
+  const allCotisations = rawAll.filter((c: Cotisation) => c.membre.userId === user?.sub)
   const totalPages     = cotisationsData?.totalPages || 1
   const cycles         = (cyclesData?.content || []).filter((c) => c.statut === 'EN_COURS')
 
