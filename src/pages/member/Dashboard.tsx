@@ -62,6 +62,11 @@ export function MemberDashboard() {
   // → on filtre par user.sub pour ne voir que les siennes.
   // Pour un MEMBER pur, l'API filtre déjà côté backend → pas de filtre client.
   const allCotisations = cotisationsData?.content || []
+  // DEBUG temporaire — à retirer après diagnostic
+  if (allCotisations.length > 0) {
+    console.log('[DEBUG] user.sub:', user?.sub, '| user.phone:', user?.phone, '| user.email:', user?.email)
+    console.log('[DEBUG] cotisations[0].membre:', allCotisations[0]?.membre)
+  }
   // Pour ADMIN/SUPER_ADMIN : l'API retourne tout → on isole par phone (userId backend ≠ Keycloak sub)
   const cotisations = (isAdmin() || isSuperAdmin())
     ? allCotisations.filter((c: Cotisation) => c.membre.phone === user?.phone)
