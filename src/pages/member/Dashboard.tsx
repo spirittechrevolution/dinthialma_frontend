@@ -50,7 +50,7 @@ function Avatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' }) {
 }
 
 export function MemberDashboard() {
-  const { user } = useAuth()
+  const { user, isAdmin, isSuperAdmin } = useAuth()
   const [createOpen, setCreateOpen] = useState(false)
   const { data: tontinesData, isLoading } = useTontines(0, 20)
   const tontines = tontinesData?.content || []
@@ -58,10 +58,13 @@ export function MemberDashboard() {
   const activeTontine = tontines.find((t: Tontine) => t.statut === TontineStatut.ACTIVE)
   const { data: cotisationsData } = useCotisations(activeTontine?.id || '', undefined, 0, 200)
   const { data: cyclesData } = useCycles(activeTontine?.id || '', 0, 10)
-  // Filtre par userId du membre courant : un admin est aussi membre de ses tontines
-  // et l'API lui retourne toutes les cotisations — on isole les siennes
+  // Pour un ADMIN/SUPER_ADMIN, l'API retourne toutes les cotisations de la tontine
+  // → on filtre par user.sub pour ne voir que les siennes.
+  // Pour un MEMBER pur, l'API filtre déjà côté backend → pas de filtre client.
   const allCotisations = cotisationsData?.content || []
-  const cotisations = allCotisations.filter((c: Cotisation) => c.membre.userId === user?.sub)
+  const cotisations = (isAdmin() || isSuperAdmin())
+    ? allCotisations.filter((c: Cotisation) => c.membre.userId === user?.sub)
+    : allCotisations
   const cycles = cyclesData?.content || []
 
   const totalValide = cotisations

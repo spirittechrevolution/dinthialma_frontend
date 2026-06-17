@@ -49,7 +49,7 @@ export function MesCotisationsPage() {
   const [selectedTontineId, setSelectedTontineId] = useState('')
   const [selectedMethode, setSelectedMethode]     = useState('')
 
-  const { user } = useAuth()
+  const { user, isAdmin, isSuperAdmin } = useAuth()
   const { data: tontinesData } = useTontines(0, 50)
   const tontines    = (tontinesData?.content || []).filter((t) => t.statut === TontineStatut.ACTIVE)
   const firstTontineId = tontines[0]?.id || ''
@@ -60,12 +60,13 @@ export function MesCotisationsPage() {
   const { data: cyclesData }   = useCycles(selectedTontineId, 0, 50)
   const { mutate: recordCotisation, isPending } = useRecordCotisation()
 
-  // Filtre par userId du membre courant : un admin reçoit toutes les cotisations,
-  // on isole les siennes pour la vue "Mes cotisations"
+  // Pour un ADMIN/SUPER_ADMIN, l'API retourne toutes les cotisations → on filtre par user.sub.
+  // Pour un MEMBER pur, l'API filtre déjà côté backend → pas de filtre client.
   const rawPage        = cotisationsData?.content || []
   const rawAll         = allCotisationsData?.content || []
-  const cotisations    = rawPage.filter((c: Cotisation) => c.membre.userId === user?.sub)
-  const allCotisations = rawAll.filter((c: Cotisation) => c.membre.userId === user?.sub)
+  const isAdminUser    = isAdmin() || isSuperAdmin()
+  const cotisations    = isAdminUser ? rawPage.filter((c: Cotisation) => c.membre.userId === user?.sub) : rawPage
+  const allCotisations = isAdminUser ? rawAll.filter((c: Cotisation) => c.membre.userId === user?.sub) : rawAll
   const totalPages     = cotisationsData?.totalPages || 1
   const cycles         = (cyclesData?.content || []).filter((c) => c.statut === 'EN_COURS')
 
