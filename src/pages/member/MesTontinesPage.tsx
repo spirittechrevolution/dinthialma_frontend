@@ -115,7 +115,7 @@ export function MesTontinesPage() {
                     <p className="text-[10px] text-primary-500 mb-1 flex items-center justify-center gap-0.5">
                       <Trophy size={9} /> Jackpot
                     </p>
-                    <p className="font-bold text-primary-600 text-xs">{(jackpot / 1000).toFixed(0)} K</p>
+                    <p className="font-bold text-primary-600 text-xs">{jackpot.toLocaleString('fr-FR')}</p>
                     <p className="text-[10px] text-primary-400">FCFA</p>
                   </div>
                 </div>

@@ -70,8 +70,14 @@ export function MemberDashboard() {
   const cotiseesCount = cotisationsCycle.filter((c: Cotisation) => c.statut === CotisationStatut.VALIDE).length
   const totalMembres = activeTontine?.nombreMembres || 0
   const cyclePct = totalMembres > 0 ? Math.round((cotiseesCount / totalMembres) * 100) : 0
-  const jackpotEstime = activeTontine ? activeTontine.montant * activeTontine.nombreMembres : 0
   const prochaineCotisation = activeTontine?.montant || 0
+
+  // Jackpot : dernier cycle clôturé (montantNet réel API) ou estimation théorique labelisée
+  const dernierCycleTermine = [...cycles]
+    .filter((c: Cycle) => c.statut === CycleStatut.TERMINE && c.montantNet != null)
+    .sort((a: Cycle, b: Cycle) => b.numeroCycle - a.numeroCycle)[0]
+  const jackpotReel = dernierCycleTermine?.montantNet ?? null
+  const jackpotEstime = activeTontine ? activeTontine.montant * activeTontine.nombreMembres : 0
   const actives = tontines.filter((t: Tontine) => t.statut === TontineStatut.ACTIVE).length
 
   const prenom = user?.firstName || 'Membre'
@@ -137,9 +143,11 @@ export function MemberDashboard() {
 
             <div className="flex flex-col gap-2">
               <div className="bg-white/10 rounded-xl px-3 py-2 text-center">
-                <p className="text-white/60 text-[10px]">Jackpot à recevoir</p>
+                <p className="text-white/60 text-[10px]">
+                  {jackpotReel != null ? 'Dernier jackpot' : 'Jackpot (estimé)'}
+                </p>
                 <p className="text-amber-300 font-extrabold text-sm">
-                  {(jackpotEstime / 1000).toFixed(0)} 000
+                  {(jackpotReel ?? jackpotEstime).toLocaleString('fr-FR')}
                 </p>
                 <p className="text-white/50 text-[10px]">FCFA</p>
               </div>
@@ -186,8 +194,12 @@ export function MemberDashboard() {
             <Trophy size={18} className="text-amber-600" />
           </div>
           <div>
-            <p className="text-xs text-amber-700 font-semibold">Jackpot estimé</p>
-            <p className="text-amber-800 font-extrabold text-lg">{jackpotEstime.toLocaleString('fr-FR')} FCFA</p>
+            <p className="text-xs text-amber-700 font-semibold">
+              {jackpotReel != null ? 'Dernier jackpot reçu' : 'Jackpot estimé'}
+            </p>
+            <p className="text-amber-800 font-extrabold text-lg">
+              {(jackpotReel ?? jackpotEstime).toLocaleString('fr-FR')} FCFA
+            </p>
           </div>
         </div>
         <Link to="/member/tontines" className="text-xs font-bold text-amber-700 flex items-center gap-0.5">

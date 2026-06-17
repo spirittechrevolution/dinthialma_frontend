@@ -160,7 +160,7 @@ export function CyclesPage() {
                 <div className="text-center">
                   <p className="text-xs text-neutral-400 uppercase tracking-wide mb-1">Jackpot</p>
                   <p className="font-bold text-neutral-900 text-sm">
-                    {cycle.montantJackpot ? `${(cycle.montantJackpot / 1000).toFixed(0)} 000` : '—'}
+                    {cycle.montantJackpot ? cycle.montantJackpot.toLocaleString('fr-FR') : '—'}
                   </p>
                   {cycle.montantJackpot && <p className="text-xs text-neutral-400">FCFA</p>}
                 </div>
@@ -174,7 +174,7 @@ export function CyclesPage() {
                 <div className="text-center bg-primary-50 rounded-xl py-1">
                   <p className="text-xs text-primary-500 uppercase tracking-wide mb-1">Net</p>
                   <p className="font-bold text-primary-600 text-sm">
-                    {cycle.montantNet ? `${(cycle.montantNet / 1000).toFixed(0)} 000` : '—'}
+                    {cycle.montantNet ? cycle.montantNet.toLocaleString('fr-FR') : '—'}
                   </p>
                   {cycle.montantNet && <p className="text-xs text-primary-400">FCFA</p>}
                 </div>

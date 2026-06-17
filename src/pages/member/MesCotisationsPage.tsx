@@ -107,7 +107,7 @@ export function MesCotisationsPage() {
       <div className="grid grid-cols-3 gap-2 mb-5">
         <div className="bg-primary-600 rounded-2xl p-3 text-center">
           <p className="text-primary-200 text-[10px] mb-1">Total versé</p>
-          <p className="text-white font-extrabold text-sm">{(totalVerse / 1000).toFixed(0)} 000</p>
+          <p className="text-white font-extrabold text-sm">{totalVerse.toLocaleString('fr-FR')}</p>
           <p className="text-primary-200 text-[10px]">FCFA</p>
         </div>
         <div className="bg-white border border-neutral-100 rounded-2xl p-3 text-center shadow-sm">
