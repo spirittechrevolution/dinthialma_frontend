@@ -371,7 +371,7 @@ export function TontineDetailPage() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`px-6 py-3 font-medium whitespace-nowrap transition-colors focus:outline-none ${
+                  className={`px-3 sm:px-6 py-2.5 sm:py-3 text-sm font-medium whitespace-nowrap transition-colors focus:outline-none ${
                     activeTab === tab.id
                       ? 'bg-primary-50 border-b-2 border-primary-500 text-primary-600 rounded-t-2xl shadow-sm'
                       : 'text-neutral-600 hover:text-neutral-900'
@@ -391,10 +391,132 @@ export function TontineDetailPage() {
                 </div>
               )}
               {activeTab === 'membres' && (
-                <Table columns={membreColumns} data={membresData?.content || []} isLoading={membresLoading} emptyMessage="Aucun membre" />
+                <>
+                  {/* Desktop */}
+                  <div className="hidden sm:block">
+                    <Table columns={membreColumns} data={membresData?.content || []} isLoading={membresLoading} emptyMessage="Aucun membre" />
+                  </div>
+                  {/* Mobile — cards */}
+                  <div className="sm:hidden py-2 space-y-2">
+                    {membresLoading ? (
+                      <div className="flex justify-center py-10"><Spinner /></div>
+                    ) : membres.length === 0 ? (
+                      <p className="text-center py-10 text-neutral-400 text-sm">Aucun membre</p>
+                    ) : membres.map((m: Membre) => {
+                      const initials = `${m.user.firstName[0]}${m.user.lastName[0]}`.toUpperCase()
+                      const statutColor: Record<MembreStatut, string> = {
+                        ACTIF: 'bg-primary-100 text-primary-700',
+                        SUSPENDU: 'bg-orange-100 text-orange-700',
+                        SORTI: 'bg-red-100 text-red-700',
+                      }
+                      const compteLabel = m.user.accountStatus === AccountStatus.PRE_ENROLLED ? 'Non inscrit' : m.user.accountStatus === AccountStatus.ACTIVE ? 'Compte actif' : null
+                      const compteColor = m.user.accountStatus === AccountStatus.PRE_ENROLLED ? 'bg-orange-100 text-orange-600' : 'bg-primary-100 text-primary-700'
+                      return (
+                        <div key={m.id} className="flex items-center gap-3 px-3 py-3 rounded-xl border border-neutral-100 bg-white shadow-sm">
+                          <div className="w-10 h-10 rounded-full bg-primary-600 flex items-center justify-center text-white text-sm font-bold shrink-0">
+                            {initials}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                              <span className="text-[10px] font-bold text-neutral-400">#{m.ordreJackpot}</span>
+                              <p className="text-sm font-semibold text-neutral-900 truncate">{m.user.firstName} {m.user.lastName}</p>
+                            </div>
+                            <p className="text-xs text-neutral-400 mb-1">{m.user.phone}</p>
+                            <div className="flex flex-wrap gap-1">
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${statutColor[m.statut]}`}>{m.statut}</span>
+                              {compteLabel && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${compteColor}`}>{compteLabel}</span>}
+                            </div>
+                          </div>
+                          <div className="flex flex-col gap-1 shrink-0">
+                            {m.statut === MembreStatut.ACTIF && (
+                              <button
+                                title="Suspendre"
+                                onClick={() => updateStatut(
+                                  { tontineId: id!, membreId: m.id, request: { statut: MembreStatut.SUSPENDU } },
+                                  { onSuccess: () => toast.success('Membre suspendu'), onError: () => toast.error('Erreur') }
+                                )}
+                                className="w-8 h-8 rounded-lg bg-neutral-100 flex items-center justify-center text-neutral-600 hover:bg-orange-100 hover:text-orange-600 transition-colors"
+                              >
+                                <UserMinus size={14} />
+                              </button>
+                            )}
+                            <button
+                              title="Retirer"
+                              onClick={() => removeMembre(
+                                { tontineId: id!, membreId: m.id },
+                                { onSuccess: () => toast.success('Membre retiré'), onError: () => toast.error('Erreur') }
+                              )}
+                              className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center text-red-500 hover:bg-red-100 transition-colors"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </>
               )}
               {activeTab === 'cycles' && (
-                <Table columns={cycleColumns} data={cyclesData?.content || []} isLoading={cyclesLoading} emptyMessage="Aucun cycle" />
+                <>
+                  {/* Desktop */}
+                  <div className="hidden sm:block">
+                    <Table columns={cycleColumns} data={cyclesData?.content || []} isLoading={cyclesLoading} emptyMessage="Aucun cycle" />
+                  </div>
+                  {/* Mobile — cards */}
+                  <div className="sm:hidden py-2 space-y-2">
+                    {cyclesLoading ? (
+                      <div className="flex justify-center py-10"><Spinner /></div>
+                    ) : cycles.length === 0 ? (
+                      <p className="text-center py-10 text-neutral-400 text-sm">Aucun cycle</p>
+                    ) : cycles.map((cy: Cycle) => {
+                      const cycleStatutColor: Record<CycleStatut, string> = {
+                        EN_ATTENTE: 'bg-orange-100 text-orange-700',
+                        EN_COURS: 'bg-blue-100 text-blue-700',
+                        TERMINE: 'bg-primary-100 text-primary-700',
+                      }
+                      const cycleStatutLabel: Record<CycleStatut, string> = {
+                        EN_ATTENTE: 'Ouvert', EN_COURS: 'En cours', TERMINE: 'Terminé',
+                      }
+                      return (
+                        <div key={cy.id} className="px-3 py-3 rounded-xl border border-neutral-100 bg-white shadow-sm space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-neutral-900 text-sm">Cycle #{cy.numeroCycle}</span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cycleStatutColor[cy.statut]}`}>{cycleStatutLabel[cy.statut]}</span>
+                          </div>
+                          <p className="text-xs text-neutral-400">
+                            {new Date(cy.dateDebut).toLocaleDateString('fr-FR')} → {new Date(cy.dateFin).toLocaleDateString('fr-FR')}
+                          </p>
+                          {cy.montantNet && (
+                            <p className="text-xs font-semibold text-primary-600">Jackpot net : {cy.montantNet.toLocaleString('fr-FR')} FCFA</p>
+                          )}
+                          {cy.gagnants && cy.gagnants.length > 0 && (
+                            <p className="text-xs text-neutral-500">Bénéficiaire : {cy.gagnants.map(g => `${g.firstName} ${g.lastName}`).join(', ')}</p>
+                          )}
+                          <div className="flex gap-2 pt-1">
+                            <button
+                              onClick={() => setRecapCycle(cy)}
+                              className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg bg-neutral-100 text-neutral-700 text-xs font-semibold hover:bg-neutral-200 transition-colors"
+                            >
+                              <BarChart2 size={13} /> Récap
+                            </button>
+                            {cy.statut === CycleStatut.EN_COURS && (
+                              <button
+                                onClick={() => cloturerCycle(
+                                  { tontineId: id!, cycleId: cy.id },
+                                  { onSuccess: () => toast.success('Cycle clôturé'), onError: () => toast.error('Erreur') }
+                                )}
+                                className="flex-1 py-1.5 rounded-lg bg-orange-100 text-orange-700 text-xs font-semibold hover:bg-orange-200 transition-colors"
+                              >
+                                Clôturer
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </>
               )}
               {activeTab === 'cotisations' && (
                 <div>
@@ -472,13 +594,74 @@ export function TontineDetailPage() {
                     </div>
                   )}
 
-                  {/* ── Tableau cotisations ── */}
-                  <Table
-                    columns={cotisationColumns}
-                    data={cotisationsData?.content || []}
-                    isLoading={cotisationsLoading}
-                    emptyMessage="Aucune cotisation"
-                  />
+                  {/* ── Cotisations Desktop ── */}
+                  <div className="hidden sm:block">
+                    <Table
+                      columns={cotisationColumns}
+                      data={cotisationsData?.content || []}
+                      isLoading={cotisationsLoading}
+                      emptyMessage="Aucune cotisation"
+                    />
+                  </div>
+                  {/* ── Cotisations Mobile — cards ── */}
+                  <div className="sm:hidden py-2 space-y-2">
+                    {cotisationsLoading ? (
+                      <div className="flex justify-center py-10"><Spinner /></div>
+                    ) : cotisations.length === 0 ? (
+                      <p className="text-center py-10 text-neutral-400 text-sm">Aucune cotisation</p>
+                    ) : cotisations.map((c: Cotisation) => {
+                      const cotStatutColor: Record<CotisationStatut, string> = {
+                        VALIDE: 'bg-primary-100 text-primary-700',
+                        EN_ATTENTE: 'bg-orange-100 text-orange-700',
+                        EN_RETARD: 'bg-red-100 text-red-700',
+                      }
+                      const cycleOfCot = cycles.find((cy) => cy.id === c.cycleId)
+                      const cycleIsEnCours = cycleOfCot?.statut === CycleStatut.EN_COURS
+                      const showEdit = c.statut === CotisationStatut.EN_ATTENTE || (c.statut === CotisationStatut.VALIDE && cycleIsEnCours)
+                      return (
+                        <div key={c.id} className="px-3 py-3 rounded-xl border border-neutral-100 bg-white shadow-sm">
+                          <div className="flex items-start justify-between mb-1.5">
+                            <div>
+                              <p className="text-sm font-semibold text-neutral-900">{c.membre.firstName} {c.membre.lastName}</p>
+                              <p className="text-xs text-neutral-400">{c.methodePaiement}{c.referenceTransaction ? ` · ${c.referenceTransaction}` : ''}</p>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className="text-sm font-bold text-neutral-800">{c.montant.toLocaleString('fr-FR')} FCFA</span>
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${cotStatutColor[c.statut]}`}>{c.statut}</span>
+                            </div>
+                          </div>
+                          {(c.statut === CotisationStatut.EN_ATTENTE || showEdit) && (
+                            <div className="flex gap-2 pt-1 border-t border-neutral-50">
+                              {c.statut === CotisationStatut.EN_ATTENTE && (
+                                <button
+                                  onClick={() => validerCotisation(
+                                    { tontineId: id!, cotisationId: c.id },
+                                    { onSuccess: () => toast.success('Cotisation validée'), onError: () => toast.error('Erreur') }
+                                  )}
+                                  className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg bg-primary-50 text-primary-700 text-xs font-semibold hover:bg-primary-100 transition-colors"
+                                >
+                                  <CheckCircle size={13} /> Valider
+                                </button>
+                              )}
+                              {showEdit && (
+                                <button
+                                  onClick={() => setEditCotisationState({
+                                    isOpen: true,
+                                    cotisationId: c.id,
+                                    membreNom: `${c.membre.firstName} ${c.membre.lastName}`,
+                                    initialValues: { montant: c.montant, methodePaiement: c.methodePaiement, referenceTransaction: c.referenceTransaction, note: c.note },
+                                  })}
+                                  className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg bg-neutral-100 text-neutral-700 text-xs font-semibold hover:bg-neutral-200 transition-colors"
+                                >
+                                  <Edit2 size={13} /> Modifier
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
               )}
               {activeTab === 'commissions' && (
