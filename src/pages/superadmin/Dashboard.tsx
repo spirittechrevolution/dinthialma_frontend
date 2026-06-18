@@ -60,11 +60,13 @@ export function SuperAdminDashboard() {
 
   const tontines = tontinesData?.content || []
   const t = dashboard?.tontines
-  const u = dashboard?.utilisateurs
+  const u = dashboard?.users
   const f = dashboard?.finances
-  const a = dashboard?.activiteRecente
+  const a = dashboard?.activite24h
 
   const totalTontines = (t?.actives ?? 0) + (t?.brouillon ?? 0) + (t?.suspendues ?? 0) + (t?.terminees ?? 0)
+  // Fallback si total = 0 mais actifs/desactives sont renseignés
+  const totalUtilisateurs = u?.total || ((u?.actifs ?? 0) + (u?.desactives ?? 0))
   const pct = (n: number) => totalTontines > 0 ? Math.round((n / totalTontines) * 100) : 0
 
   const repartition = [
@@ -85,7 +87,7 @@ export function SuperAdminDashboard() {
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
         <StatCard
           label="Utilisateurs"
-          value={u?.total ?? 0}
+          value={totalUtilisateurs}
           sub={u?.nouveauxCeMois ? `+${u.nouveauxCeMois} ce mois · ${u.actifs ?? 0} actifs` : u?.actifs != null ? `${u.actifs} actifs` : undefined}
           subGreen
           icon={<Users size={20} />}
@@ -98,7 +100,7 @@ export function SuperAdminDashboard() {
         />
         <StatCard
           label="Validé ce mois"
-          value={`${(f?.montantValideСeMois ?? 0).toLocaleString('fr-FR')} FCFA`}
+          value={`${(f?.montantCotisationsCeMois ?? 0).toLocaleString('fr-FR')} FCFA`}
           sub={f?.variationMoisPrecedent != null ? `+${f.variationMoisPrecedent}% vs mois dernier` : undefined}
           subGreen
           icon={<TrendingUp size={20} />}

@@ -1,9 +1,9 @@
 // ─── Dashboard SUPER_ADMIN ────────────────────────────────────────────────────
 export interface GlobalDashboardResponse {
-  utilisateurs: UtilisateursStats
+  users: UtilisateursStats
   tontines: TontinesStats
   finances: FinancesStats
-  activiteRecente: ActiviteRecente
+  activite24h: ActiviteRecente
 }
 
 export interface UtilisateursStats {
@@ -24,7 +24,7 @@ export interface TontinesStats {
 export interface FinancesStats {
   cotisationsEnAttente: number
   cotisationsEnRetard: number
-  montantValideСeMois: number
+  montantCotisationsCeMois: number
   variationMoisPrecedent?: number
 }
 

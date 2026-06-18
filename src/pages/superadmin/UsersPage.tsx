@@ -126,7 +126,7 @@ export function UsersPage() {
   })
 
   const allUsers = usersData?.content || []
-  const totalElements = usersData?.totalElements || 0
+  const totalElements = usersData?.totalElements || allUsers.length
   const totalPages = usersData?.totalPages || 1
 
   const filtered = allUsers.filter((u) => {
