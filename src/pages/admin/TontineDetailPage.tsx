@@ -211,14 +211,16 @@ export function TontineDetailPage() {
       header: 'Actions',
       render: (row) => (
         <div className="flex gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            title="Voir les cotisations de ce cycle"
-            onClick={() => { setSelectedCycleId(row.id); setActiveTab('cotisations') }}
-          >
-            Cotisations
-          </Button>
+          {row.statut !== CycleStatut.EN_ATTENTE && (
+            <Button
+              variant="secondary"
+              size="sm"
+              title="Voir les cotisations de ce cycle"
+              onClick={() => { setSelectedCycleId(row.id); setActiveTab('cotisations') }}
+            >
+              Cotisations
+            </Button>
+          )}
           <Button
             variant="secondary"
             size="sm"
@@ -517,12 +519,14 @@ export function TontineDetailPage() {
                             <p className="text-xs text-neutral-500">Bénéficiaire : {cy.gagnants.map(g => `${g.firstName} ${g.lastName}`).join(', ')}</p>
                           )}
                           <div className="flex gap-2 pt-1">
-                            <button
-                              onClick={() => { setSelectedCycleId(cy.id); setActiveTab('cotisations') }}
-                              className="flex-1 py-1.5 rounded-lg bg-primary-50 text-primary-700 text-xs font-semibold hover:bg-primary-100 transition-colors"
-                            >
-                              Cotisations
-                            </button>
+                            {cy.statut !== CycleStatut.EN_ATTENTE && (
+                              <button
+                                onClick={() => { setSelectedCycleId(cy.id); setActiveTab('cotisations') }}
+                                className="flex-1 py-1.5 rounded-lg bg-primary-50 text-primary-700 text-xs font-semibold hover:bg-primary-100 transition-colors"
+                              >
+                                Cotisations
+                              </button>
+                            )}
                             <button
                               onClick={() => setRecapCycle(cy)}
                               className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg bg-neutral-100 text-neutral-700 text-xs font-semibold hover:bg-neutral-200 transition-colors"

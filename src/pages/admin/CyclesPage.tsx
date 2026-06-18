@@ -14,7 +14,8 @@ import { useTontines } from '@/hooks/useTontines'
 import { useCycles, useOpenCycle, useCloturerCycle } from '@/hooks/useCycles'
 import { Cycle } from '@/types/cycle'
 import { CycleStatut } from '@/types/common'
-import { Plus, RefreshCw, Calendar, User } from 'lucide-react'
+import { Plus, RefreshCw, Calendar, User, List } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 
 const openCycleSchema = z.object({
   tontineId: z.string().min(1, 'Requis'),
@@ -39,6 +40,7 @@ const STATUT_COLORS: Record<CycleStatut, string> = {
 type CycleWithTontine = Cycle & { tontineNom?: string; tontineId?: string }
 
 export function CyclesPage() {
+  const navigate = useNavigate()
   const [isOpenModal, setIsOpenModal] = useState(false)
   const [cycleToClose, setCycleToClose] = useState<{ cycleId: string; tontineId: string } | null>(null)
   const [selectedTontineId, setSelectedTontineId] = useState('')
@@ -193,17 +195,27 @@ export function CyclesPage() {
                 </div>
               )}
 
-              {/* Action */}
-              {cycle.statut === CycleStatut.EN_COURS && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => setCycleToClose({ cycleId: cycle.id, tontineId: cycle.tontineId! })}
-                >
-                  Clôturer ce cycle
-                </Button>
-              )}
+              {/* Actions */}
+              <div className="flex flex-col gap-2">
+                {cycle.statut !== CycleStatut.EN_ATTENTE && (
+                  <button
+                    onClick={() => navigate('/admin/cotisations', { state: { tontineId: cycle.tontineId, cycleId: cycle.id } })}
+                    className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-xs font-semibold text-primary-700 border border-primary-200 bg-primary-50 hover:bg-primary-100 transition-colors"
+                  >
+                    <List size={12} /> Voir les cotisations
+                  </button>
+                )}
+                {cycle.statut === CycleStatut.EN_COURS && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => setCycleToClose({ cycleId: cycle.id, tontineId: cycle.tontineId! })}
+                  >
+                    Clôturer ce cycle
+                  </Button>
+                )}
+              </div>
             </div>
           ))}
         </div>

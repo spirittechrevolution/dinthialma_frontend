@@ -52,7 +52,6 @@ import {
   XCircle,
   UserMinus,
   UserCheck,
-  Lock,
   Clock,
   Star,
   Shuffle,
@@ -564,19 +563,6 @@ export function TontineDetailPage() {
         </div>
       </div>
 
-      {/* ── Bandeau lecture seule ─────────────────────────────────────────── */}
-      {!canManage && !isSuperAdmin && (
-        <div className="flex items-center gap-2 px-4 py-2.5 mb-5 bg-blue-50 border border-blue-100 rounded-xl text-sm text-blue-700">
-          <Lock size={14} />
-          <span>Consultation uniquement — vous n'êtes pas le créateur de cette tontine.</span>
-        </div>
-      )}
-      {isSuperAdmin && (
-        <div className="flex items-center gap-2 px-4 py-2.5 mb-5 bg-neutral-50 border border-neutral-200 rounded-xl text-sm text-neutral-600">
-          <Lock size={14} />
-          <span>Vue Super Admin — consultation en lecture seule.</span>
-        </div>
-      )}
 
       {/* ── Onglets ──────────────────────────────────────────────────────── */}
       <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-hidden">
@@ -918,12 +904,14 @@ export function TontineDetailPage() {
                           </div>
                         )
                       )}
-                      <button
-                        onClick={() => { setCotisationCycleFilter(cycle.id); setActiveTab('cotisations') }}
-                        className="w-full text-xs font-semibold text-primary-700 border border-primary-200 bg-primary-50 rounded-lg py-1.5 hover:bg-primary-100 transition-colors"
-                      >
-                        Voir les cotisations
-                      </button>
+                      {cycle.statut !== CycleStatut.EN_ATTENTE && (
+                        <button
+                          onClick={() => { setCotisationCycleFilter(cycle.id); setActiveTab('cotisations') }}
+                          className="w-full text-xs font-semibold text-primary-700 border border-primary-200 bg-primary-50 rounded-lg py-1.5 hover:bg-primary-100 transition-colors"
+                        >
+                          Voir les cotisations
+                        </button>
+                      )}
                       {canManage && cycle.statut === CycleStatut.EN_COURS && (
                         <button
                           onClick={() => setCycleToClose(cycle.id)}
