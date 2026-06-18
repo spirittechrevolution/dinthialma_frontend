@@ -243,8 +243,61 @@ export function UsersPage() {
           </div>
         </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto pb-16">
+        {/* Cards — mobile */}
+        <div className="md:hidden divide-y divide-neutral-50">
+          {isLoading ? (
+            <div className="flex justify-center py-10"><Spinner /></div>
+          ) : filtered.length === 0 ? (
+            <p className="text-center py-10 text-neutral-400 text-sm">Aucun utilisateur trouvé</p>
+          ) : (
+            filtered.map((user) => {
+              const nom = `${user.firstName} ${user.lastName}`
+              const normalRoles = user.roles.map((r) => r.replace('DINTHIALMA_', ''))
+              const isPreEnrolled = user.accountStatus === 'PRE_ENROLLED'
+              return (
+                <div key={user.id} className={`px-4 py-3 flex items-center justify-between gap-3 ${isPreEnrolled ? 'opacity-80' : ''}`}>
+                  <div className="flex items-center gap-3 min-w-0">
+                    <UserInitials name={nom} />
+                    <div className="min-w-0">
+                      <p className="font-semibold text-sm text-neutral-900 truncate">{nom}</p>
+                      <p className="text-xs text-neutral-400 font-mono truncate">{user.phone}</p>
+                      <div className="flex flex-wrap gap-1 mt-0.5">
+                        {isPreEnrolled ? (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-700">
+                            <Clock size={9} /> En attente
+                          </span>
+                        ) : (
+                          normalRoles.filter((r) => r !== 'USER').map((r) => (
+                            <span key={r} className="px-1.5 py-0.5 bg-primary-50 text-primary-700 text-[10px] font-semibold rounded-full uppercase">
+                              {r === 'SUPER_ADMIN' ? 'S.ADMIN' : r}
+                            </span>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {isPreEnrolled ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-neutral-100 text-neutral-500">Non activé</span>
+                    ) : (
+                      <Badge variant={user.active ? 'success' : 'error'}>
+                        {user.active ? 'Actif' : 'Désact.'}
+                      </Badge>
+                    )}
+                    <ActionsMenu
+                      user={user}
+                      onEdit={() => openRolesModal(user)}
+                      onToggle={() => setUserAction({ type: user.active ? 'disable' : 'enable', userId: user.id, nom })}
+                    />
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+
+        {/* Table — desktop */}
+        <div className="hidden md:block overflow-x-auto pb-16">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-neutral-100">

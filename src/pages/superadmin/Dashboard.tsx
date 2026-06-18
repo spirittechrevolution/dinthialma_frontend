@@ -176,7 +176,37 @@ export function SuperAdminDashboard() {
           <h3 className="font-semibold text-neutral-900">Dernières tontines</h3>
           <p className="text-xs text-neutral-500 mt-0.5">5 plus récentes, tous statuts.</p>
         </div>
-        <div className="overflow-x-auto">
+
+        {/* Cards — mobile */}
+        <div className="md:hidden divide-y divide-neutral-50">
+          {tontinesLoading ? (
+            <div className="flex justify-center py-6"><Spinner /></div>
+          ) : tontines.length === 0 ? (
+            <p className="text-center py-6 text-neutral-400 text-sm">Aucune tontine</p>
+          ) : (
+            tontines.map((t: Tontine) => (
+              <div key={t.id} className="px-5 py-3">
+                <div className="flex items-start justify-between gap-2 mb-0.5">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm text-neutral-900 truncate">{t.nom}</p>
+                    <p className="text-xs text-primary-600 font-medium">{t.creePar.firstName} {t.creePar.lastName}</p>
+                  </div>
+                  <Badge variant={statutVariants[t.statut]}>
+                    {t.statut.charAt(0) + t.statut.slice(1).toLowerCase()}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-3 mt-1 text-xs text-neutral-500">
+                  <span>{t.montant.toLocaleString('fr-FR')} FCFA</span>
+                  <span>{t.nombreMembresActuels}/{t.nombreMembres} membres</span>
+                  <span>{new Date(t.createdAt).toLocaleDateString('fr-FR')}</span>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Table — desktop */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-neutral-100">

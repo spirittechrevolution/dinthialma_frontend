@@ -165,21 +165,36 @@ export function CotisationsPage() {
 
         {/* Filter tontine */}
         {tontines.length > 1 && (
-          <div className="px-5 pt-3 flex items-center gap-1 overflow-x-auto pb-1">
-            {tontines.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setSelectedTontineId(t.id)}
-                className={`px-3 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
-                  activeTontineId === t.id
-                    ? 'bg-neutral-800 text-white'
-                    : 'text-neutral-500 hover:bg-neutral-100 border border-neutral-200'
-                }`}
+          <>
+            {/* Mobile — select */}
+            <div className="sm:hidden px-5 pt-3 pb-1">
+              <select
+                value={selectedTontineId}
+                onChange={(e) => setSelectedTontineId(e.target.value)}
+                className="w-full text-sm text-neutral-700 bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-300"
               >
-                {t.nom}
-              </button>
-            ))}
-          </div>
+                {tontines.map((t) => (
+                  <option key={t.id} value={t.id}>{t.nom}</option>
+                ))}
+              </select>
+            </div>
+            {/* Desktop — buttons */}
+            <div className="hidden sm:flex px-5 pt-3 items-center gap-1 overflow-x-auto pb-1">
+              {tontines.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setSelectedTontineId(t.id)}
+                  className={`px-3 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
+                    activeTontineId === t.id
+                      ? 'bg-neutral-800 text-white'
+                      : 'text-neutral-500 hover:bg-neutral-100 border border-neutral-200'
+                  }`}
+                >
+                  {t.nom}
+                </button>
+              ))}
+            </div>
+          </>
         )}
 
         {/* Cards — mobile */}

@@ -366,12 +366,25 @@ export function TontineDetailPage() {
 
           {/* Onglets */}
           <Card noPadding className="shadow-md rounded-3xl">
-            <div className="border-b border-neutral-200 flex overflow-x-auto bg-white rounded-t-3xl">
+            {/* Mobile — select dropdown */}
+            <div className="sm:hidden px-4 py-3 border-b border-neutral-100 bg-white rounded-t-3xl">
+              <select
+                value={activeTab}
+                onChange={(e) => setActiveTab(e.target.value as Tab)}
+                className="w-full text-sm font-medium text-neutral-700 bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary-400"
+              >
+                {tabs.map((tab) => (
+                  <option key={tab.id} value={tab.id}>{tab.label}</option>
+                ))}
+              </select>
+            </div>
+            {/* Desktop — tab buttons */}
+            <div className="hidden sm:flex overflow-x-auto bg-white rounded-t-3xl border-b border-neutral-200">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`px-3 sm:px-6 py-2.5 sm:py-3 text-sm font-medium whitespace-nowrap transition-colors focus:outline-none ${
+                  className={`px-6 py-3 text-sm font-medium whitespace-nowrap transition-colors focus:outline-none ${
                     activeTab === tab.id
                       ? 'bg-primary-50 border-b-2 border-primary-500 text-primary-600 rounded-t-2xl shadow-sm'
                       : 'text-neutral-600 hover:text-neutral-900'

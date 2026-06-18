@@ -171,7 +171,19 @@ export function MembresPage() {
               className="w-full pl-9 pr-4 py-2 text-sm border border-neutral-200 rounded-xl bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-primary-300"
             />
           </div>
-          <div className="flex items-center gap-1 overflow-x-auto pb-1">
+          {/* Mobile — select */}
+          <select
+            value={selectedTontineId}
+            onChange={(e) => { setSelectedTontineId(e.target.value); setPage(0) }}
+            className="sm:hidden w-full text-sm text-neutral-700 bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-300"
+          >
+            <option value="">Toutes les tontines</option>
+            {tontines.map((t) => (
+              <option key={t.id} value={t.id}>{t.nom}</option>
+            ))}
+          </select>
+          {/* Desktop — buttons */}
+          <div className="hidden sm:flex items-center gap-1 overflow-x-auto pb-1">
             <button
               onClick={() => { setSelectedTontineId(''); setPage(0) }}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${

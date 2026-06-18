@@ -91,8 +91,45 @@ export function AllTontinesPage() {
           </div>
         </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto mt-3">
+        {/* Cards — mobile */}
+        <div className="md:hidden divide-y divide-neutral-50 mt-3">
+          {isLoading ? (
+            <div className="flex justify-center py-10"><Spinner /></div>
+          ) : filtered.length === 0 ? (
+            <p className="text-center py-10 text-neutral-400 text-sm">Aucune tontine trouvée</p>
+          ) : (
+            filtered.map((t: Tontine) => (
+              <div key={t.id} className="px-4 py-3">
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm text-neutral-900 truncate">{t.nom}</p>
+                    <p className="text-xs text-neutral-500">{t.creePar.firstName} {t.creePar.lastName}</p>
+                  </div>
+                  <Badge variant={statutVariants[t.statut]}>
+                    {t.statut.charAt(0) + t.statut.slice(1).toLowerCase()}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between mt-1">
+                  <div className="flex items-center gap-2 text-xs text-neutral-500 flex-wrap">
+                    <span>{FREQ_LABELS[t.frequence] || t.frequence}</span>
+                    <span className="font-semibold text-neutral-800">{t.montant.toLocaleString('fr-FR')} FCFA</span>
+                    <span>{t.nombreMembresActuels}/{t.nombreMembres} membres</span>
+                  </div>
+                  <button
+                    onClick={() => navigate(`/superadmin/tontines/${t.id}`)}
+                    className="w-7 h-7 rounded-lg bg-neutral-100 text-neutral-500 flex items-center justify-center hover:bg-primary-50 hover:text-primary-600 transition-colors flex-shrink-0"
+                    title="Voir le détail"
+                  >
+                    <ExternalLink size={13} />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Table — desktop */}
+        <div className="hidden md:block overflow-x-auto mt-3">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-neutral-100">
