@@ -199,13 +199,17 @@ export function TontineDetailPage() {
   const [randomJackpotCycle, setRandomJackpotCycle] = useState<string | null>(null)
   const [expandedHistoriqueCycle, setExpandedHistoriqueCycle] = useState<string | null>(null)
   const [distributionFinale, setDistributionFinale] = useState<MembreDistributionInfo[] | null>(null)
-  const [cotisationCycleFilter, setCotisationCycleFilter] = useState<string>('')
+  // undefined = auto (EN_COURS), '' = tout afficher, 'id' = cycle explicite
+  const [cotisationCycleFilter, setCotisationCycleFilter] = useState<string | undefined>(undefined)
 
   // ─── Data ─────────────────────────────────────────────────────────────────
   const { data: tontine, isLoading } = useTontine(id || '')
   const { data: membresData } = useMembres(id || '', 0, 50)
   const { data: cyclesData } = useCycles(id || '', 0, 50)
-  const { data: cotisationsData } = useCotisations(id || '', undefined, 0, 50)
+  const cycleEnCoursId = (cyclesData?.content || []).find((c: Cycle) => c.statut === CycleStatut.EN_COURS)?.id
+  // undefined = auto → EN_COURS, '' = tout, 'id' = cycle choisi
+  const effectiveCycleFilter = cotisationCycleFilter === undefined ? cycleEnCoursId : (cotisationCycleFilter || undefined)
+  const { data: cotisationsData } = useCotisations(id || '', effectiveCycleFilter, 0, 50)
   const { data: commissionsData } = useCommissions(id || '', 0, 20)
   const { data: historiqueBeneficiaires, isLoading: isLoadingHistorique } = useBeneficiairesHistorique(id || '', 0, 50)
 
@@ -249,7 +253,6 @@ export function TontineDetailPage() {
   const normalizePhone = (p: string) => p.replace(/^\+?221/, '')
   const myPhone = normalizePhone(user?.phone || '')
   const cotisationsToShow = cotisations
-    .filter((c: Cotisation) => !cotisationCycleFilter || c.cycleId === cotisationCycleFilter)
     .filter((c: Cotisation) => (canManage || isSuperAdmin) ? true : normalizePhone(c.membre.phone) === myPhone)
 
   const cotValidees = cotisationsToShow.filter((c) => c.statut === CotisationStatut.VALIDE).length
@@ -915,6 +918,12 @@ export function TontineDetailPage() {
                           </div>
                         )
                       )}
+                      <button
+                        onClick={() => { setCotisationCycleFilter(cycle.id); setActiveTab('cotisations') }}
+                        className="w-full text-xs font-semibold text-primary-700 border border-primary-200 bg-primary-50 rounded-lg py-1.5 hover:bg-primary-100 transition-colors"
+                      >
+                        Voir les cotisations
+                      </button>
                       {canManage && cycle.statut === CycleStatut.EN_COURS && (
                         <button
                           onClick={() => setCycleToClose(cycle.id)}
@@ -933,25 +942,21 @@ export function TontineDetailPage() {
           {/* ── Cotisations ──────────────────────────────────────────────── */}
           {activeTab === 'cotisations' && (
             <div>
-              {/* Filtre par cycle */}
-              {cycles.length > 0 && (
-                <div className="flex items-center gap-2 mb-4 flex-wrap">
-                  <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">Période</span>
+              {/* Indicateur cycle affiché */}
+              {effectiveCycleFilter && (
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
+                    {(() => {
+                      const cy = cycles.find((c: Cycle) => c.id === effectiveCycleFilter)
+                      return cy ? `${isEvenementielle ? 'Période' : 'Cycle'} #${cy.numeroCycle}` : 'Cycle'
+                    })()} — cotisations
+                  </span>
                   <button
                     onClick={() => setCotisationCycleFilter('')}
-                    className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${!cotisationCycleFilter ? 'bg-primary-600 text-white' : 'text-neutral-600 hover:bg-neutral-100'}`}
+                    className="text-xs text-neutral-400 hover:text-neutral-600 underline"
                   >
-                    Toutes
+                    Voir tout
                   </button>
-                  {cycles.map((cy: Cycle) => (
-                    <button
-                      key={cy.id}
-                      onClick={() => setCotisationCycleFilter(cy.id)}
-                      className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${cotisationCycleFilter === cy.id ? 'bg-primary-600 text-white' : 'text-neutral-600 hover:bg-neutral-100'}`}
-                    >
-                      {isEvenementielle ? `Période ${cy.numeroCycle}` : `Cycle ${cy.numeroCycle}`}
-                    </button>
-                  ))}
                 </div>
               )}
 

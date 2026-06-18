@@ -51,7 +51,7 @@ export function TontineDetailPage() {
   const { id } = useParams<{ id: string }>()
   const [activeTab, setActiveTab] = useState<Tab>('infos')
   const [confirm, setConfirm] = useState<{ action: string; label: string; danger?: boolean } | null>(null)
-  const [cotisationCycleFilter, setCotisationCycleFilter] = useState<string | undefined>(undefined)
+  const [selectedCycleId, setSelectedCycleId] = useState<string | undefined>(undefined)
   const [paiementModal, setPaiementModal] = useState<PaiementModalState>({
     isOpen: false,
     membreId: '',
@@ -79,8 +79,10 @@ export function TontineDetailPage() {
   const { data: cyclesData, isLoading: cyclesLoading } = useCycles(id || '', 0, 50)
   const { mutate: cloturerCycle } = useCloturerCycle()
 
-  // Cotisations
-  const { data: cotisationsData, isLoading: cotisationsLoading } = useCotisations(id || '', cotisationCycleFilter, 0, 50)
+  // Cotisations — filtre sur le cycle choisi ou le cycle EN_COURS par défaut
+  const cycleEnCours = (cyclesData?.content || []).find((c) => c.statut === CycleStatut.EN_COURS)
+  const effectiveCycleFilter = selectedCycleId !== undefined ? selectedCycleId : cycleEnCours?.id
+  const { data: cotisationsData, isLoading: cotisationsLoading } = useCotisations(id || '', effectiveCycleFilter, 0, 50)
   const { mutate: validerCotisation } = useValiderCotisation()
 
   // Commissions
@@ -92,7 +94,6 @@ export function TontineDetailPage() {
 
   // ─── Cycle en cours + membres pre-enrolled sans cotisation ────────────────
   const cycles = cyclesData?.content || []
-  const cycleEnCours = cycles.find((c) => c.statut === CycleStatut.EN_COURS)
   const membres = membresData?.content || []
   const cotisations = cotisationsData?.content || []
 
@@ -210,6 +211,14 @@ export function TontineDetailPage() {
       header: 'Actions',
       render: (row) => (
         <div className="flex gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            title="Voir les cotisations de ce cycle"
+            onClick={() => { setSelectedCycleId(row.id); setActiveTab('cotisations') }}
+          >
+            Cotisations
+          </Button>
           <Button
             variant="secondary"
             size="sm"
@@ -509,6 +518,12 @@ export function TontineDetailPage() {
                           )}
                           <div className="flex gap-2 pt-1">
                             <button
+                              onClick={() => { setSelectedCycleId(cy.id); setActiveTab('cotisations') }}
+                              className="flex-1 py-1.5 rounded-lg bg-primary-50 text-primary-700 text-xs font-semibold hover:bg-primary-100 transition-colors"
+                            >
+                              Cotisations
+                            </button>
+                            <button
                               onClick={() => setRecapCycle(cy)}
                               className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg bg-neutral-100 text-neutral-700 text-xs font-semibold hover:bg-neutral-200 transition-colors"
                             >
@@ -534,25 +549,20 @@ export function TontineDetailPage() {
               )}
               {activeTab === 'cotisations' && (
                 <div>
-                  {/* Filtre par cycle */}
-                  {cycles.length > 0 && (
-                    <div className="flex items-center gap-2 mb-4 flex-wrap">
-                      <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">Cycle</span>
+                  {/* Indicateur cycle affiché */}
+                  {effectiveCycleFilter && (
+                    <div className="flex items-center gap-2 mb-4">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
+                        {cycles.find((c) => c.id === effectiveCycleFilter)
+                          ? `Cycle #${cycles.find((c) => c.id === effectiveCycleFilter)!.numeroCycle}`
+                          : 'Cycle'} — cotisations
+                      </span>
                       <button
-                        onClick={() => setCotisationCycleFilter(undefined)}
-                        className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${!cotisationCycleFilter ? 'bg-primary-600 text-white' : 'text-neutral-600 hover:bg-neutral-100'}`}
+                        onClick={() => setSelectedCycleId(undefined)}
+                        className="text-xs text-neutral-400 hover:text-neutral-600 underline"
                       >
-                        Tous
+                        Voir tout
                       </button>
-                      {cycles.map((cy: Cycle) => (
-                        <button
-                          key={cy.id}
-                          onClick={() => setCotisationCycleFilter(cy.id)}
-                          className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${cotisationCycleFilter === cy.id ? 'bg-primary-600 text-white' : 'text-neutral-600 hover:bg-neutral-100'}`}
-                        >
-                          Cycle {cy.numeroCycle}
-                        </button>
-                      ))}
                     </div>
                   )}
 
