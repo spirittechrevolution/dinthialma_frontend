@@ -569,7 +569,20 @@ export function TontineDetailPage() {
 
       {/* ── Onglets ──────────────────────────────────────────────────────── */}
       <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-hidden">
-        <div className="flex border-b border-neutral-100 overflow-x-auto">
+        {/* Mobile — select dropdown */}
+        <div className="sm:hidden px-4 py-3 border-b border-neutral-100">
+          <select
+            value={activeTab}
+            onChange={(e) => setActiveTab(e.target.value as Tab)}
+            className="w-full text-sm font-medium text-neutral-700 bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary-400"
+          >
+            {tabs.filter((t) => t.show).map((tab) => (
+              <option key={tab.id} value={tab.id}>{tab.label}</option>
+            ))}
+          </select>
+        </div>
+        {/* Desktop — tab buttons */}
+        <div className="hidden sm:flex border-b border-neutral-100 overflow-x-auto">
           {tabs.filter((t) => t.show).map((tab) => (
             <button
               key={tab.id}
@@ -664,7 +677,8 @@ export function TontineDetailPage() {
                   </Button>
                 </div>
               )}
-              <div className="overflow-x-auto">
+              {/* Desktop */}
+              <div className="hidden sm:block overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-neutral-100">
@@ -694,70 +708,32 @@ export function TontineDetailPage() {
                                   <div className="flex items-center gap-2">
                                     <p className="font-semibold text-neutral-900">{nom}</p>
                                     {m.aRecuJackpot && (
-                                      <span
-                                        title={m.dateJackpot ? `Jackpot reçu le ${new Date(m.dateJackpot).toLocaleDateString('fr-FR')}` : 'Jackpot reçu'}
-                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 cursor-help"
-                                      >
+                                      <span title={m.dateJackpot ? `Jackpot reçu le ${new Date(m.dateJackpot).toLocaleDateString('fr-FR')}` : 'Jackpot reçu'}
+                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 cursor-help">
                                         <Star size={9} /> Jackpot
                                       </span>
                                     )}
                                   </div>
-                                  <p className="text-xs text-neutral-400">
-                                    Adhésion : {m.dateAdhesion ? new Date(m.dateAdhesion).toLocaleDateString('fr-FR') : '—'}
-                                  </p>
+                                  <p className="text-xs text-neutral-400">Adhésion : {m.dateAdhesion ? new Date(m.dateAdhesion).toLocaleDateString('fr-FR') : '—'}</p>
                                 </div>
                               </div>
                             </td>
-                            <td className="px-4 py-3 text-neutral-600 text-xs font-mono">
-                              {m.user.phone}
-                            </td>
-                            <td className="px-4 py-3">
-                              <Badge variant={MEMBRE_BADGE[m.statut]}>
-                                {m.statut === 'ACTIF' ? 'Actif' : m.statut === 'SUSPENDU' ? 'Suspendu' : 'Sorti'}
-                              </Badge>
-                            </td>
+                            <td className="px-4 py-3 text-neutral-600 text-xs font-mono">{m.user.phone}</td>
+                            <td className="px-4 py-3"><Badge variant={MEMBRE_BADGE[m.statut]}>{m.statut === 'ACTIF' ? 'Actif' : m.statut === 'SUSPENDU' ? 'Suspendu' : 'Sorti'}</Badge></td>
                             <td className="px-4 py-3">
                               {isPreEnrolled ? (
-                                <span
-                                  title="Ce membre n'a pas encore activé son compte sur Dinthialma"
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 cursor-help"
-                                >
+                                <span title="Ce membre n'a pas encore activé son compte sur Dinthialma"
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 cursor-help">
                                   <Clock size={10} /> Non inscrit
                                 </span>
-                              ) : (
-                                <span className="text-neutral-300 text-xs">—</span>
-                              )}
+                              ) : <span className="text-neutral-300 text-xs">—</span>}
                             </td>
                             {canManage && (
                               <td className="px-4 py-3">
                                 <div className="flex gap-1.5">
-                                  {m.statut === MembreStatut.ACTIF && (
-                                    <button
-                                      onClick={() => setMembreAction({ type: 'suspendre', id: m.id, nom })}
-                                      className="w-7 h-7 rounded-lg bg-orange-50 text-orange-500 flex items-center justify-center hover:bg-orange-100 transition-colors"
-                                      title="Suspendre"
-                                    >
-                                      <UserMinus size={13} />
-                                    </button>
-                                  )}
-                                  {m.statut === MembreStatut.SUSPENDU && (
-                                    <button
-                                      onClick={() => setMembreAction({ type: 'activer', id: m.id, nom })}
-                                      className="w-7 h-7 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center hover:bg-primary-100 transition-colors"
-                                      title="Réactiver"
-                                    >
-                                      <UserCheck size={13} />
-                                    </button>
-                                  )}
-                                  {m.statut !== MembreStatut.SORTI && (
-                                    <button
-                                      onClick={() => setMembreAction({ type: 'retirer', id: m.id, nom })}
-                                      className="w-7 h-7 rounded-lg bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors"
-                                      title="Retirer"
-                                    >
-                                      <Trash2 size={13} />
-                                    </button>
-                                  )}
+                                  {m.statut === MembreStatut.ACTIF && <button onClick={() => setMembreAction({ type: 'suspendre', id: m.id, nom })} className="w-7 h-7 rounded-lg bg-orange-50 text-orange-500 flex items-center justify-center hover:bg-orange-100 transition-colors" title="Suspendre"><UserMinus size={13} /></button>}
+                                  {m.statut === MembreStatut.SUSPENDU && <button onClick={() => setMembreAction({ type: 'activer', id: m.id, nom })} className="w-7 h-7 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center hover:bg-primary-100 transition-colors" title="Réactiver"><UserCheck size={13} /></button>}
+                                  {m.statut !== MembreStatut.SORTI && <button onClick={() => setMembreAction({ type: 'retirer', id: m.id, nom })} className="w-7 h-7 rounded-lg bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors" title="Retirer"><Trash2 size={13} /></button>}
                                 </div>
                               </td>
                             )}
@@ -767,6 +743,40 @@ export function TontineDetailPage() {
                     )}
                   </tbody>
                 </table>
+              </div>
+              {/* Mobile — cards */}
+              <div className="sm:hidden space-y-2 pt-1">
+                {membres.length === 0 ? (
+                  <p className="text-center py-8 text-neutral-400 text-sm">Aucun membre</p>
+                ) : membres.map((m: Membre) => {
+                  const nom = `${m.user.firstName} ${m.user.lastName}`
+                  const isPreEnrolled = m.user.accountStatus === AccountStatus.PRE_ENROLLED
+                  const statutColor: Record<MembreStatut, string> = { ACTIF: 'bg-primary-100 text-primary-700', SUSPENDU: 'bg-orange-100 text-orange-700', SORTI: 'bg-red-100 text-red-700' }
+                  return (
+                    <div key={m.id} className="flex items-center gap-3 px-3 py-3 rounded-xl border border-neutral-100 bg-neutral-50">
+                      <MiniAvatar name={nom} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] font-bold text-neutral-400">#{m.ordreJackpot}</span>
+                          <p className="text-sm font-semibold text-neutral-900 truncate">{nom}</p>
+                          {m.aRecuJackpot && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700"><Star size={8} /> Jackpot</span>}
+                        </div>
+                        <p className="text-xs text-neutral-400 font-mono mb-1">{m.user.phone}</p>
+                        <div className="flex flex-wrap gap-1">
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${statutColor[m.statut]}`}>{m.statut === 'ACTIF' ? 'Actif' : m.statut === 'SUSPENDU' ? 'Suspendu' : 'Sorti'}</span>
+                          {isPreEnrolled && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-700"><Clock size={8} /> Non inscrit</span>}
+                        </div>
+                      </div>
+                      {canManage && (
+                        <div className="flex flex-col gap-1 shrink-0">
+                          {m.statut === MembreStatut.ACTIF && <button onClick={() => setMembreAction({ type: 'suspendre', id: m.id, nom })} className="w-8 h-8 rounded-lg bg-orange-50 text-orange-500 flex items-center justify-center hover:bg-orange-100 transition-colors"><UserMinus size={14} /></button>}
+                          {m.statut === MembreStatut.SUSPENDU && <button onClick={() => setMembreAction({ type: 'activer', id: m.id, nom })} className="w-8 h-8 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center hover:bg-primary-100 transition-colors"><UserCheck size={14} /></button>}
+                          {m.statut !== MembreStatut.SORTI && <button onClick={() => setMembreAction({ type: 'retirer', id: m.id, nom })} className="w-8 h-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors"><Trash2 size={14} /></button>}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )}
@@ -970,62 +980,75 @@ export function TontineDetailPage() {
                 </div>
               )}
 
-              <div className="overflow-x-auto">
+              {/* Desktop */}
+              <div className="hidden sm:block overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-neutral-100">
                       {['Membre', 'Montant', 'Méthode', 'Référence', 'Date', 'Statut', 'Saisie par', canManage ? '' : undefined]
                         .filter(Boolean)
                         .map((h) => (
-                          <th key={String(h)} className="px-4 py-3 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                            {h}
-                          </th>
+                          <th key={String(h)} className="px-4 py-3 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">{h}</th>
                         ))}
                     </tr>
                   </thead>
                   <tbody>
                     {cotisations.length === 0 ? (
                       <tr><td colSpan={canManage ? 8 : 7} className="text-center py-8 text-neutral-400">Aucune cotisation</td></tr>
-                    ) : (
-                      cotisations.map((c: Cotisation) => (
-                        <tr key={c.id} className="border-b border-neutral-50 hover:bg-neutral-50">
-                          <td className="px-4 py-3 font-semibold text-neutral-900">{c.membre.firstName} {c.membre.lastName}</td>
-                          <td className="px-4 py-3 font-semibold">{c.montant.toLocaleString('fr-FR')} FCFA</td>
-                          <td className="px-4 py-3 text-neutral-600">{METHODE_LABELS[c.methodePaiement] || c.methodePaiement || '—'}</td>
-                          <td className="px-4 py-3 text-neutral-500 text-xs font-mono">{c.referenceTransaction || '—'}</td>
-                          <td className="px-4 py-3 text-neutral-500 text-xs">{new Date(c.createdAt).toLocaleDateString('fr-FR')}</td>
+                    ) : cotisations.map((c: Cotisation) => (
+                      <tr key={c.id} className="border-b border-neutral-50 hover:bg-neutral-50">
+                        <td className="px-4 py-3 font-semibold text-neutral-900">{c.membre.firstName} {c.membre.lastName}</td>
+                        <td className="px-4 py-3 font-semibold">{c.montant.toLocaleString('fr-FR')} FCFA</td>
+                        <td className="px-4 py-3 text-neutral-600">{METHODE_LABELS[c.methodePaiement] || c.methodePaiement || '—'}</td>
+                        <td className="px-4 py-3 text-neutral-500 text-xs font-mono">{c.referenceTransaction || '—'}</td>
+                        <td className="px-4 py-3 text-neutral-500 text-xs">{new Date(c.createdAt).toLocaleDateString('fr-FR')}</td>
+                        <td className="px-4 py-3"><Badge variant={COT_BADGE[c.statut]}>{COT_LABEL[c.statut]}</Badge></td>
+                        <td className="px-4 py-3"><SaisieParBadge cotisation={c} /></td>
+                        {canManage && (
                           <td className="px-4 py-3">
-                            <Badge variant={COT_BADGE[c.statut]}>{COT_LABEL[c.statut]}</Badge>
+                            {c.statut === CotisationStatut.EN_ATTENTE && (
+                              <div className="flex gap-1.5">
+                                <button onClick={() => setCotisationToValidate(c.id)} className="w-7 h-7 rounded-full bg-primary-50 text-primary-600 flex items-center justify-center hover:bg-primary-100 transition-colors" title="Valider"><CheckCircle size={13} /></button>
+                                <button className="w-7 h-7 rounded-full bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors" title="Refuser"><XCircle size={13} /></button>
+                              </div>
+                            )}
                           </td>
-                          <td className="px-4 py-3">
-                            <SaisieParBadge cotisation={c} />
-                          </td>
-                          {canManage && (
-                            <td className="px-4 py-3">
-                              {c.statut === CotisationStatut.EN_ATTENTE && (
-                                <div className="flex gap-1.5">
-                                  <button
-                                    onClick={() => setCotisationToValidate(c.id)}
-                                    className="w-7 h-7 rounded-full bg-primary-50 text-primary-600 flex items-center justify-center hover:bg-primary-100 transition-colors"
-                                    title="Valider"
-                                  >
-                                    <CheckCircle size={13} />
-                                  </button>
-                                  <button
-                                    className="w-7 h-7 rounded-full bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors"
-                                    title="Refuser"
-                                  >
-                                    <XCircle size={13} />
-                                  </button>
-                                </div>
-                              )}
-                            </td>
-                          )}
-                        </tr>
-                      ))
-                    )}
+                        )}
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
+              </div>
+              {/* Mobile — cards */}
+              <div className="sm:hidden space-y-2 pt-1">
+                {cotisations.length === 0 ? (
+                  <p className="text-center py-8 text-neutral-400 text-sm">Aucune cotisation</p>
+                ) : cotisations.map((c: Cotisation) => (
+                  <div key={c.id} className="px-3 py-3 rounded-xl border border-neutral-100 bg-neutral-50">
+                    <div className="flex items-start justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <MiniAvatar name={`${c.membre.firstName} ${c.membre.lastName}`} />
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-neutral-900 truncate">{c.membre.firstName} {c.membre.lastName}</p>
+                          <p className="text-xs text-neutral-400">{METHODE_LABELS[c.methodePaiement] || c.methodePaiement} · {new Date(c.createdAt).toLocaleDateString('fr-FR')}</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <p className="text-sm font-bold text-neutral-800">{c.montant.toLocaleString('fr-FR')} FCFA</p>
+                        <Badge variant={COT_BADGE[c.statut]}>{COT_LABEL[c.statut]}</Badge>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between pt-1.5 border-t border-neutral-100">
+                      <SaisieParBadge cotisation={c} />
+                      {canManage && c.statut === CotisationStatut.EN_ATTENTE && (
+                        <div className="flex gap-1.5">
+                          <button onClick={() => setCotisationToValidate(c.id)} className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary-50 text-primary-600 text-xs font-semibold hover:bg-primary-100 transition-colors"><CheckCircle size={12} /> Valider</button>
+                          <button className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-50 text-red-500 text-xs font-semibold hover:bg-red-100 transition-colors"><XCircle size={12} /> Refuser</button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
