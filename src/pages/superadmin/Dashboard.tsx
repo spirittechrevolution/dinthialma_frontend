@@ -86,27 +86,27 @@ export function SuperAdminDashboard() {
         <StatCard
           label="Utilisateurs"
           value={u?.total ?? 0}
-          sub={u?.nouveauxCeMois ? `+${u.nouveauxCeMois} ce mois` : undefined}
+          sub={u?.nouveauxCeMois ? `+${u.nouveauxCeMois} ce mois · ${u.actifs ?? 0} actifs` : u?.actifs != null ? `${u.actifs} actifs` : undefined}
           subGreen
           icon={<Users size={20} />}
         />
         <StatCard
           label="Tontines actives"
           value={<span className="text-primary-600">{t?.actives ?? 0}</span>}
-          sub={totalTontines ? `${totalTontines} au total` : undefined}
+          sub={totalTontines ? `${totalTontines} au total · ${t?.terminees ?? 0} terminées` : undefined}
           icon={<BookCopy size={20} />}
         />
         <StatCard
-          label="Cotisations / mois"
-          value={`${((f?.montantValideСeMois ?? 0) / 1000).toLocaleString('fr-FR', { maximumFractionDigits: 0 })} FCFA`}
-          sub={f?.variationMoisPrecedent ? `+${f.variationMoisPrecedent}% vs mois dernier` : undefined}
+          label="Validé ce mois"
+          value={`${(f?.montantValideСeMois ?? 0).toLocaleString('fr-FR')} FCFA`}
+          sub={f?.variationMoisPrecedent != null ? `+${f.variationMoisPrecedent}% vs mois dernier` : undefined}
           subGreen
           icon={<TrendingUp size={20} />}
         />
         <StatCard
           label="En retard"
           value={f?.cotisationsEnRetard ?? 0}
-          sub={f?.cotisationsEnAttente ? `${f.cotisationsEnAttente} en attente` : undefined}
+          sub={f?.cotisationsEnAttente != null ? `${f.cotisationsEnAttente} en attente` : undefined}
           icon={<AlertTriangle size={20} />}
         />
       </div>

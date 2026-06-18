@@ -48,16 +48,18 @@ export function MesCotisationsPage() {
   const [isOpen, setIsOpen]       = useState(false)
   const [selectedTontineId, setSelectedTontineId] = useState('')
   const [selectedMethode, setSelectedMethode]     = useState('')
+  const [cycleFilterId, setCycleFilterId]         = useState<string | undefined>(undefined)
 
   const { user, isAdmin, isSuperAdmin } = useAuth()
   const { data: tontinesData } = useTontines(0, 50)
   const tontines    = (tontinesData?.content || []).filter((t) => t.statut === TontineStatut.ACTIVE)
   const firstTontineId = tontines[0]?.id || ''
 
-  const { data: cotisationsData, isLoading } = useCotisations(firstTontineId, undefined, page, 20)
+  const { data: cotisationsData, isLoading } = useCotisations(firstTontineId, cycleFilterId, page, 20)
   // Requête dédiée aux stats : charge toutes les cotisations sans pagination
-  const { data: allCotisationsData } = useCotisations(firstTontineId, undefined, 0, 200)
-  const { data: cyclesData }   = useCycles(selectedTontineId, 0, 50)
+  const { data: allCotisationsData } = useCotisations(firstTontineId, cycleFilterId, 0, 200)
+  const { data: cyclesData }         = useCycles(selectedTontineId, 0, 50)
+  const { data: filterCyclesData }   = useCycles(firstTontineId, 0, 50)
   const { mutate: recordCotisation, isPending } = useRecordCotisation()
 
   // Pour un ADMIN/SUPER_ADMIN, l'API retourne toutes les cotisations → on filtre par phone normalisé.
@@ -134,9 +136,28 @@ export function MesCotisationsPage() {
 
       {/* Historique — style timeline */}
       <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-hidden">
-        <div className="px-4 py-3 border-b border-neutral-50 flex items-center justify-between">
-          <p className="text-sm font-semibold text-neutral-900">Historique</p>
-          <button className="text-xs text-neutral-400 hover:text-neutral-600">Filtrer</button>
+        <div className="px-4 py-3 border-b border-neutral-50">
+          <p className="text-sm font-semibold text-neutral-900 mb-2">Historique</p>
+          {/* Filtre par cycle */}
+          {(filterCyclesData?.content || []).length > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <button
+                onClick={() => { setCycleFilterId(undefined); setPage(0) }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${!cycleFilterId ? 'bg-primary-600 text-white' : 'text-neutral-500 hover:bg-neutral-100'}`}
+              >
+                Tous
+              </button>
+              {(filterCyclesData?.content || []).map((cy) => (
+                <button
+                  key={cy.id}
+                  onClick={() => { setCycleFilterId(cy.id); setPage(0) }}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${cycleFilterId === cy.id ? 'bg-primary-600 text-white' : 'text-neutral-500 hover:bg-neutral-100'}`}
+                >
+                  Cycle {cy.numeroCycle}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {isLoading ? (

@@ -51,6 +51,7 @@ export function TontineDetailPage() {
   const { id } = useParams<{ id: string }>()
   const [activeTab, setActiveTab] = useState<Tab>('infos')
   const [confirm, setConfirm] = useState<{ action: string; label: string; danger?: boolean } | null>(null)
+  const [cotisationCycleFilter, setCotisationCycleFilter] = useState<string | undefined>(undefined)
   const [paiementModal, setPaiementModal] = useState<PaiementModalState>({
     isOpen: false,
     membreId: '',
@@ -79,7 +80,7 @@ export function TontineDetailPage() {
   const { mutate: cloturerCycle } = useCloturerCycle()
 
   // Cotisations
-  const { data: cotisationsData, isLoading: cotisationsLoading } = useCotisations(id || '', undefined, 0, 20)
+  const { data: cotisationsData, isLoading: cotisationsLoading } = useCotisations(id || '', cotisationCycleFilter, 0, 50)
   const { mutate: validerCotisation } = useValiderCotisation()
 
   // Commissions
@@ -533,6 +534,28 @@ export function TontineDetailPage() {
               )}
               {activeTab === 'cotisations' && (
                 <div>
+                  {/* Filtre par cycle */}
+                  {cycles.length > 0 && (
+                    <div className="flex items-center gap-2 mb-4 flex-wrap">
+                      <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">Cycle</span>
+                      <button
+                        onClick={() => setCotisationCycleFilter(undefined)}
+                        className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${!cotisationCycleFilter ? 'bg-primary-600 text-white' : 'text-neutral-600 hover:bg-neutral-100'}`}
+                      >
+                        Tous
+                      </button>
+                      {cycles.map((cy: Cycle) => (
+                        <button
+                          key={cy.id}
+                          onClick={() => setCotisationCycleFilter(cy.id)}
+                          className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${cotisationCycleFilter === cy.id ? 'bg-primary-600 text-white' : 'text-neutral-600 hover:bg-neutral-100'}`}
+                        >
+                          Cycle {cy.numeroCycle}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
                   {/* ── Section Action requise : membres pre-enrolled sans cotisation ── */}
                   {membresPreEnrolledSansCotisation.length > 0 && (
                     <div className="mb-6 rounded-2xl border-l-4 border-orange-400 bg-orange-50 overflow-hidden">

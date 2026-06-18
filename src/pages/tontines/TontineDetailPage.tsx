@@ -199,6 +199,7 @@ export function TontineDetailPage() {
   const [randomJackpotCycle, setRandomJackpotCycle] = useState<string | null>(null)
   const [expandedHistoriqueCycle, setExpandedHistoriqueCycle] = useState<string | null>(null)
   const [distributionFinale, setDistributionFinale] = useState<MembreDistributionInfo[] | null>(null)
+  const [cotisationCycleFilter, setCotisationCycleFilter] = useState<string>('')
 
   // ─── Data ─────────────────────────────────────────────────────────────────
   const { data: tontine, isLoading } = useTontine(id || '')
@@ -244,9 +245,16 @@ export function TontineDetailPage() {
     ? Math.round((tontine.nombreMembresActuels / tontine.nombreMembres) * 100)
     : 0
 
-  const cotValidees = cotisations.filter((c) => c.statut === CotisationStatut.VALIDE).length
-  const cotEnAttente = cotisations.filter((c) => c.statut === CotisationStatut.EN_ATTENTE).length
-  const cotEnRetard = cotisations.filter((c) => c.statut === CotisationStatut.EN_RETARD).length
+  // Visibilité: membre voit seulement ses cotisations; admin/superadmin voient tout
+  const normalizePhone = (p: string) => p.replace(/^\+?221/, '')
+  const myPhone = normalizePhone(user?.phone || '')
+  const cotisationsToShow = cotisations
+    .filter((c: Cotisation) => !cotisationCycleFilter || c.cycleId === cotisationCycleFilter)
+    .filter((c: Cotisation) => (canManage || isSuperAdmin) ? true : normalizePhone(c.membre.phone) === myPhone)
+
+  const cotValidees = cotisationsToShow.filter((c) => c.statut === CotisationStatut.VALIDE).length
+  const cotEnAttente = cotisationsToShow.filter((c) => c.statut === CotisationStatut.EN_ATTENTE).length
+  const cotEnRetard = cotisationsToShow.filter((c) => c.statut === CotisationStatut.EN_RETARD).length
 
   const currentCycle = cycles.find((c: Cycle) => c.statut === CycleStatut.EN_COURS)
   const cotisationsCurrentCycle = cotisations.filter((c: Cotisation) => currentCycle && c.cycleId === currentCycle.id)
@@ -925,6 +933,28 @@ export function TontineDetailPage() {
           {/* ── Cotisations ──────────────────────────────────────────────── */}
           {activeTab === 'cotisations' && (
             <div>
+              {/* Filtre par cycle */}
+              {cycles.length > 0 && (
+                <div className="flex items-center gap-2 mb-4 flex-wrap">
+                  <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">Période</span>
+                  <button
+                    onClick={() => setCotisationCycleFilter('')}
+                    className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${!cotisationCycleFilter ? 'bg-primary-600 text-white' : 'text-neutral-600 hover:bg-neutral-100'}`}
+                  >
+                    Toutes
+                  </button>
+                  {cycles.map((cy: Cycle) => (
+                    <button
+                      key={cy.id}
+                      onClick={() => setCotisationCycleFilter(cy.id)}
+                      className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${cotisationCycleFilter === cy.id ? 'bg-primary-600 text-white' : 'text-neutral-600 hover:bg-neutral-100'}`}
+                    >
+                      {isEvenementielle ? `Période ${cy.numeroCycle}` : `Cycle ${cy.numeroCycle}`}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {/* Mini stats */}
               <div className="grid grid-cols-3 gap-3 mb-4">
                 <div className="bg-primary-50 rounded-xl p-3 text-center">
@@ -993,9 +1023,9 @@ export function TontineDetailPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {cotisations.length === 0 ? (
+                    {cotisationsToShow.length === 0 ? (
                       <tr><td colSpan={canManage ? 8 : 7} className="text-center py-8 text-neutral-400">Aucune cotisation</td></tr>
-                    ) : cotisations.map((c: Cotisation) => (
+                    ) : cotisationsToShow.map((c: Cotisation) => (
                       <tr key={c.id} className="border-b border-neutral-50 hover:bg-neutral-50">
                         <td className="px-4 py-3 font-semibold text-neutral-900">{c.membre.firstName} {c.membre.lastName}</td>
                         <td className="px-4 py-3 font-semibold">{c.montant.toLocaleString('fr-FR')} FCFA</td>
@@ -1021,9 +1051,9 @@ export function TontineDetailPage() {
               </div>
               {/* Mobile — cards */}
               <div className="sm:hidden space-y-2 pt-1">
-                {cotisations.length === 0 ? (
+                {cotisationsToShow.length === 0 ? (
                   <p className="text-center py-8 text-neutral-400 text-sm">Aucune cotisation</p>
-                ) : cotisations.map((c: Cotisation) => (
+                ) : cotisationsToShow.map((c: Cotisation) => (
                   <div key={c.id} className="px-3 py-3 rounded-xl border border-neutral-100 bg-neutral-50">
                     <div className="flex items-start justify-between gap-2 mb-1.5">
                       <div className="flex items-center gap-2 min-w-0">

@@ -55,6 +55,7 @@ export function CotisationsPage() {
   const [search, setSearch] = useState('')
   const [statutTab, setStatutTab] = useState('')
   const [selectedTontineId, setSelectedTontineId] = useState('')
+  const [selectedCycleId, setSelectedCycleId] = useState<string | undefined>(undefined)
   const [cotisationToValidate, setCotisationToValidate] = useState<string | null>(null)
   const [editCotisationState, setEditCotisationState] = useState<EditCotisationState>({
     isOpen: false,
@@ -67,7 +68,7 @@ export function CotisationsPage() {
   const tontines = tontinesData?.content || []
   const activeTontineId = selectedTontineId || tontines[0]?.id || ''
 
-  const { data: cotisationsData, isLoading } = useCotisations(activeTontineId, undefined, page, 50)
+  const { data: cotisationsData, isLoading } = useCotisations(activeTontineId, selectedCycleId, page, 50)
   const { data: cyclesData } = useCycles(activeTontineId, 0, 50)
   const cycles = cyclesData?.content || []
   const { data: dashboard } = useMyDashboard()
@@ -195,6 +196,28 @@ export function CotisationsPage() {
               ))}
             </div>
           </>
+        )}
+
+        {/* Filtre par cycle */}
+        {cycles.length > 0 && (
+          <div className="px-5 pt-3 pb-1 flex items-center gap-2 flex-wrap border-t border-neutral-50">
+            <span className="text-xs font-semibold text-neutral-400 uppercase tracking-wide">Cycle</span>
+            <button
+              onClick={() => { setSelectedCycleId(undefined); setPage(0) }}
+              className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${!selectedCycleId ? 'bg-primary-600 text-white' : 'text-neutral-600 hover:bg-neutral-100'}`}
+            >
+              Tous
+            </button>
+            {cycles.map((cy) => (
+              <button
+                key={cy.id}
+                onClick={() => { setSelectedCycleId(cy.id); setPage(0) }}
+                className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${selectedCycleId === cy.id ? 'bg-primary-600 text-white' : 'text-neutral-600 hover:bg-neutral-100'}`}
+              >
+                Cycle {cy.numeroCycle}
+              </button>
+            ))}
+          </div>
         )}
 
         {/* Cards — mobile */}
