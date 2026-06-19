@@ -9,6 +9,7 @@ import { useTontines } from '@/hooks/useTontines'
 import { useMyDashboard } from '@/hooks/useDashboard'
 import { useCycles } from '@/hooks/useCycles'
 import { useCotisations, useValiderCotisation } from '@/hooks/useCotisations'
+import { useMembres } from '@/hooks/useMembres'
 import { Cotisation, EnregistreParInfo } from '@/types/cotisation'
 import { CotisationStatut, CycleStatut } from '@/types/common'
 import { Search, Download, CheckCircle, XCircle, Edit2 } from 'lucide-react'
@@ -60,6 +61,7 @@ export function CotisationsPage() {
   const [statutTab, setStatutTab] = useState('')
   const [selectedTontineId, setSelectedTontineId] = useState(navState?.tontineId || '')
   const [selectedCycleId, setSelectedCycleId] = useState<string | undefined>(navState?.cycleId)
+  const [selectedMembreId, setSelectedMembreId] = useState<string | undefined>(undefined)
   const [cotisationToValidate, setCotisationToValidate] = useState<string | null>(null)
   const [editCotisationState, setEditCotisationState] = useState<EditCotisationState>({
     isOpen: false,
@@ -73,11 +75,14 @@ export function CotisationsPage() {
   const activeTontineId = selectedTontineId || tontines[0]?.id || ''
 
   const { data: cyclesData } = useCycles(activeTontineId, 0, 50)
+  const { data: membresData } = useMembres(activeTontineId, 0, 50)
   const cycles = cyclesData?.content || []
+  const membres = membresData?.content || []
   const cycleEnCours = cycles.find((c) => c.statut === CycleStatut.EN_COURS)
-  const effectiveCycleFilter = selectedCycleId !== undefined ? selectedCycleId : cycleEnCours?.id
+  const baseCycleFilter = selectedCycleId !== undefined ? selectedCycleId : cycleEnCours?.id
+  const effectiveCycleFilter = selectedMembreId ? undefined : baseCycleFilter
 
-  const { data: cotisationsData, isLoading } = useCotisations(activeTontineId, effectiveCycleFilter, page, 50)
+  const { data: cotisationsData, isLoading } = useCotisations(activeTontineId, effectiveCycleFilter, page, selectedMembreId ? 200 : 50, selectedMembreId)
   const { data: dashboard } = useMyDashboard()
   const { mutate: valider, isPending: isValidating } = useValiderCotisation()
 
@@ -178,7 +183,7 @@ export function CotisationsPage() {
             <div className="sm:hidden px-5 pt-3 pb-1">
               <select
                 value={selectedTontineId}
-                onChange={(e) => { setSelectedTontineId(e.target.value); setSelectedCycleId(undefined) }}
+                onChange={(e) => { setSelectedTontineId(e.target.value); setSelectedCycleId(undefined); setSelectedMembreId(undefined) }}
                 className="w-full text-sm text-neutral-700 bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-300"
               >
                 {tontines.map((t) => (
@@ -191,7 +196,7 @@ export function CotisationsPage() {
               {tontines.map((t) => (
                 <button
                   key={t.id}
-                  onClick={() => { setSelectedTontineId(t.id); setSelectedCycleId(undefined) }}
+                  onClick={() => { setSelectedTontineId(t.id); setSelectedCycleId(undefined); setSelectedMembreId(undefined) }}
                   className={`px-3 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
                     activeTontineId === t.id
                       ? 'bg-neutral-800 text-white'
@@ -205,8 +210,8 @@ export function CotisationsPage() {
           </>
         )}
 
-        {/* Indicateur cycle actif */}
-        {effectiveCycleFilter && (
+        {/* Indicateur cycle actif (masqué quand un membre est sélectionné) */}
+        {!selectedMembreId && effectiveCycleFilter && (
           <div className="px-5 pt-2 pb-1 flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
               {selectedCycleId !== undefined
@@ -223,6 +228,71 @@ export function CotisationsPage() {
             )}
           </div>
         )}
+
+        {/* Sélecteur membre */}
+        {membres.length > 0 && (
+          <div className="px-5 pt-2 pb-1">
+            <select
+              value={selectedMembreId || ''}
+              onChange={(e) => { setSelectedMembreId(e.target.value || undefined); setPage(0) }}
+              className="w-full sm:w-72 text-sm text-neutral-700 bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-300"
+            >
+              <option value="">Tous les membres</option>
+              {membres.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.user.firstName} {m.user.lastName}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Fiche résumé membre sélectionné */}
+        {selectedMembreId && (() => {
+          const membreInfo = membres.find((m) => m.id === selectedMembreId)
+          const cots = allCotisations
+          const totalValide = cots.filter((c: Cotisation) => c.statut === CotisationStatut.VALIDE).reduce((s: number, c: Cotisation) => s + c.montant, 0)
+          const nbEnAttente = cots.filter((c: Cotisation) => c.statut === CotisationStatut.EN_ATTENTE).length
+          const nbEnRetard = cots.filter((c: Cotisation) => c.statut === CotisationStatut.EN_RETARD).length
+          return (
+            <div className="mx-5 mt-3 mb-1 bg-primary-50 border border-primary-100 rounded-xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-9 h-9 rounded-full bg-primary-500 text-white text-sm font-bold flex items-center justify-center shrink-0">
+                    {membreInfo ? `${membreInfo.user.firstName[0]}${membreInfo.user.lastName[0]}`.toUpperCase() : '?'}
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-primary-900">
+                      {membreInfo ? `${membreInfo.user.firstName} ${membreInfo.user.lastName}` : '—'}
+                    </p>
+                    <p className="text-xs text-primary-500">Toutes les cotisations sur cette tontine</p>
+                  </div>
+                </div>
+                <button onClick={() => setSelectedMembreId(undefined)} className="text-xs text-neutral-400 hover:text-neutral-600 underline">
+                  Voir tous
+                </button>
+              </div>
+              <div className="grid grid-cols-3 gap-2 mb-3">
+                <div className="bg-white rounded-xl p-2.5 text-center">
+                  <p className="text-xs text-neutral-400 mb-0.5">Validées</p>
+                  <p className="font-bold text-primary-600">{cots.filter((c: Cotisation) => c.statut === CotisationStatut.VALIDE).length}</p>
+                </div>
+                <div className="bg-white rounded-xl p-2.5 text-center">
+                  <p className="text-xs text-neutral-400 mb-0.5">En attente</p>
+                  <p className="font-bold text-orange-500">{nbEnAttente}</p>
+                </div>
+                <div className="bg-white rounded-xl p-2.5 text-center">
+                  <p className="text-xs text-neutral-400 mb-0.5">En retard</p>
+                  <p className="font-bold text-red-500">{nbEnRetard}</p>
+                </div>
+              </div>
+              <div className="pt-2 border-t border-primary-100 flex items-center justify-between">
+                <p className="text-xs text-primary-600">Total versé (validé)</p>
+                <p className="text-sm font-extrabold text-primary-700">{totalValide.toLocaleString('fr-FR')} FCFA</p>
+              </div>
+            </div>
+          )
+        })()}
 
         {/* Cards — mobile */}
         <div className="md:hidden divide-y divide-neutral-50 mt-3">

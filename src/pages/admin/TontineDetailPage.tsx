@@ -52,6 +52,7 @@ export function TontineDetailPage() {
   const [activeTab, setActiveTab] = useState<Tab>('infos')
   const [confirm, setConfirm] = useState<{ action: string; label: string; danger?: boolean } | null>(null)
   const [selectedCycleId, setSelectedCycleId] = useState<string | undefined>(undefined)
+  const [selectedMembreId, setSelectedMembreId] = useState<string | undefined>(undefined)
   const [paiementModal, setPaiementModal] = useState<PaiementModalState>({
     isOpen: false,
     membreId: '',
@@ -80,9 +81,11 @@ export function TontineDetailPage() {
   const { mutate: cloturerCycle } = useCloturerCycle()
 
   // Cotisations — filtre sur le cycle choisi ou le cycle EN_COURS par défaut
+  // quand un membre est sélectionné → pas de filtre cycle (toutes ses cotisations)
   const cycleEnCours = (cyclesData?.content || []).find((c) => c.statut === CycleStatut.EN_COURS)
-  const effectiveCycleFilter = selectedCycleId !== undefined ? selectedCycleId : cycleEnCours?.id
-  const { data: cotisationsData, isLoading: cotisationsLoading } = useCotisations(id || '', effectiveCycleFilter, 0, 50)
+  const baseCycleFilter = selectedCycleId !== undefined ? selectedCycleId : cycleEnCours?.id
+  const effectiveCycleFilter = selectedMembreId ? undefined : baseCycleFilter
+  const { data: cotisationsData, isLoading: cotisationsLoading } = useCotisations(id || '', effectiveCycleFilter, 0, selectedMembreId ? 200 : 50, selectedMembreId)
   const { mutate: validerCotisation } = useValiderCotisation()
 
   // Commissions
@@ -553,25 +556,88 @@ export function TontineDetailPage() {
               )}
               {activeTab === 'cotisations' && (
                 <div>
-                  {/* Indicateur cycle affiché */}
-                  {effectiveCycleFilter && (
-                    <div className="flex items-center gap-2 mb-4">
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
-                        {cycles.find((c) => c.id === effectiveCycleFilter)
-                          ? `Cycle #${cycles.find((c) => c.id === effectiveCycleFilter)!.numeroCycle}`
-                          : 'Cycle'} — cotisations
-                      </span>
-                      <button
-                        onClick={() => setSelectedCycleId(undefined)}
-                        className="text-xs text-neutral-400 hover:text-neutral-600 underline"
-                      >
-                        Voir tout
-                      </button>
-                    </div>
-                  )}
+                  {/* Sélecteur membre */}
+                  <div className="flex flex-wrap items-center gap-3 mb-4">
+                    <select
+                      value={selectedMembreId || ''}
+                      onChange={(e) => { setSelectedMembreId(e.target.value || undefined); setSelectedCycleId(undefined) }}
+                      className="w-full sm:w-72 text-sm text-neutral-700 bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-300"
+                    >
+                      <option value="">Tous les membres</option>
+                      {membres.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.user.firstName} {m.user.lastName}
+                        </option>
+                      ))}
+                    </select>
+
+                    {/* Indicateur cycle (masqué quand un membre est sélectionné) */}
+                    {!selectedMembreId && effectiveCycleFilter && (
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
+                          {cycles.find((c) => c.id === effectiveCycleFilter)
+                            ? `Cycle #${cycles.find((c) => c.id === effectiveCycleFilter)!.numeroCycle}`
+                            : 'Cycle'} — cotisations
+                        </span>
+                        <button
+                          onClick={() => setSelectedCycleId(undefined)}
+                          className="text-xs text-neutral-400 hover:text-neutral-600 underline"
+                        >
+                          Voir tout
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Fiche résumé membre sélectionné */}
+                  {selectedMembreId && (() => {
+                    const membreInfo = membres.find((m) => m.id === selectedMembreId)
+                    const cots = cotisationsData?.content || []
+                    const totalValide = cots.filter((c) => c.statut === CotisationStatut.VALIDE).reduce((s, c) => s + c.montant, 0)
+                    const nbEnAttente = cots.filter((c) => c.statut === CotisationStatut.EN_ATTENTE).length
+                    const nbEnRetard = cots.filter((c) => c.statut === CotisationStatut.EN_RETARD).length
+                    return (
+                      <div className="mb-4 bg-primary-50 border border-primary-100 rounded-xl p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-9 h-9 rounded-full bg-primary-500 text-white text-sm font-bold flex items-center justify-center shrink-0">
+                              {membreInfo ? `${membreInfo.user.firstName[0]}${membreInfo.user.lastName[0]}`.toUpperCase() : '?'}
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-primary-900">
+                                {membreInfo ? `${membreInfo.user.firstName} ${membreInfo.user.lastName}` : '—'}
+                              </p>
+                              <p className="text-xs text-primary-500">Toutes les cotisations sur cette tontine</p>
+                            </div>
+                          </div>
+                          <button onClick={() => setSelectedMembreId(undefined)} className="text-xs text-neutral-400 hover:text-neutral-600 underline">
+                            Voir tous les membres
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 mb-3">
+                          <div className="bg-white rounded-xl p-2.5 text-center">
+                            <p className="text-xs text-neutral-400 mb-0.5">Validées</p>
+                            <p className="font-bold text-primary-600">{cots.filter((c) => c.statut === CotisationStatut.VALIDE).length}</p>
+                          </div>
+                          <div className="bg-white rounded-xl p-2.5 text-center">
+                            <p className="text-xs text-neutral-400 mb-0.5">En attente</p>
+                            <p className="font-bold text-orange-500">{nbEnAttente}</p>
+                          </div>
+                          <div className="bg-white rounded-xl p-2.5 text-center">
+                            <p className="text-xs text-neutral-400 mb-0.5">En retard</p>
+                            <p className="font-bold text-red-500">{nbEnRetard}</p>
+                          </div>
+                        </div>
+                        <div className="pt-2 border-t border-primary-100 flex items-center justify-between">
+                          <p className="text-xs text-primary-600">Total versé (validé)</p>
+                          <p className="text-sm font-extrabold text-primary-700">{totalValide.toLocaleString('fr-FR')} FCFA</p>
+                        </div>
+                      </div>
+                    )
+                  })()}
 
                   {/* ── Section Action requise : membres pre-enrolled sans cotisation ── */}
-                  {membresPreEnrolledSansCotisation.length > 0 && (
+                  {membresPreEnrolledSansCotisation.length > 0 && effectiveCycleFilter === cycleEnCours?.id && !selectedMembreId && (
                     <div className="mb-6 rounded-2xl border-l-4 border-orange-400 bg-orange-50 overflow-hidden">
                       {/* Header */}
                       <div className="flex items-center gap-2 px-5 pt-4 pb-3">

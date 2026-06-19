@@ -200,6 +200,7 @@ export function TontineDetailPage() {
   const [distributionFinale, setDistributionFinale] = useState<MembreDistributionInfo[] | null>(null)
   // undefined = auto (EN_COURS), '' = tout afficher, 'id' = cycle explicite
   const [cotisationCycleFilter, setCotisationCycleFilter] = useState<string | undefined>(undefined)
+  const [selectedMembreId, setSelectedMembreId] = useState<string | undefined>(undefined)
 
   // ─── Data ─────────────────────────────────────────────────────────────────
   const { data: tontine, isLoading } = useTontine(id || '')
@@ -207,8 +208,10 @@ export function TontineDetailPage() {
   const { data: cyclesData } = useCycles(id || '', 0, 50)
   const cycleEnCoursId = (cyclesData?.content || []).find((c: Cycle) => c.statut === CycleStatut.EN_COURS)?.id
   // undefined = auto → EN_COURS, '' = tout, 'id' = cycle choisi
-  const effectiveCycleFilter = cotisationCycleFilter === undefined ? cycleEnCoursId : (cotisationCycleFilter || undefined)
-  const { data: cotisationsData } = useCotisations(id || '', effectiveCycleFilter, 0, 50)
+  // quand un membre est sélectionné → pas de filtre cycle (on veut toutes ses cotisations)
+  const baseCycleFilter = cotisationCycleFilter === undefined ? cycleEnCoursId : (cotisationCycleFilter || undefined)
+  const effectiveCycleFilter = selectedMembreId ? undefined : baseCycleFilter
+  const { data: cotisationsData } = useCotisations(id || '', effectiveCycleFilter, 0, selectedMembreId ? 200 : 50, selectedMembreId)
   const { data: commissionsData } = useCommissions(id || '', 0, 20)
   const { data: historiqueBeneficiaires, isLoading: isLoadingHistorique } = useBeneficiairesHistorique(id || '', 0, 50)
 
@@ -948,7 +951,73 @@ export function TontineDetailPage() {
                 </div>
               )}
 
-              {/* Mini stats */}
+              {/* Sélecteur membre (gestionnaire uniquement) */}
+              {canManage && membres.length > 0 && (
+                <div className="mb-4">
+                  <select
+                    value={selectedMembreId || ''}
+                    onChange={(e) => setSelectedMembreId(e.target.value || undefined)}
+                    className="w-full sm:w-72 text-sm text-neutral-700 bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-300"
+                  >
+                    <option value="">Tous les membres</option>
+                    {membres.filter((m: Membre) => m.statut !== MembreStatut.SORTI).map((m: Membre) => (
+                      <option key={m.id} value={m.id}>
+                        {m.user.firstName} {m.user.lastName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Fiche membre sélectionné */}
+              {selectedMembreId && (() => {
+                const membreInfo = membres.find((m: Membre) => m.id === selectedMembreId)
+                const totalValide = cotisationsToShow.filter((c: Cotisation) => c.statut === CotisationStatut.VALIDE).reduce((s: number, c: Cotisation) => s + c.montant, 0)
+                const nbEnAttente = cotisationsToShow.filter((c: Cotisation) => c.statut === CotisationStatut.EN_ATTENTE).length
+                const nbEnRetard = cotisationsToShow.filter((c: Cotisation) => c.statut === CotisationStatut.EN_RETARD).length
+                return (
+                  <div className="mb-4 bg-primary-50 border border-primary-100 rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        {membreInfo && <MiniAvatar name={`${membreInfo.user.firstName} ${membreInfo.user.lastName}`} />}
+                        <div>
+                          <p className="text-sm font-bold text-primary-900">
+                            {membreInfo ? `${membreInfo.user.firstName} ${membreInfo.user.lastName}` : '—'}
+                          </p>
+                          <p className="text-xs text-primary-500">Toutes les cotisations sur cette tontine</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setSelectedMembreId(undefined)}
+                        className="text-xs text-neutral-400 hover:text-neutral-600 underline"
+                      >
+                        Voir tous les membres
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 mb-3">
+                      <div className="bg-white rounded-xl p-2.5 text-center">
+                        <p className="text-xs text-neutral-400 mb-0.5">Validées</p>
+                        <p className="font-bold text-primary-600">{cotisationsToShow.filter((c: Cotisation) => c.statut === CotisationStatut.VALIDE).length}</p>
+                      </div>
+                      <div className="bg-white rounded-xl p-2.5 text-center">
+                        <p className="text-xs text-neutral-400 mb-0.5">En attente</p>
+                        <p className="font-bold text-orange-500">{nbEnAttente}</p>
+                      </div>
+                      <div className="bg-white rounded-xl p-2.5 text-center">
+                        <p className="text-xs text-neutral-400 mb-0.5">En retard</p>
+                        <p className="font-bold text-red-500">{nbEnRetard}</p>
+                      </div>
+                    </div>
+                    <div className="pt-2 border-t border-primary-100 flex items-center justify-between">
+                      <p className="text-xs text-primary-600">Total versé (validé)</p>
+                      <p className="text-sm font-extrabold text-primary-700">{totalValide.toLocaleString('fr-FR')} FCFA</p>
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* Mini stats (masquées quand un membre est sélectionné — la fiche les remplace) */}
+              {!selectedMembreId && (
               <div className="grid grid-cols-3 gap-3 mb-4">
                 <div className="bg-primary-50 rounded-xl p-3 text-center">
                   <p className="text-xs text-primary-500 mb-0.5">Validées</p>
@@ -963,9 +1032,10 @@ export function TontineDetailPage() {
                   <p className="font-bold text-red-700 text-lg">{cotEnRetard}</p>
                 </div>
               </div>
+              )}
 
-              {/* Membres sans cotisation (cycle EN_COURS) */}
-              {canManage && currentCycle && membresWithoutCotisation.length > 0 && (
+              {/* Membres sans cotisation — seulement quand on est sur le cycle EN_COURS */}
+              {canManage && currentCycle && effectiveCycleFilter === currentCycle.id && !selectedMembreId && membresWithoutCotisation.length > 0 && (
                 <div className="mb-4 p-4 bg-orange-50 border border-orange-100 rounded-xl">
                   <p className="text-xs font-semibold text-orange-700 mb-3 uppercase tracking-wide">
                     Membres sans cotisation — Cycle #{currentCycle.numeroCycle} en cours

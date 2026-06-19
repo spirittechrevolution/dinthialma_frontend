@@ -9,11 +9,18 @@ export const cotisationService = {
     tontineId: string,
     cycleId?: string,
     page = 0,
-    size = 20
+    size = 20,
+    membreId?: string
   ): Promise<PageResponse<Cotisation>> => {
     const response = await api.get<CustomResponse<PageResponse<Cotisation>>>(
       `/v1/tontines/${tontineId}/cotisations`,
-      { params: { page, size, sort: 'createdAt,desc', ...(cycleId ? { cycleId } : {}) } }
+      {
+        params: {
+          page, size, sort: 'createdAt,desc',
+          ...(cycleId ? { cycleId } : {}),
+          ...(membreId ? { membreId } : {}),
+        },
+      }
     )
     return response.data.data
   },

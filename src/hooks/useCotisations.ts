@@ -2,11 +2,18 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { cotisationService } from '@/services/cotisationService'
 import { RecordCotisationRequest, AdminRecordCotisationRequest, UpdateCotisationRequest } from '@/types/cotisation'
 
-export function useCotisations(tontineId: string, cycleId?: string, page = 0, size = 20) {
+export function useCotisations(
+  tontineId: string,
+  cycleId?: string,
+  page = 0,
+  size = 20,
+  membreId?: string,
+  enabled = true
+) {
   return useQuery({
-    queryKey: ['cotisations', tontineId, cycleId, page, size],
-    queryFn: () => cotisationService.listCotisations(tontineId, cycleId, page, size),
-    enabled: !!tontineId,
+    queryKey: ['cotisations', tontineId, cycleId, page, size, membreId],
+    queryFn: () => cotisationService.listCotisations(tontineId, cycleId, page, size, membreId),
+    enabled: !!tontineId && enabled,
   })
 }
 
