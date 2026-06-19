@@ -36,7 +36,11 @@ interface JwtPayload {
 const base64UrlDecode = (value: string): string => {
   const padded = value.padEnd(Math.ceil(value.length / 4) * 4, '=')
   const base64 = padded.replace(/-/g, '+').replace(/_/g, '/')
-  return atob(base64)
+  // atob() retourne une chaîne binaire (Latin-1) — les octets UTF-8 doivent être
+  // réinterprétés via TextDecoder pour afficher correctement les caractères accentués
+  const binary = atob(base64)
+  const bytes = new Uint8Array([...binary].map((c) => c.charCodeAt(0)))
+  return new TextDecoder('utf-8').decode(bytes)
 }
 
 // ─── Tokens ───────────────────────────────────────────────────────────────────
