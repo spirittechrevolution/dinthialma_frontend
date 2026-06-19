@@ -61,6 +61,7 @@ import {
   PartyPopper,
   CalendarHeart,
   Download,
+  AlertTriangle,
 } from 'lucide-react'
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
@@ -201,6 +202,7 @@ export function TontineDetailPage() {
   // undefined = auto (EN_COURS), '' = tout afficher, 'id' = cycle explicite
   const [cotisationCycleFilter, setCotisationCycleFilter] = useState<string | undefined>(undefined)
   const [selectedMembreId, setSelectedMembreId] = useState<string | undefined>(undefined)
+  const [showMembresSansCot, setShowMembresSansCot] = useState(false)
 
   // ─── Data ─────────────────────────────────────────────────────────────────
   const { data: tontine, isLoading } = useTontine(id || '')
@@ -1036,40 +1038,51 @@ export function TontineDetailPage() {
 
               {/* Membres sans cotisation — seulement quand on est sur le cycle EN_COURS */}
               {canManage && currentCycle && effectiveCycleFilter === currentCycle.id && !selectedMembreId && membresWithoutCotisation.length > 0 && (
-                <div className="mb-4 p-4 bg-orange-50 border border-orange-100 rounded-xl">
-                  <p className="text-xs font-semibold text-orange-700 mb-3 uppercase tracking-wide">
-                    Membres sans cotisation — Cycle #{currentCycle.numeroCycle} en cours
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {membresWithoutCotisation.map((m: Membre) => {
-                      const nom = `${m.user.firstName} ${m.user.lastName}`
-                      return (
-                        <div
-                          key={m.id}
-                          className="flex items-center gap-2 bg-white border border-orange-200 rounded-lg px-3 py-1.5"
-                        >
-                          <MiniAvatar name={nom} />
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-sm font-medium text-neutral-800">{nom}</span>
-                            {m.user.accountStatus === AccountStatus.PRE_ENROLLED && (
-                              <span
-                                title="Ce membre n'a pas encore de compte Dinthialma. Seul l'admin peut enregistrer ses paiements."
-                                className="px-1.5 py-0.5 rounded-full text-xs font-semibold bg-neutral-200 text-neutral-600 cursor-help"
-                              >
-                                Sans compte
-                              </span>
-                            )}
-                          </div>
-                          <button
-                            onClick={() => setAdminPayModal({ membreId: m.id, membreNom: nom })}
-                            className="ml-auto flex items-center gap-1 px-2 py-0.5 bg-primary-600 text-white text-xs rounded-lg hover:bg-primary-700 transition-colors"
+                <div className="mb-4 rounded-xl border border-orange-100 bg-orange-50 overflow-hidden">
+                  <button
+                    onClick={() => setShowMembresSansCot((v) => !v)}
+                    className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-orange-100 transition-colors"
+                  >
+                    <AlertTriangle size={14} className="text-orange-500 shrink-0" />
+                    <span className="text-xs font-bold text-orange-700 uppercase tracking-wide flex-1">
+                      {membresWithoutCotisation.length}{' '}
+                      {membresWithoutCotisation.length > 1 ? 'membres sans cotisation' : 'membre sans cotisation'}
+                      {' '}— Cycle #{currentCycle.numeroCycle}
+                    </span>
+                    {showMembresSansCot
+                      ? <ChevronUp size={15} className="text-orange-400 shrink-0" />
+                      : <ChevronDown size={15} className="text-orange-400 shrink-0" />
+                    }
+                  </button>
+                  {showMembresSansCot && (
+                    <div className="px-3 pb-3 space-y-2">
+                      {membresWithoutCotisation.map((m: Membre) => {
+                        const nom = `${m.user.firstName} ${m.user.lastName}`
+                        return (
+                          <div
+                            key={m.id}
+                            className="flex items-center gap-2 bg-white border border-orange-200 rounded-lg px-3 py-2"
                           >
-                            <Plus size={11} /> Paiement
-                          </button>
-                        </div>
-                      )
-                    })}
-                  </div>
+                            <MiniAvatar name={nom} />
+                            <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                              <span className="text-sm font-medium text-neutral-800 truncate">{nom}</span>
+                              {m.user.accountStatus === AccountStatus.PRE_ENROLLED && (
+                                <span className="px-1.5 py-0.5 rounded-full text-xs font-semibold bg-neutral-200 text-neutral-600 shrink-0">
+                                  Sans compte
+                                </span>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => setAdminPayModal({ membreId: m.id, membreNom: nom })}
+                              className="shrink-0 flex items-center gap-1 px-2.5 py-1 bg-primary-600 text-white text-xs rounded-lg hover:bg-primary-700 transition-colors"
+                            >
+                              <Plus size={11} /> Paiement
+                            </button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
 

@@ -20,7 +20,7 @@ import { Membre } from '@/types/membre'
 import { Cycle } from '@/types/cycle'
 import { Cotisation } from '@/types/cotisation'
 import { TontineStatut, CycleStatut, CotisationStatut, MembreStatut, AccountStatus } from '@/types/common'
-import { ArrowLeft, Play, Pause, Trash2, CheckCircle, UserMinus, AlertTriangle, CreditCard, Edit2, BarChart2 } from 'lucide-react'
+import { ArrowLeft, Play, Pause, Trash2, CheckCircle, UserMinus, AlertTriangle, CreditCard, Edit2, BarChart2, ChevronDown, ChevronUp } from 'lucide-react'
 
 type Tab = 'infos' | 'membres' | 'cycles' | 'cotisations' | 'commissions'
 
@@ -66,6 +66,7 @@ export function TontineDetailPage() {
     initialValues: { montant: 0, methodePaiement: 'CASH' },
   })
   const [recapCycle, setRecapCycle] = useState<Cycle | null>(null)
+  const [showMembresSansCot, setShowMembresSansCot] = useState(false)
 
   const { data: tontine, isLoading } = useTontine(id || '')
   const { mutate: activer, isPending: isActivating } = useActiverTontine()
@@ -100,14 +101,18 @@ export function TontineDetailPage() {
   const membres = membresData?.content || []
   const cotisations = cotisationsData?.content || []
 
-  const membresPreEnrolledSansCotisation = cycleEnCours
-    ? membres.filter((m) => {
-        const isPreEnrolled = m.user.accountStatus === AccountStatus.PRE_ENROLLED
-        const aCotise = cotisations.some(
-          (c) => c.membre.membreId === m.id && c.cycleId === cycleEnCours.id
-        )
-        return isPreEnrolled && !aCotise
-      })
+  const paidMembreIds = new Set(
+    cotisations
+      .filter((c) => cycleEnCours && c.cycleId === cycleEnCours.id)
+      .map((c) => c.membre.membreId)
+  )
+  const membresSansCotisation = cycleEnCours
+    ? membres.filter(
+        (m) =>
+          m.statut !== MembreStatut.SORTI &&
+          m.statut !== MembreStatut.SUSPENDU &&
+          !paidMembreIds.has(m.id)
+      )
     : []
 
   const handleConfirm = () => {
@@ -636,77 +641,69 @@ export function TontineDetailPage() {
                     )
                   })()}
 
-                  {/* ── Section Action requise : membres pre-enrolled sans cotisation ── */}
-                  {membresPreEnrolledSansCotisation.length > 0 && effectiveCycleFilter === cycleEnCours?.id && !selectedMembreId && (
-                    <div className="mb-6 rounded-2xl border-l-4 border-orange-400 bg-orange-50 overflow-hidden">
-                      {/* Header */}
-                      <div className="flex items-center gap-2 px-5 pt-4 pb-3">
-                        <AlertTriangle size={16} className="text-orange-500 shrink-0" />
-                        <span className="text-sm font-bold text-orange-700 uppercase tracking-wide">
-                          Action requise —{' '}
-                          {membresPreEnrolledSansCotisation.length}{' '}
-                          {membresPreEnrolledSansCotisation.length > 1
-                            ? 'membres sans cotisation'
-                            : 'membre sans cotisation'}
+                  {/* ── Section membres sans cotisation sur le cycle EN_COURS ── */}
+                  {membresSansCotisation.length > 0 && effectiveCycleFilter === cycleEnCours?.id && !selectedMembreId && (
+                    <div className="mb-6 rounded-xl border border-orange-100 bg-orange-50 overflow-hidden">
+                      <button
+                        onClick={() => setShowMembresSansCot((v) => !v)}
+                        className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-orange-100 transition-colors"
+                      >
+                        <AlertTriangle size={14} className="text-orange-500 shrink-0" />
+                        <span className="text-xs font-bold text-orange-700 uppercase tracking-wide flex-1">
+                          {membresSansCotisation.length}{' '}
+                          {membresSansCotisation.length > 1 ? 'membres sans cotisation' : 'membre sans cotisation'}
+                          {cycleEnCours ? ` — Cycle #${cycleEnCours.numeroCycle}` : ''}
                         </span>
-                        {cycleEnCours && (
-                          <span className="ml-auto text-xs text-orange-500 font-medium">
-                            Cycle #{cycleEnCours.numeroCycle} en cours
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Cards membres */}
-                      <div className="px-4 pb-4 space-y-2">
-                        {membresPreEnrolledSansCotisation.map((m) => {
-                          const initials = `${m.user.firstName[0]}${m.user.lastName[0]}`.toUpperCase()
-                          const nomComplet = `${m.user.firstName} ${m.user.lastName}`
-                          return (
-                            <div
-                              key={m.id}
-                              className="flex items-center gap-3 bg-white rounded-xl border border-orange-200 px-4 py-3 shadow-sm"
-                            >
-                              {/* Avatar */}
-                              <div className="w-10 h-10 rounded-full bg-primary-500 flex items-center justify-center text-white text-sm font-bold shrink-0">
-                                {initials}
-                              </div>
-
-                              {/* Nom + badges */}
-                              <div className="flex-1 min-w-0">
-                                <p className="font-semibold text-neutral-900 text-sm truncate">{nomComplet}</p>
-                                <div className="flex items-center gap-2 mt-0.5">
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 text-xs font-semibold">
-                                    Sans compte
-                                  </span>
-                                  <span className="text-xs text-neutral-400">{m.user.phone}</span>
-                                  {tontine && (
-                                    <span className="text-xs text-neutral-500 font-medium">
-                                      · {tontine.montant.toLocaleString('fr-FR')} FCFA attendus
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* CTA */}
-                              <Button
-                                size="sm"
-                                onClick={() =>
-                                  setPaiementModal({
-                                    isOpen: true,
-                                    membreId: m.id,
-                                    membreNom: nomComplet,
-                                    cycleId: cycleEnCours!.id,
-                                  })
-                                }
-                                className="shrink-0 gap-1.5"
+                        {showMembresSansCot
+                          ? <ChevronUp size={15} className="text-orange-400 shrink-0" />
+                          : <ChevronDown size={15} className="text-orange-400 shrink-0" />
+                        }
+                      </button>
+                      {showMembresSansCot && (
+                        <div className="px-3 pb-3 space-y-2">
+                          {membresSansCotisation.map((m) => {
+                            const initials = `${m.user.firstName[0]}${m.user.lastName[0]}`.toUpperCase()
+                            const nomComplet = `${m.user.firstName} ${m.user.lastName}`
+                            const isPreEnrolled = m.user.accountStatus === AccountStatus.PRE_ENROLLED
+                            return (
+                              <div
+                                key={m.id}
+                                className="flex items-center gap-3 bg-white rounded-xl border border-orange-200 px-4 py-3 shadow-sm"
                               >
-                                <CreditCard size={14} />
-                                Déclarer le paiement
-                              </Button>
-                            </div>
-                          )
-                        })}
-                      </div>
+                                <div className="w-9 h-9 rounded-full bg-primary-500 flex items-center justify-center text-white text-sm font-bold shrink-0">
+                                  {initials}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-semibold text-neutral-900 text-sm truncate">{nomComplet}</p>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    {isPreEnrolled && (
+                                      <span className="px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700 text-xs font-semibold">
+                                        Sans compte
+                                      </span>
+                                    )}
+                                    <span className="text-xs text-neutral-400">{m.user.phone}</span>
+                                  </div>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  onClick={() =>
+                                    setPaiementModal({
+                                      isOpen: true,
+                                      membreId: m.id,
+                                      membreNom: nomComplet,
+                                      cycleId: cycleEnCours!.id,
+                                    })
+                                  }
+                                  className="shrink-0 gap-1.5"
+                                >
+                                  <CreditCard size={14} />
+                                  + Paiement
+                                </Button>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
                     </div>
                   )}
 
