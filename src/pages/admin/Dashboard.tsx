@@ -14,11 +14,15 @@ const statutVariants: Record<string, 'success' | 'warning' | 'info' | 'default'>
 }
 
 // ─── KPI card ─────────────────────────────────────────────────────────────────
-function KpiCard({ label, value, sub, icon, accent = false }: {
-  label: string; value: React.ReactNode; sub?: string; icon: React.ReactNode; accent?: boolean
+function KpiCard({ label, value, sub, icon, accent = false, to }: {
+  label: string; value: React.ReactNode; sub?: string; icon: React.ReactNode; accent?: boolean; to?: string
 }) {
-  return (
-    <div className={`rounded-2xl border p-4 flex items-start justify-between shadow-sm ${accent ? 'bg-primary-600 border-primary-500' : 'bg-white border-neutral-100'}`}>
+  const baseClass = `rounded-2xl border p-4 flex items-start justify-between shadow-sm ${
+    accent ? 'bg-primary-600 border-primary-500' : 'bg-white border-neutral-100'
+  } ${to ? 'hover:shadow-md hover:-translate-y-px transition-all' : ''}`
+
+  const inner = (
+    <>
       <div>
         <p className={`text-xs mb-1.5 ${accent ? 'text-primary-200' : 'text-neutral-500'}`}>{label}</p>
         <p className={`text-2xl font-bold ${accent ? 'text-white' : 'text-neutral-900'}`}>{value}</p>
@@ -27,8 +31,11 @@ function KpiCard({ label, value, sub, icon, accent = false }: {
       <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${accent ? 'bg-white/20 text-white' : 'bg-primary-50 text-primary-600'}`}>
         {icon}
       </div>
-    </div>
+    </>
   )
+
+  if (to) return <Link to={to} className={baseClass}>{inner}</Link>
+  return <div className={baseClass}>{inner}</div>
 }
 
 // ─── Données bar chart (mockées — à connecter au vrai endpoint stats) ─────────
@@ -104,12 +111,14 @@ export function AdminDashboard() {
           value={totalEnAttente}
           sub="cotisations"
           icon={<Clock size={18} />}
+          to="/admin/cotisations"
         />
         <KpiCard
           label="En retard"
           value={totalEnRetard}
           sub="à relancer"
           icon={<AlertTriangle size={18} />}
+          to="/admin/cotisations"
         />
       </div>
 

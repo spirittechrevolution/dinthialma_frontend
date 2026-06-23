@@ -2,9 +2,12 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { Badge } from '@/components/ui/Badge'
+import { Button } from '@/components/ui/Button'
+import { Modal } from '@/components/ui/Modal'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { Spinner } from '@/components/ui/Spinner'
 import { AdminEditCotisationModal, EditCotisationInitialValues } from '@/components/shared/AdminEditCotisationModal'
+import { AdminEnregistrerPaiementModal } from '@/components/shared/AdminEnregistrerPaiementModal'
 import { useTontines } from '@/hooks/useTontines'
 import { useMyDashboard } from '@/hooks/useDashboard'
 import { useCycles } from '@/hooks/useCycles'
@@ -12,7 +15,7 @@ import { useCotisations, useValiderCotisation } from '@/hooks/useCotisations'
 import { useMembres } from '@/hooks/useMembres'
 import { Cotisation, EnregistreParInfo } from '@/types/cotisation'
 import { CotisationStatut, CycleStatut } from '@/types/common'
-import { Search, Download, CheckCircle, XCircle, Edit2 } from 'lucide-react'
+import { Search, Download, CheckCircle, XCircle, Edit2, PlusCircle } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 
 interface EditCotisationState {
@@ -69,6 +72,11 @@ export function CotisationsPage() {
     membreNom: '',
     initialValues: { montant: 0, methodePaiement: 'CASH' },
   })
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [pickerSearch, setPickerSearch] = useState('')
+  const [paiementModal, setPaiementModal] = useState<{ isOpen: boolean; membreId: string; membreNom: string }>({
+    isOpen: false, membreId: '', membreNom: '',
+  })
 
   const { data: tontinesData } = useTontines(0, 50)
   const tontines = tontinesData?.content || []
@@ -79,6 +87,8 @@ export function CotisationsPage() {
   const cycles = cyclesData?.content || []
   const membres = membresData?.content || []
   const cycleEnCours = cycles.find((c) => c.statut === CycleStatut.EN_COURS)
+  const activeTontine = tontines.find((t) => t.id === activeTontineId)
+  const paiementCycleId = cycleEnCours?.id || cycles.find((c) => c.statut === CycleStatut.EN_ATTENTE)?.id || ''
   const baseCycleFilter = selectedCycleId !== undefined ? selectedCycleId : cycleEnCours?.id
   const effectiveCycleFilter = selectedMembreId ? undefined : baseCycleFilter
 
@@ -122,9 +132,19 @@ export function CotisationsPage() {
           <h1 className="text-2xl font-bold text-neutral-900">Cotisations</h1>
           <p className="text-sm text-neutral-500 mt-1">Validez les paiements reçus.</p>
         </div>
-        <button className="self-start sm:self-auto flex items-center gap-2 px-4 py-2 text-sm font-medium text-neutral-700 border border-neutral-200 rounded-xl hover:bg-neutral-50 transition-colors shadow-sm">
-          <Download size={15} /> Exporter
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-neutral-700 border border-neutral-200 rounded-xl hover:bg-neutral-50 transition-colors shadow-sm">
+            <Download size={15} /> Exporter
+          </button>
+          <Button
+            size="sm"
+            onClick={() => setPickerOpen(true)}
+            disabled={!paiementCycleId || membres.length === 0}
+          >
+            <PlusCircle size={15} className="mr-1.5" />
+            Enregistrer paiement
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -290,6 +310,23 @@ export function CotisationsPage() {
                 <p className="text-xs text-primary-600">Total versé (validé)</p>
                 <p className="text-sm font-extrabold text-primary-700">{totalValide.toLocaleString('fr-FR')} FCFA</p>
               </div>
+              <button
+                onClick={() => {
+                  const m = membres.find((memb) => memb.id === selectedMembreId)
+                  if (m && paiementCycleId) {
+                    setPaiementModal({
+                      isOpen: true,
+                      membreId: m.id,
+                      membreNom: `${m.user.firstName} ${m.user.lastName}`,
+                    })
+                  }
+                }}
+                disabled={!paiementCycleId}
+                className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold bg-primary-600 text-white hover:bg-primary-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <PlusCircle size={15} />
+                Enregistrer son paiement
+              </button>
             </div>
           )
         })()}
@@ -452,6 +489,69 @@ export function CotisationsPage() {
           </div>
         )}
       </div>
+
+      {/* Modal : sélection du membre pour enregistrer un paiement */}
+      <Modal
+        isOpen={pickerOpen}
+        onClose={() => { setPickerOpen(false); setPickerSearch('') }}
+        title="Choisir un membre"
+        size="sm"
+      >
+        <div className="relative mb-3">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+          <input
+            value={pickerSearch}
+            onChange={(e) => setPickerSearch(e.target.value)}
+            placeholder="Rechercher un membre..."
+            autoFocus
+            className="w-full pl-9 pr-4 py-2 text-sm border border-neutral-200 rounded-xl bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-primary-300"
+          />
+        </div>
+        <div className="space-y-1 max-h-64 overflow-y-auto">
+          {membres
+            .filter((m) =>
+              `${m.user.firstName} ${m.user.lastName}`.toLowerCase().includes(pickerSearch.toLowerCase())
+            )
+            .map((m) => (
+              <button
+                key={m.id}
+                onClick={() => {
+                  setPaiementModal({
+                    isOpen: true,
+                    membreId: m.id,
+                    membreNom: `${m.user.firstName} ${m.user.lastName}`,
+                  })
+                  setPickerOpen(false)
+                  setPickerSearch('')
+                }}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-primary-50 text-left transition-colors"
+              >
+                <div className="w-8 h-8 rounded-full bg-primary-500 text-white text-xs font-bold flex items-center justify-center flex-shrink-0 uppercase">
+                  {m.user.firstName?.[0]}{m.user.lastName?.[0]}
+                </div>
+                <p className="text-sm font-semibold text-neutral-900">
+                  {m.user.firstName} {m.user.lastName}
+                </p>
+              </button>
+            ))}
+          {membres.filter((m) =>
+            `${m.user.firstName} ${m.user.lastName}`.toLowerCase().includes(pickerSearch.toLowerCase())
+          ).length === 0 && (
+            <p className="py-4 text-center text-sm text-neutral-400">Aucun membre trouvé</p>
+          )}
+        </div>
+      </Modal>
+
+      {/* Modal : enregistrer paiement admin */}
+      <AdminEnregistrerPaiementModal
+        isOpen={paiementModal.isOpen}
+        onClose={() => setPaiementModal((s) => ({ ...s, isOpen: false }))}
+        tontineId={activeTontineId}
+        cycleId={paiementCycleId}
+        membreId={paiementModal.membreId}
+        membreNom={paiementModal.membreNom}
+        montantDefaut={activeTontine?.montant}
+      />
 
       <ConfirmDialog
         isOpen={!!cotisationToValidate}

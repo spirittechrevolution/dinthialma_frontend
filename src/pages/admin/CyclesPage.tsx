@@ -58,11 +58,15 @@ export function CyclesPage() {
     defaultValues: { tontineId: activeTontineId, numeroCycle: 1 },
   })
 
-  const cycles: CycleWithTontine[] = (cyclesData?.content || []).map((c: Cycle) => ({
-    ...c,
-    tontineNom: tontines.find((t) => t.id === activeTontineId)?.nom,
-    tontineId: activeTontineId,
-  }))
+  const CYCLE_ORDER: Record<CycleStatut, number> = { EN_COURS: 0, EN_ATTENTE: 1, TERMINE: 2 }
+
+  const cycles: CycleWithTontine[] = (cyclesData?.content || [])
+    .map((c: Cycle) => ({
+      ...c,
+      tontineNom: tontines.find((t) => t.id === activeTontineId)?.nom,
+      tontineId: activeTontineId,
+    }))
+    .sort((a, b) => (CYCLE_ORDER[a.statut] ?? 3) - (CYCLE_ORDER[b.statut] ?? 3))
 
   const onOpenSubmit = (data: OpenCycleForm) => {
     openCycle(
@@ -132,7 +136,18 @@ export function CyclesPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {cycles.map((cycle) => (
-            <div key={cycle.id} className="bg-white rounded-2xl border border-neutral-100 shadow-sm p-5">
+            <div key={cycle.id} className={`bg-white rounded-2xl shadow-sm p-5 ${
+              cycle.statut === CycleStatut.EN_COURS
+                ? 'border-2 border-primary-400 ring-2 ring-primary-50'
+                : 'border border-neutral-100'
+            }`}>
+              {/* Bandeau cycle en cours */}
+              {cycle.statut === CycleStatut.EN_COURS && (
+                <div className="flex items-center gap-1.5 mb-3 px-2.5 py-1 bg-primary-50 rounded-lg w-fit">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary-500 animate-pulse" />
+                  <span className="text-xs font-semibold text-primary-700">Cycle en cours</span>
+                </div>
+              )}
               {/* Header */}
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">

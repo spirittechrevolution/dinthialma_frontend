@@ -15,7 +15,7 @@ import { authService } from '@/services/authService'
 import { useAuth } from '@/hooks/useAuth'
 import {
   Mail, Phone, Lock, KeyRound, Shield, ChevronRight,
-  LogOut, User, CheckCircle, Edit3,
+  LogOut, User, CheckCircle,
 } from 'lucide-react'
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
@@ -165,12 +165,6 @@ export function ProfilePage() {
           <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 text-white text-2xl font-extrabold flex items-center justify-center shadow-lg ring-4 ring-white">
             {initials}
           </div>
-          <button
-            onClick={() => setShowEdit(true)}
-            className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-white border-2 border-neutral-100 flex items-center justify-center shadow-sm hover:bg-neutral-50 transition-colors"
-          >
-            <Edit3 size={12} className="text-neutral-600" />
-          </button>
         </div>
         <p className="text-lg font-bold text-neutral-900">{fullName}</p>
         <div className="flex items-center gap-1.5 mt-1">
@@ -220,22 +214,25 @@ export function ProfilePage() {
         </div>
       </div>
 
-      {/* ── Sécurité ─────────────────────────────────────────────── */}
+      {/* ── Actions compte ───────────────────────────────────────── */}
       <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm mb-3 overflow-hidden">
-        <div className="px-4 py-3 border-b border-neutral-50">
-          <p className="text-xs font-semibold text-neutral-400 uppercase tracking-widest">Sécurité</p>
-        </div>
         <div className="divide-y divide-neutral-50">
           <SecurityRow
+            icon={<User size={17} />}
+            label="Modifier mes informations"
+            sub="Prénom, nom, email"
+            onPress={() => setShowEdit(true)}
+          />
+          <SecurityRow
             icon={<Lock size={17} />}
-            label="Mot de passe"
-            sub="Modifiez votre mot de passe"
+            label="Changer mot de passe"
+            sub="Sécurisez votre compte"
             onPress={() => setShowPasswordModal(true)}
           />
           <SecurityRow
             icon={<KeyRound size={17} />}
             label="Code PIN"
-            sub={profile?.pinConfigured ? 'Modifier le PIN 6 chiffres' : 'Configurer pour connexion rapide'}
+            sub="Configurer ou changer votre code PIN"
             badge={profile?.pinConfigured ? 'Actif' : undefined}
             onPress={() => setShowPinModal(true)}
           />
