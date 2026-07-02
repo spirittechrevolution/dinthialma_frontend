@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -8,7 +8,7 @@ import { CreateTontineModal } from '@/components/shared/CreateTontineModal'
 import { useTontines } from '@/hooks/useTontines'
 import { Tontine, TontineType } from '@/types/tontine'
 import { TontineStatut } from '@/types/common'
-import { Plus, ArrowRight, Users, Calendar, Search, RotateCcw, CalendarHeart } from 'lucide-react'
+import { Plus, ChevronRight, Users, Calendar, Search, RotateCcw, CalendarHeart } from 'lucide-react'
 
 const STATUT_TABS = [
   { label: 'Toutes', value: '' },
@@ -34,7 +34,6 @@ const FREQ_LABELS: Record<string, string> = {
 }
 
 export function TontinesPage() {
-  const navigate = useNavigate()
   const [page] = useState(0)
   const [search, setSearch] = useState('')
   const [statutTab, setStatutTab] = useState('')
@@ -105,9 +104,14 @@ export function TontinesPage() {
             const isEvent = t.tontineType === TontineType.EVENEMENTIELLE
             const pct = t.nombreMembres > 0 ? Math.round((t.nombreMembresActuels / t.nombreMembres) * 100) : 0
             return (
-              <div key={t.id} className="bg-white rounded-2xl border border-neutral-100 shadow-sm p-5 flex flex-col hover:shadow-md transition-shadow">
+              /* ── Card entière cliquable ── */
+              <Link
+                key={t.id}
+                to={`/admin/tontines/${t.id}`}
+                className="bg-white rounded-2xl border border-neutral-100 shadow-sm p-5 flex flex-col hover:shadow-md hover:border-primary-200 transition-all active:scale-[0.99]"
+              >
                 <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Badge variant={BADGE_VARIANT[t.statut]}>
                       {t.statut.charAt(0) + t.statut.slice(1).toLowerCase()}
                     </Badge>
@@ -121,12 +125,7 @@ export function TontinesPage() {
                       </span>
                     )}
                   </div>
-                  <button
-                    onClick={() => navigate(`/admin/tontines/${t.id}`)}
-                    className="p-1 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-600 transition-colors"
-                  >
-                    <ArrowRight size={16} />
-                  </button>
+                  <ChevronRight size={16} className="text-neutral-300 flex-shrink-0 mt-0.5" />
                 </div>
 
                 <h3 className="font-bold text-neutral-900 text-base mb-1">{t.nom}</h3>
@@ -166,7 +165,7 @@ export function TontinesPage() {
                     )}
                   </div>
                 </div>
-              </div>
+              </Link>
             )
           })}
         </div>

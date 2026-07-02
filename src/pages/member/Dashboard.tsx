@@ -273,17 +273,12 @@ export function MemberDashboard() {
           </div>
           <p className="text-xs font-semibold text-neutral-700 text-center">Mes cotisations</p>
         </Link>
-        <Link to="/notifications"
+        <Link to="/member/tontines"
           className="bg-white border border-neutral-100 shadow-sm rounded-2xl p-4 flex flex-col items-center gap-2 hover:border-primary-200 transition-colors">
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center relative ${unreadCount > 0 ? 'bg-primary-50 text-primary-600' : 'bg-amber-50 text-amber-600'}`}>
-            {unreadCount > 0 ? <BellRing size={18} /> : <Bell size={18} />}
-            {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </span>
-            )}
+          <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
+            <Trophy size={18} />
           </div>
-          <p className="text-xs font-semibold text-neutral-700 text-center">Notifications</p>
+          <p className="text-xs font-semibold text-neutral-700 text-center">Mes tontines</p>
         </Link>
       </div>
 

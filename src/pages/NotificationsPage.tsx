@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { Spinner } from '@/components/ui/Spinner'
-import { Trophy, CheckCircle, AlertTriangle, Calendar, CreditCard, Bell, BellRing } from 'lucide-react'
+import { Trophy, CheckCircle, AlertTriangle, Calendar, CreditCard, Bell, BellRing, ChevronRight } from 'lucide-react'
 import { useNotifications, useMarkAsRead, useMarkAllAsRead } from '@/hooks/useNotifications'
 import { NotificationItem, NotificationType } from '@/types/notification'
+import { useAuth } from '@/hooks/useAuth'
+import { UserRole } from '@/types/common'
 
 // ─── Mapping type → catégorie visuelle ───────────────────────────────────────
 type VisualCategory = 'jackpot' | 'paiement' | 'validation' | 'retard' | 'rappel'
@@ -52,13 +55,65 @@ function formatDate(iso: string): string {
   return `${date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}, ${date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
 }
 
+// ─── Résolution du lien contextuel selon le type + rôle ──────────────────────
+function getNotifLink(notif: NotificationItem, isAdmin: boolean): string | null {
+  if (!notif.tontineId) return null
+
+  const tontineBase = isAdmin
+    ? `/admin/tontines/${notif.tontineId}`
+    : `/member/tontines/${notif.tontineId}`
+
+  switch (notif.type) {
+    case NotificationType.PAIEMENT_RECU:
+    case NotificationType.COTISATION_SOUMISE:
+      // Admin → onglet cotisations de la tontine, Membre → ses cotisations
+      return isAdmin ? `${tontineBase}` : '/member/cotisations'
+    case NotificationType.COTISATION_VALIDEE:
+      return '/member/cotisations'
+    case NotificationType.JACKPOT_DISTRIBUE:
+    case NotificationType.DISTRIBUTION_FINALE:
+      return tontineBase
+    case NotificationType.PAIEMENT_EN_RETARD:
+    case NotificationType.RAPPEL_COTISATION:
+      return isAdmin ? `${tontineBase}` : '/member/cotisations'
+    case NotificationType.TOUR_PROCHE:
+    case NotificationType.CYCLE_BIENTOT_CLOTURE:
+    case NotificationType.CYCLE_OUVERT:
+      return tontineBase
+    case NotificationType.INVITATION_TONTINE:
+    case NotificationType.STATUT_MEMBRE:
+      return isAdmin ? '/admin/membres' : '/member/tontines'
+    default:
+      return tontineBase
+  }
+}
+
 // ─── Carte notification ───────────────────────────────────────────────────────
-function NotifCard({ notif, onRead }: { notif: NotificationItem; onRead: (id: string) => void }) {
-  const cfg = NOTIF_CONFIG[getCategory(notif.type)]
+function NotifCard({
+  notif,
+  onRead,
+  isAdmin,
+}: {
+  notif: NotificationItem
+  onRead: (id: string) => void
+  isAdmin: boolean
+}) {
+  const navigate = useNavigate()
+  const cfg  = NOTIF_CONFIG[getCategory(notif.type)]
+  const link = getNotifLink(notif, isAdmin)
+  const hasAction = !!link
+
+  const handleClick = () => {
+    if (!notif.read) onRead(notif.id)
+    if (link) navigate(link)
+  }
+
   return (
     <button
-      className={`w-full flex items-start gap-3 px-4 py-3.5 rounded-2xl transition-colors text-left ${notif.read ? 'bg-white' : 'bg-primary-50/60'}`}
-      onClick={() => { if (!notif.read) onRead(notif.id) }}
+      className={`w-full flex items-start gap-3 px-4 py-3.5 rounded-2xl transition-colors text-left ${
+        notif.read ? 'bg-white' : 'bg-primary-50/60'
+      } ${hasAction ? 'active:scale-[0.99]' : ''}`}
+      onClick={handleClick}
     >
       <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${cfg.bg}`}>
         {cfg.icon}
@@ -72,9 +127,14 @@ function NotifCard({ notif, onRead }: { notif: NotificationItem; onRead: (id: st
         <p className="text-[10px] text-neutral-400 mt-1">{formatDate(notif.createdAt)}</p>
       </div>
 
-      {!notif.read && (
-        <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1.5 ${cfg.dot}`} />
-      )}
+      <div className="flex items-center gap-1.5 flex-shrink-0 mt-1">
+        {!notif.read && (
+          <div className={`w-2.5 h-2.5 rounded-full ${cfg.dot}`} />
+        )}
+        {hasAction && (
+          <ChevronRight size={14} className="text-neutral-300" />
+        )}
+      </div>
     </button>
   )
 }
@@ -84,11 +144,13 @@ export function NotificationsPage() {
   const [page, setPage] = useState(0)
   const [allItems, setAllItems] = useState<NotificationItem[]>([])
 
+  const { hasRole } = useAuth()
+  const isAdmin = hasRole(UserRole.ADMIN) || hasRole(UserRole.SUPER_ADMIN)
+
   const { data, isLoading } = useNotifications(page)
   const { mutate: markAsRead }    = useMarkAsRead()
   const { mutate: markAllAsRead, isPending: markingAll } = useMarkAllAsRead()
 
-  // Accumuler les pages via useEffect pour éviter les setState pendant le render
   useEffect(() => {
     if (!data) return
     if (page === 0) {
@@ -139,7 +201,7 @@ export function NotificationsPage() {
             <button
               onClick={handleMarkAll}
               disabled={markingAll}
-              className="text-xs font-medium text-primary-600 hover:text-primary-700 disabled:opacity-50 transition-colors"
+              className="px-3 py-2 text-xs font-semibold text-primary-600 hover:text-primary-700 disabled:opacity-50 transition-colors rounded-xl hover:bg-primary-50"
             >
               Tout lire
             </button>
@@ -174,7 +236,9 @@ export function NotificationsPage() {
                 Nouvelles
               </p>
               <div className="space-y-2">
-                {unread.map((n) => <NotifCard key={n.id} notif={n} onRead={handleRead} />)}
+                {unread.map((n) => (
+                  <NotifCard key={n.id} notif={n} onRead={handleRead} isAdmin={isAdmin} />
+                ))}
               </div>
             </div>
           )}
@@ -186,7 +250,9 @@ export function NotificationsPage() {
                 Précédentes
               </p>
               <div className="space-y-1">
-                {read.map((n) => <NotifCard key={n.id} notif={n} onRead={handleRead} />)}
+                {read.map((n) => (
+                  <NotifCard key={n.id} notif={n} onRead={handleRead} isAdmin={isAdmin} />
+                ))}
               </div>
             </div>
           )}
