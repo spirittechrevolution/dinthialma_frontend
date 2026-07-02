@@ -13,9 +13,10 @@ import { useMyDashboard } from '@/hooks/useDashboard'
 import { useCycles } from '@/hooks/useCycles'
 import { useCotisations, useValiderCotisation } from '@/hooks/useCotisations'
 import { useMembres } from '@/hooks/useMembres'
+import { CotisationsRecapTotal } from '@/components/shared/CotisationsRecapTotal'
 import { Cotisation, EnregistreParInfo } from '@/types/cotisation'
 import { CotisationStatut, CycleStatut } from '@/types/common'
-import { Search, Download, CheckCircle, XCircle, Edit2, PlusCircle } from 'lucide-react'
+import { Search, Download, CheckCircle, XCircle, Edit2, PlusCircle, LayoutList, Users2 } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 
 interface EditCotisationState {
@@ -72,6 +73,7 @@ export function CotisationsPage() {
     membreNom: '',
     initialValues: { montant: 0, methodePaiement: 'CASH' },
   })
+  const [cotisationView, setCotisationView] = useState<'par-cycle' | 'vue-ensemble'>('par-cycle')
   const [pickerOpen, setPickerOpen] = useState(false)
   const [pickerSearch, setPickerSearch] = useState('')
   const [paiementModal, setPaiementModal] = useState<{ isOpen: boolean; membreId: string; membreNom: string }>({
@@ -168,7 +170,42 @@ export function CotisationsPage() {
       </div>
 
       <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-hidden">
-        {/* Filters */}
+        {/* Toggle Par cycle / Vue d'ensemble */}
+        <div className="px-5 pt-4 pb-0 flex items-center justify-between">
+          <div className="flex gap-1 p-1 bg-neutral-100 rounded-xl w-fit">
+            <button
+              onClick={() => setCotisationView('par-cycle')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                cotisationView === 'par-cycle'
+                  ? 'bg-white text-neutral-900 shadow-sm'
+                  : 'text-neutral-500 hover:text-neutral-700'
+              }`}
+            >
+              <LayoutList size={13} /> Par cycle
+            </button>
+            <button
+              onClick={() => setCotisationView('vue-ensemble')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                cotisationView === 'vue-ensemble'
+                  ? 'bg-white text-neutral-900 shadow-sm'
+                  : 'text-neutral-500 hover:text-neutral-700'
+              }`}
+            >
+              <Users2 size={13} /> Vue d'ensemble
+            </button>
+          </div>
+        </div>
+
+        {/* Vue d'ensemble */}
+        {cotisationView === 'vue-ensemble' && (
+          <div className="px-5 py-4">
+            <CotisationsRecapTotal tontineId={activeTontineId} />
+          </div>
+        )}
+
+        {/* Filters + table */}
+        {cotisationView === 'par-cycle' && (
+        <>
         <div className="px-5 pt-4 pb-0 flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="relative flex-1 max-w-sm">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
@@ -487,6 +524,8 @@ export function CotisationsPage() {
               </button>
             ))}
           </div>
+        )}
+        </>
         )}
       </div>
 
