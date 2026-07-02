@@ -159,10 +159,7 @@ export function AdminDashboard() {
             </BarChart>
           </ResponsiveContainer>
         </div>
-        <div className="flex items-center gap-1.5 mt-2 px-1 py-1.5 bg-amber-50 border border-amber-100 rounded-lg">
-          <span className="text-amber-500 text-xs">⚠</span>
-          <p className="text-xs text-amber-700 font-medium">Données illustratives — le vrai graphique sera connecté prochainement</p>
-        </div>
+
       </div>
 
       {/* Mes participations (vue membre) */}

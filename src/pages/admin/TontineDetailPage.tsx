@@ -496,7 +496,14 @@ export function TontineDetailPage() {
                 <>
                   {/* Desktop */}
                   <div className="hidden sm:block">
-                    <Table columns={cycleColumns} data={cyclesData?.content || []} isLoading={cyclesLoading} emptyMessage="Aucun cycle" />
+                    <Table
+                      columns={cycleColumns}
+                      data={[...(cyclesData?.content || [])].sort((a, b) =>
+                        a.statut === CycleStatut.EN_COURS ? -1 : b.statut === CycleStatut.EN_COURS ? 1 : 0
+                      )}
+                      isLoading={cyclesLoading}
+                      emptyMessage="Aucun cycle"
+                    />
                   </div>
                   {/* Mobile — cards */}
                   <div className="sm:hidden py-2 space-y-2">
@@ -504,7 +511,9 @@ export function TontineDetailPage() {
                       <div className="flex justify-center py-10"><Spinner /></div>
                     ) : cycles.length === 0 ? (
                       <p className="text-center py-10 text-neutral-400 text-sm">Aucun cycle</p>
-                    ) : cycles.map((cy: Cycle) => {
+                    ) : [...cycles].sort((a, b) =>
+                        a.statut === CycleStatut.EN_COURS ? -1 : b.statut === CycleStatut.EN_COURS ? 1 : 0
+                      ).map((cy: Cycle) => {
                       const cycleStatutColor: Record<CycleStatut, string> = {
                         EN_ATTENTE: 'bg-orange-100 text-orange-700',
                         EN_COURS: 'bg-blue-100 text-blue-700',

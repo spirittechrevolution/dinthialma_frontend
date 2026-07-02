@@ -842,7 +842,11 @@ export function TontineDetailPage() {
                 </p>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                  {cycles.map((cycle: Cycle) => (
+                  {[...cycles].sort((a, b) => {
+                    if (a.statut === CycleStatut.EN_COURS) return -1
+                    if (b.statut === CycleStatut.EN_COURS) return 1
+                    return 0
+                  }).map((cycle: Cycle) => (
                     <div
                       key={cycle.id}
                       className={`rounded-2xl border p-4 ${isEvenementielle ? 'bg-purple-50 border-purple-100' : 'bg-neutral-50 border-neutral-100'}`}
