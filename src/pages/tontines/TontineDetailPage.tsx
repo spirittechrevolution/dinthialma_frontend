@@ -400,13 +400,21 @@ export function TontineDetailPage() {
     )
   }
 
-  const tabs: { id: Tab; label: string; show: boolean }[] = [
-    { id: 'infos',        label: 'Vue générale',       show: true },
-    { id: 'membres',      label: 'Membres',             show: true },
-    { id: 'cycles',       label: isEvenementielle ? 'Périodes' : 'Cycles', show: true },
-    { id: 'cotisations',  label: 'Cotisations',         show: true },
-    { id: 'historique',   label: 'Historique jackpots', show: !isEvenementielle },
-    { id: 'commissions',  label: 'Commissions',         show: !!canManage },
+  // Compteurs pour les badges d'onglets
+  const membresActifs = membres.filter((m: Membre) => m.statut === MembreStatut.ACTIF).length
+  const cyclesEnCours = cycles.filter((c: Cycle) => c.statut === CycleStatut.EN_COURS).length
+  // cotEnAttente et cotEnRetard déjà calculés plus haut
+
+  const tabs: { id: Tab; label: string; show: boolean; badge?: number; badgeAlert?: boolean }[] = [
+    { id: 'infos',       label: 'Général',                                   show: true },
+    { id: 'membres',     label: 'Membres',      badge: membresActifs,        show: true },
+    { id: 'cycles',      label: isEvenementielle ? 'Périodes' : 'Cycles',
+                                                badge: cyclesEnCours > 0 ? cyclesEnCours : undefined, show: true },
+    { id: 'cotisations', label: 'Cotisations',
+                                                badge: cotEnAttente + cotEnRetard || undefined,
+                                                badgeAlert: cotEnRetard > 0,                show: true },
+    { id: 'historique',  label: 'Jackpots',                                  show: !isEvenementielle },
+    { id: 'commissions', label: 'Commissions',                               show: !!canManage },
   ]
 
   if (isLoading || !tontine) {
@@ -575,17 +583,37 @@ export function TontineDetailPage() {
 
       {/* ── Onglets ──────────────────────────────────────────────────────── */}
       <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-hidden">
-        {/* Mobile — select dropdown */}
-        <div className="sm:hidden px-4 py-3 border-b border-neutral-100">
-          <select
-            value={activeTab}
-            onChange={(e) => setActiveTab(e.target.value as Tab)}
-            className="w-full text-sm font-medium text-neutral-700 bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary-400"
-          >
-            {tabs.filter((t) => t.show).map((tab) => (
-              <option key={tab.id} value={tab.id}>{tab.label}</option>
-            ))}
-          </select>
+        {/* Mobile — pills scrollables avec compteurs */}
+        <div className="sm:hidden overflow-x-auto border-b border-neutral-100">
+          <div className="flex items-center gap-1.5 px-3 py-3 min-w-max">
+            {tabs.filter((t) => t.show).map((tab) => {
+              const active = activeTab === tab.id
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
+                    active
+                      ? 'bg-primary-600 text-white shadow-sm'
+                      : 'bg-neutral-100 text-neutral-600'
+                  }`}
+                >
+                  {tab.label}
+                  {tab.badge != null && tab.badge > 0 && (
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
+                      active
+                        ? 'bg-white/25 text-white'
+                        : tab.badgeAlert
+                          ? 'bg-red-500 text-white'
+                          : 'bg-primary-100 text-primary-700'
+                    }`}>
+                      {tab.badge}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
         </div>
         {/* Desktop — tab buttons */}
         <div className="hidden sm:flex border-b border-neutral-100 overflow-x-auto">
@@ -593,13 +621,24 @@ export function TontineDetailPage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-5 py-3.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+              className={`flex items-center gap-1.5 px-5 py-3.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
                 activeTab === tab.id
                   ? 'border-primary-500 text-primary-600'
                   : 'border-transparent text-neutral-500 hover:text-neutral-700'
               }`}
             >
               {tab.label}
+              {tab.badge != null && tab.badge > 0 && (
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
+                  activeTab === tab.id
+                    ? 'bg-primary-100 text-primary-700'
+                    : tab.badgeAlert
+                      ? 'bg-red-100 text-red-600'
+                      : 'bg-neutral-100 text-neutral-500'
+                }`}>
+                  {tab.badge}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -774,10 +813,10 @@ export function TontineDetailPage() {
                         </div>
                       </div>
                       {canManage && (
-                        <div className="flex flex-col gap-1 shrink-0">
-                          {m.statut === MembreStatut.ACTIF && <button onClick={() => setMembreAction({ type: 'suspendre', id: m.id, nom })} className="w-8 h-8 rounded-lg bg-orange-50 text-orange-500 flex items-center justify-center hover:bg-orange-100 transition-colors"><UserMinus size={14} /></button>}
-                          {m.statut === MembreStatut.SUSPENDU && <button onClick={() => setMembreAction({ type: 'activer', id: m.id, nom })} className="w-8 h-8 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center hover:bg-primary-100 transition-colors"><UserCheck size={14} /></button>}
-                          {m.statut !== MembreStatut.SORTI && <button onClick={() => setMembreAction({ type: 'retirer', id: m.id, nom })} className="w-8 h-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors"><Trash2 size={14} /></button>}
+                        <div className="flex flex-col gap-1.5 shrink-0">
+                          {m.statut === MembreStatut.ACTIF && <button onClick={() => setMembreAction({ type: 'suspendre', id: m.id, nom })} className="w-11 h-11 rounded-xl bg-orange-50 text-orange-500 flex items-center justify-center hover:bg-orange-100 transition-colors"><UserMinus size={16} /></button>}
+                          {m.statut === MembreStatut.SUSPENDU && <button onClick={() => setMembreAction({ type: 'activer', id: m.id, nom })} className="w-11 h-11 rounded-xl bg-primary-50 text-primary-600 flex items-center justify-center hover:bg-primary-100 transition-colors"><UserCheck size={16} /></button>}
+                          {m.statut !== MembreStatut.SORTI && <button onClick={() => setMembreAction({ type: 'retirer', id: m.id, nom })} className="w-11 h-11 rounded-xl bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors"><Trash2 size={16} /></button>}
                         </div>
                       )}
                     </div>
@@ -1151,8 +1190,8 @@ export function TontineDetailPage() {
                           <td className="px-4 py-3">
                             {c.statut === CotisationStatut.EN_ATTENTE && (
                               <div className="flex gap-1.5">
-                                <button onClick={() => setCotisationToValidate(c.id)} className="w-7 h-7 rounded-full bg-primary-50 text-primary-600 flex items-center justify-center hover:bg-primary-100 transition-colors" title="Valider"><CheckCircle size={13} /></button>
-                                <button className="w-7 h-7 rounded-full bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors" title="Refuser"><XCircle size={13} /></button>
+                                <button onClick={() => setCotisationToValidate(c.id)} className="w-8 h-8 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center hover:bg-primary-100 transition-colors" title="Valider"><CheckCircle size={15} /></button>
+                                <button className="w-8 h-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors" title="Refuser"><XCircle size={15} /></button>
                               </div>
                             )}
                           </td>
