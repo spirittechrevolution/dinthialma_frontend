@@ -53,6 +53,20 @@ export interface UpdateCotisationRequest {
   note?: string
 }
 
+// ─── Récapitulatif total par membre (tous cycles confondus) ──────────────────
+export interface MembreTotalCotisation {
+  membreId: string
+  userId: string
+  firstName: string
+  lastName: string
+  phone: string
+  accountStatus: 'ACTIVE' | 'PRE_ENROLLED'
+  statutMembre: 'ACTIF' | 'SUSPENDU'
+  ordreJackpot: number | null
+  totalCotise: number
+  nombreCotisationsValidees: number
+}
+
 // ─── Item du récapitulatif cotisations par cycle/membre ──────────────────────
 export interface CotisationRecapItem {
   membreId: string

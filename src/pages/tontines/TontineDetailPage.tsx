@@ -62,7 +62,10 @@ import {
   CalendarHeart,
   Download,
   AlertTriangle,
+  LayoutList,
+  Users2,
 } from 'lucide-react'
+import { CotisationsRecapTotal } from '@/components/shared/CotisationsRecapTotal'
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
@@ -203,6 +206,7 @@ export function TontineDetailPage() {
   const [cotisationCycleFilter, setCotisationCycleFilter] = useState<string | undefined>(undefined)
   const [selectedMembreId, setSelectedMembreId] = useState<string | undefined>(undefined)
   const [showMembresSansCot, setShowMembresSansCot] = useState(false)
+  const [cotisationView, setCotisationView] = useState<'par-cycle' | 'recap-total'>('par-cycle')
 
   // ─── Data ─────────────────────────────────────────────────────────────────
   const { data: tontine, isLoading } = useTontine(id || '')
@@ -935,7 +939,40 @@ export function TontineDetailPage() {
           {/* ── Cotisations ──────────────────────────────────────────────── */}
           {activeTab === 'cotisations' && (
             <div>
-              {/* Indicateur cycle affiché */}
+              {/* Toggle vue (gestionnaire uniquement) */}
+              {canManage && (
+                <div className="flex gap-1 p-1 bg-neutral-100 rounded-xl mb-4 w-fit">
+                  <button
+                    onClick={() => setCotisationView('par-cycle')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                      cotisationView === 'par-cycle'
+                        ? 'bg-white text-neutral-900 shadow-sm'
+                        : 'text-neutral-500 hover:text-neutral-700'
+                    }`}
+                  >
+                    <LayoutList size={13} /> Par cycle
+                  </button>
+                  <button
+                    onClick={() => setCotisationView('recap-total')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                      cotisationView === 'recap-total'
+                        ? 'bg-white text-neutral-900 shadow-sm'
+                        : 'text-neutral-500 hover:text-neutral-700'
+                    }`}
+                  >
+                    <Users2 size={13} /> Vue d'ensemble
+                  </button>
+                </div>
+              )}
+
+              {/* Vue d'ensemble : recap total par membre */}
+              {cotisationView === 'recap-total' && canManage && id && (
+                <CotisationsRecapTotal tontineId={id} />
+              )}
+
+              {/* Vue par cycle */}
+              {(cotisationView === 'par-cycle' || !canManage) && (
+              <>{/* Indicateur cycle affiché */}
               {effectiveCycleFilter && (
                 <div className="flex items-center gap-2 mb-4">
                   <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
@@ -1156,6 +1193,7 @@ export function TontineDetailPage() {
                   </div>
                 ))}
               </div>
+              </>)}
             </div>
           )}
 

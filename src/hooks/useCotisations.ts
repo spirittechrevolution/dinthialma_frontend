@@ -85,3 +85,11 @@ export function useCotisationRecap(tontineId: string, cycleId: string, enabled =
     enabled: !!tontineId && !!cycleId && enabled,
   })
 }
+
+export function useCotisationsRecapTotal(tontineId: string, enabled = true) {
+  return useQuery({
+    queryKey: ['cotisationsRecapTotal', tontineId],
+    queryFn: () => cotisationService.getCotisationsRecapTotal(tontineId),
+    enabled: !!tontineId && enabled,
+  })
+}

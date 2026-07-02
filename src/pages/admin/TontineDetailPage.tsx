@@ -20,7 +20,8 @@ import { Membre } from '@/types/membre'
 import { Cycle } from '@/types/cycle'
 import { Cotisation } from '@/types/cotisation'
 import { TontineStatut, CycleStatut, CotisationStatut, MembreStatut, AccountStatus } from '@/types/common'
-import { ArrowLeft, Play, Pause, Trash2, CheckCircle, UserMinus, AlertTriangle, CreditCard, Edit2, BarChart2, ChevronDown, ChevronUp } from 'lucide-react'
+import { ArrowLeft, Play, Pause, Trash2, CheckCircle, UserMinus, AlertTriangle, CreditCard, Edit2, BarChart2, ChevronDown, ChevronUp, LayoutList, Users2 } from 'lucide-react'
+import { CotisationsRecapTotal } from '@/components/shared/CotisationsRecapTotal'
 
 type Tab = 'infos' | 'membres' | 'cycles' | 'cotisations' | 'commissions'
 
@@ -67,6 +68,7 @@ export function TontineDetailPage() {
   })
   const [recapCycle, setRecapCycle] = useState<Cycle | null>(null)
   const [showMembresSansCot, setShowMembresSansCot] = useState(false)
+  const [cotisationView, setCotisationView] = useState<'par-cycle' | 'recap-total'>('par-cycle')
 
   const { data: tontine, isLoading } = useTontine(id || '')
   const { mutate: activer, isPending: isActivating } = useActiverTontine()
@@ -561,7 +563,38 @@ export function TontineDetailPage() {
               )}
               {activeTab === 'cotisations' && (
                 <div>
-                  {/* Sélecteur membre */}
+                  {/* Toggle vue */}
+                  <div className="flex gap-1 p-1 bg-neutral-100 rounded-xl mb-4 w-fit">
+                    <button
+                      onClick={() => setCotisationView('par-cycle')}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                        cotisationView === 'par-cycle'
+                          ? 'bg-white text-neutral-900 shadow-sm'
+                          : 'text-neutral-500 hover:text-neutral-700'
+                      }`}
+                    >
+                      <LayoutList size={13} /> Par cycle
+                    </button>
+                    <button
+                      onClick={() => setCotisationView('recap-total')}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                        cotisationView === 'recap-total'
+                          ? 'bg-white text-neutral-900 shadow-sm'
+                          : 'text-neutral-500 hover:text-neutral-700'
+                      }`}
+                    >
+                      <Users2 size={13} /> Vue d'ensemble
+                    </button>
+                  </div>
+
+                  {/* Vue d'ensemble : recap total par membre */}
+                  {cotisationView === 'recap-total' && id && (
+                    <CotisationsRecapTotal tontineId={id} />
+                  )}
+
+                  {/* Vue par cycle */}
+                  {cotisationView === 'par-cycle' && (
+                  <>{/* Sélecteur membre */}
                   <div className="flex flex-wrap items-center gap-3 mb-4">
                     <select
                       value={selectedMembreId || ''}
@@ -775,6 +808,7 @@ export function TontineDetailPage() {
                       )
                     })}
                   </div>
+                  </>)}
                 </div>
               )}
               {activeTab === 'commissions' && (

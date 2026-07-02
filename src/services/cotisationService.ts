@@ -1,5 +1,5 @@
 import api from './api'
-import { Cotisation, RecordCotisationRequest, AdminRecordCotisationRequest, UpdateCotisationRequest, CotisationRecapItem } from '@/types/cotisation'
+import { Cotisation, RecordCotisationRequest, AdminRecordCotisationRequest, UpdateCotisationRequest, CotisationRecapItem, MembreTotalCotisation } from '@/types/cotisation'
 import { PageResponse, CustomResponse } from '@/types/common'
 
 export const cotisationService = {
@@ -76,6 +76,14 @@ export const cotisationService = {
   getCotisationRecap: async (tontineId: string, cycleId: string): Promise<CotisationRecapItem[]> => {
     const response = await api.get<CustomResponse<CotisationRecapItem[]>>(
       `/v1/tontines/${tontineId}/cotisations/recap/${cycleId}`
+    )
+    return response.data.data
+  },
+
+  // ─── Total cotisé par membre — tous cycles confondus ─────────────────────────
+  getCotisationsRecapTotal: async (tontineId: string): Promise<MembreTotalCotisation[]> => {
+    const response = await api.get<CustomResponse<MembreTotalCotisation[]>>(
+      `/v1/tontines/${tontineId}/cotisations/recap-total`
     )
     return response.data.data
   },
