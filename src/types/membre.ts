@@ -8,8 +8,10 @@ export interface Membre {
   ordreJackpot: number
   statut: MembreStatut
   dateAdhesion: string
+  /** true si le membre a déjà gagné un cycle de cette tontine (un seul jackpot par tontine) */
   aRecuJackpot: boolean
-  dateJackpot?: string | null
+  /** Date de son jackpot, null s'il n'a pas encore gagné */
+  dateJackpot: string | null
   createdAt: string
   updatedAt: string
 }

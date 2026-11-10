@@ -1,15 +1,15 @@
 import api from './api'
 import { Membre, AddMembreRequest, UpdateMembreStatutRequest } from '@/types/membre'
-import { PageResponse, CustomResponse } from '@/types/common'
+import { PageResponse, CustomResponse, RawPage, toPage } from '@/types/common'
 
 export const membreService = {
   // ─── Lister les membres d'une tontine ────────────────────────────────────────
   listMembres: async (tontineId: string, page = 0, size = 20): Promise<PageResponse<Membre>> => {
-    const response = await api.get<CustomResponse<PageResponse<Membre>>>(
+    const response = await api.get<CustomResponse<RawPage<Membre>>>(
       `/v1/tontines/${tontineId}/membres`,
       { params: { page, size, sort: 'ordreJackpot,asc' } }
     )
-    return response.data.data
+    return toPage(response.data.data)
   },
 
   // ─── Ajouter un membre ───────────────────────────────────────────────────────

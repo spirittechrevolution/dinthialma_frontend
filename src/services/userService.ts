@@ -1,6 +1,6 @@
 import api from './api'
 import { AdminUserResponse, UserProfile, UpdateProfileRequest, PhoneChangeRequest, PhoneChangeVerifyRequest, UpdateUserRolesRequest, UserSearchResult } from '@/types/user'
-import { PageResponse, CustomResponse } from '@/types/common'
+import { PageResponse, CustomResponse, RawPage, toPage } from '@/types/common'
 
 export const userService = {
   // ─── Recherche utilisateur par numéro de téléphone ───────────────────────────
@@ -33,12 +33,17 @@ export const userService = {
 
   // ─── Administration SUPER_ADMIN ───────────────────────────────────────────────
 
-  listUsers: async (page = 0, size = 20): Promise<PageResponse<AdminUserResponse>> => {
-    const response = await api.get<CustomResponse<PageResponse<AdminUserResponse>>>(
+  /** `accountStatus` : filtre serveur optionnel (ACTIVE inclut les comptes antérieurs sans statut) */
+  listUsers: async (
+    page = 0,
+    size = 20,
+    accountStatus?: 'ACTIVE' | 'PRE_ENROLLED' | ''
+  ): Promise<PageResponse<AdminUserResponse>> => {
+    const response = await api.get<CustomResponse<RawPage<AdminUserResponse>>>(
       '/v1/admin/dashboard/users',
-      { params: { page, size, sort: 'createdAt,desc' } }
+      { params: { page, size, sort: 'createdAt,desc', ...(accountStatus ? { accountStatus } : {}) } }
     )
-    return response.data.data
+    return toPage(response.data.data)
   },
 
   getUserDetail: async (userId: string): Promise<AdminUserResponse> => {

@@ -13,7 +13,9 @@ html {
 }
 
 body {
-  @apply bg-neutral-50 text-neutral-900;
+  @apply text-neutral-900 antialiased;
+  background-color: #f5f6f8;
+  -webkit-tap-highlight-color: transparent;
   overscroll-behavior: none;
 }
 
@@ -69,3 +71,10 @@ body {
   ::-webkit-scrollbar-thumb { @apply bg-neutral-300 rounded; }
   ::-webkit-scrollbar-thumb:hover { @apply bg-neutral-400; }
 }
+
+/* Masquer la scrollbar (chips horizontales) */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Chiffres alignés pour les montants */
+.tabular { font-variant-numeric: tabular-nums; }

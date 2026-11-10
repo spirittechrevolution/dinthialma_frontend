@@ -6,9 +6,9 @@ import { PWABanner } from '@/components/shared/PWABanner'
 import { useAuth } from '@/hooks/useAuth'
 import { UserRole } from '@/types/common'
 import {
-  LayoutDashboard,
+  Home,
   Users,
-  BookCopy,
+  Wallet,
   CreditCard,
   RefreshCw,
   List,
@@ -21,66 +21,72 @@ interface AppLayoutProps {
 
 export interface NavLink {
   label: string
+  /** Libellé court pour la barre du bas mobile */
+  shortLabel?: string
   path: string
   icon: React.ReactNode
+  /** Affiché dans la barre du bas mobile (max 4 + Profil) */
+  mobile?: boolean
 }
+
 export function AppLayout({ children }: AppLayoutProps) {
   const { hasRole } = useAuth()
 
   const getNavLinks = (): NavLink[] => {
     if (hasRole(UserRole.SUPER_ADMIN)) {
       return [
-        { label: 'Tableau de bord', path: '/dashboard', icon: <LayoutDashboard size={20} /> },
-        { label: 'Utilisateurs', path: '/superadmin/users', icon: <Users size={20} /> },
-        { label: 'Tontines', path: '/superadmin/tontines', icon: <BookCopy size={20} /> },
-        { label: 'Référentiels', path: '/superadmin/code-list', icon: <List size={20} /> },
+        { label: 'Accueil', path: '/dashboard', icon: <Home size={22} />, mobile: true },
+        { label: 'Tontines', path: '/superadmin/tontines', icon: <Wallet size={22} />, mobile: true },
+        { label: 'Cotisations', shortLabel: 'Paiements', path: '/superadmin/cotisations', icon: <CreditCard size={22} />, mobile: true },
+        { label: 'Utilisateurs', path: '/superadmin/users', icon: <Users size={22} />, mobile: true },
+        { label: 'Référentiels', path: '/superadmin/code-list', icon: <List size={22} /> },
       ]
     }
 
     if (hasRole(UserRole.ADMIN)) {
       return [
-        { label: 'Tableau de bord', path: '/admin/dashboard', icon: <LayoutDashboard size={20} /> },
-        { label: 'Mes tontines', path: '/admin/tontines', icon: <BookCopy size={20} /> },
-        { label: 'Membres', path: '/admin/membres', icon: <Users size={20} /> },
-        { label: 'Cycles', path: '/admin/cycles', icon: <RefreshCw size={20} /> },
-        { label: 'Cotisations', path: '/admin/cotisations', icon: <CreditCard size={20} /> },
-        { label: 'Mes participations', path: '/member/dashboard', icon: <UserCheck size={20} /> },
+        { label: 'Accueil', path: '/admin/dashboard', icon: <Home size={22} />, mobile: true },
+        { label: 'Mes tontines', shortLabel: 'Tontines', path: '/admin/tontines', icon: <Wallet size={22} />, mobile: true },
+        { label: 'Cotisations', shortLabel: 'Paiements', path: '/admin/cotisations', icon: <CreditCard size={22} />, mobile: true },
+        { label: 'Membres', path: '/admin/membres', icon: <Users size={22} />, mobile: true },
+        { label: 'Cycles', path: '/admin/cycles', icon: <RefreshCw size={22} /> },
+        { label: 'Mes participations', path: '/member/dashboard', icon: <UserCheck size={22} /> },
       ]
     }
 
     if (hasRole(UserRole.MEMBER)) {
       return [
-        { label: 'Tableau de bord', path: '/member/dashboard', icon: <LayoutDashboard size={20} /> },
-        { label: 'Mes tontines', path: '/member/tontines', icon: <BookCopy size={20} /> },
-        { label: 'Cotisations', path: '/member/cotisations', icon: <CreditCard size={20} /> },
+        { label: 'Accueil', path: '/member/dashboard', icon: <Home size={22} />, mobile: true },
+        { label: 'Mes tontines', shortLabel: 'Tontines', path: '/member/tontines', icon: <Wallet size={22} />, mobile: true },
+        { label: 'Mes cotisations', shortLabel: 'Paiements', path: '/member/cotisations', icon: <CreditCard size={22} />, mobile: true },
       ]
     }
 
     return [
-      { label: 'Tableau de bord', path: '/user/dashboard', icon: <LayoutDashboard size={20} /> },
+      { label: 'Accueil', path: '/user/dashboard', icon: <Home size={22} />, mobile: true },
     ]
   }
 
   const links = getNavLinks()
 
   return (
-    <div className="flex h-screen bg-neutral-50 overflow-hidden">
+    <div className="flex h-[100dvh] bg-[#f5f6f8] overflow-hidden">
       {/* Sidebar — desktop seulement */}
       <Sidebar links={links} />
 
       {/* Contenu principal */}
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         <Topbar />
-        <main className="flex-1 overflow-y-auto">
-          {/* padding-bottom sur mobile pour laisser de la place à la bottom nav */}
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 py-5 sm:py-8 pb-24 md:pb-8">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain">
+          {/* Colonne centrée et étroite : lisible sur mobile comme sur desktop */}
+          <div className="mx-auto w-full max-w-5xl px-4 sm:px-6 pt-4 sm:pt-6 pb-28 md:pb-10">
             {children}
           </div>
         </main>
       </div>
 
       {/* Bottom nav — mobile seulement */}
-      <BottomNav links={links} />
+      <BottomNav links={links.filter((l) => l.mobile).slice(0, 4)} />
 
       {/* Bannière PWA */}
       <PWABanner />

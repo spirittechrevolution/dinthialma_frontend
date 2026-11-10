@@ -14,7 +14,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 
     return (
       <div className="w-full">
-        {label && <label className="block text-sm font-medium text-neutral-700 mb-1">{label}</label>}
+        {label && <label className="block text-sm font-medium text-neutral-700 mb-1.5">{label}</label>}
         <div className="relative">
           {icon && (
             <div className="absolute top-1/2 -translate-y-1/2 left-3 text-neutral-500">
@@ -29,7 +29,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           <input
             ref={ref}
             className={clsx(
-              'w-full px-4 py-3 rounded-2xl border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-neutral-100 disabled:cursor-not-allowed transition-all',
+              'w-full h-12 px-4 rounded-xl border border-neutral-200 bg-white text-[15px] placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-neutral-100 disabled:cursor-not-allowed transition-all',
               paddingClass,
               error && 'border-error focus:ring-error',
               className

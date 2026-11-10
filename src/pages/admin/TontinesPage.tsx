@@ -4,11 +4,14 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Spinner } from '@/components/ui/Spinner'
+import { Pagination } from '@/components/ui/Pagination'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { CreateTontineModal } from '@/components/shared/CreateTontineModal'
 import { useTontines } from '@/hooks/useTontines'
 import { Tontine, TontineType } from '@/types/tontine'
 import { TontineStatut } from '@/types/common'
 import { Plus, ArrowRight, Users, Calendar, Search, RotateCcw, CalendarHeart } from 'lucide-react'
+import { ChipRow } from '@/components/ui/ChipRow'
 
 const STATUT_TABS = [
   { label: 'Toutes', value: '' },
@@ -33,14 +36,16 @@ const FREQ_LABELS: Record<string, string> = {
   TRIMESTRIEL: 'trimestrielle',
 }
 
+const PAGE_SIZE = 12
+
 export function TontinesPage() {
   const navigate = useNavigate()
-  const [page] = useState(0)
+  const [page, setPage] = useState(0)
   const [search, setSearch] = useState('')
   const [statutTab, setStatutTab] = useState('')
   const [isOpen, setIsOpen] = useState(false)
 
-  const { data: tontinesData, isLoading } = useTontines(page, 50)
+  const { data: tontinesData, isLoading } = useTontines(page, PAGE_SIZE)
 
   const tontines = tontinesData?.content || []
 
@@ -53,42 +58,43 @@ export function TontinesPage() {
 
   return (
     <AppLayout>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-neutral-900">Mes tontines</h1>
-          <p className="text-sm text-neutral-500 mt-1">Créez et gérez vos tontines.</p>
-        </div>
-        <Button size="sm" onClick={() => setIsOpen(true)}>
-          <Plus size={16} className="mr-1" /> Nouvelle tontine
-        </Button>
-      </div>
+      <PageHeader
+        title="Mes tontines"
+        description="Créez et gérez vos tontines."
+        action={
+          <Button onClick={() => setIsOpen(true)}>
+            <Plus size={18} /> <span className="hidden sm:inline">Nouvelle tontine</span><span className="sm:hidden">Créer</span>
+          </Button>
+        }
+      />
 
       {/* Filtres */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-5">
-        <div className="relative flex-1 max-w-sm">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+        <div className="relative flex-1 sm:max-w-sm">
+          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Rechercher une tontine..."
-            className="w-full pl-9 pr-4 py-2 text-sm border border-neutral-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-transparent shadow-sm"
+            className="w-full h-12 pl-11 pr-4 text-[15px] border border-neutral-200 rounded-full bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           />
         </div>
-        <div className="flex items-center gap-1 flex-wrap">
+        <ChipRow>
           {STATUT_TABS.map((tab) => (
             <button
+              aria-pressed={statutTab === tab.value}
               key={tab.value}
               onClick={() => setStatutTab(tab.value)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+              className={`h-9 px-4 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
                 statutTab === tab.value
-                  ? 'bg-primary-600 text-white'
-                  : 'bg-white text-neutral-600 hover:bg-neutral-100 border border-neutral-200 shadow-sm'
+                  ? 'bg-neutral-900 text-white'
+                  : 'bg-white text-neutral-600 hover:bg-neutral-100 border border-neutral-200'
               }`}
             >
               {tab.label}
             </button>
           ))}
-        </div>
+        </ChipRow>
       </div>
 
       {/* Card grid */}
@@ -105,7 +111,7 @@ export function TontinesPage() {
             const isEvent = t.tontineType === TontineType.EVENEMENTIELLE
             const pct = t.nombreMembres > 0 ? Math.round((t.nombreMembresActuels / t.nombreMembres) * 100) : 0
             return (
-              <div key={t.id} className="bg-white rounded-2xl border border-neutral-100 shadow-sm p-5 flex flex-col hover:shadow-md transition-shadow">
+              <div key={t.id} onClick={() => navigate(`/admin/tontines/${t.id}`)} className="bg-white rounded-2xl border border-neutral-100 p-4 sm:p-5 flex flex-col cursor-pointer hover:border-primary-200 active:scale-[0.99] transition">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <Badge variant={BADGE_VARIANT[t.statut]}>
@@ -170,6 +176,17 @@ export function TontinesPage() {
             )
           })}
         </div>
+      )}
+
+      {!isLoading && (
+        <Pagination
+          className="mt-4 px-0"
+          page={page}
+          totalPages={tontinesData?.totalPages ?? 1}
+          totalElements={tontinesData?.totalElements}
+          pageSize={PAGE_SIZE}
+          onPageChange={(p) => { setPage(p); document.querySelector("main")?.scrollTo({ top: 0 }) }}
+        />
       )}
 
       <CreateTontineModal isOpen={isOpen} onClose={() => setIsOpen(false)} />

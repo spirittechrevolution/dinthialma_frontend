@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -16,7 +17,7 @@ import { RotateCcw, CalendarHeart } from 'lucide-react'
 // ─── Schema ───────────────────────────────────────────────────────────────────
 const schema = z.object({
   tontineType:        z.enum(['ROTATIVE', 'EVENEMENTIELLE']),
-  nom:                z.string().min(2, 'Au moins 2 caractères'),
+  nom:                z.string().trim().min(2, 'Au moins 2 caractères').max(150, '150 caractères maximum'),
   description:        z.string().optional(),
   frequence:          z.string().min(1, 'Requis'),
   dateDebut:          z.string().min(1, 'Requis'),
@@ -41,6 +42,8 @@ const schema = z.object({
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['montant'], message: 'Montant invalide' })
     if (!d.nombreMembres || d.nombreMembres < 2)
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['nombreMembres'], message: 'Min 2 membres' })
+    else if (d.nombreMembres > 100)
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['nombreMembres'], message: '100 membres maximum' })
     if (!d.nombreGagnants || d.nombreGagnants < 1)
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['nombreGagnants'], message: 'Min 1' })
   }

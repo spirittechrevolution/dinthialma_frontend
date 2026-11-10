@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useAppTheme } from '@/App'
 import { useUnreadCount } from '@/hooks/useNotifications'
 import { UserRole } from '@/types/common'
-import { Bell, BellRing, LogOut, User, Sun, Moon } from 'lucide-react'
+import { Bell, LogOut, User, Sun, Moon } from 'lucide-react'
 import { useState } from 'react'
 import { LogoIcon } from '@/components/ui/LogoIcon'
 
@@ -18,6 +18,10 @@ function getRoleLabel(hasRole: (r: UserRole) => boolean) {
   return 'Utilisateur'
 }
 
+/**
+ * En-tête unique de l'app (mobile + desktop).
+ * Volontairement minimal : logo (mobile), cloche notifications, avatar → menu.
+ */
 export function Topbar() {
   const { user, logout, hasRole } = useAuth()
   const { isDark, toggleTheme } = useAppTheme()
@@ -29,77 +33,73 @@ export function Topbar() {
   const initials = getInitials(displayName)
   const roleLabel = getRoleLabel(hasRole)
 
-  return (
-    <header className="sticky top-0 z-20 bg-white dark:bg-[#111827] border-b border-neutral-200 dark:border-[#374151] h-14 flex-shrink-0 transition-colors duration-200">
-      <div className="h-full flex items-center justify-between px-4 sm:px-6">
+  const iconBtn =
+    'relative w-10 h-10 rounded-full flex items-center justify-center text-neutral-600 hover:bg-neutral-100 active:scale-95 transition'
 
+  return (
+    <header className="sticky top-0 z-20 bg-[#f5f6f8]/90 md:bg-white backdrop-blur md:border-b md:border-neutral-100 h-14 md:h-16 flex-shrink-0">
+      <div className="h-full mx-auto w-full flex items-center justify-between px-4 sm:px-6">
         {/* Logo mobile */}
-        <div className="flex items-center gap-2 md:hidden">
-          <LogoIcon size={28} />
-          <span className="font-bold text-sm text-neutral-900 dark:text-white">Dinthialma</span>
-        </div>
+        <button onClick={() => navigate('/')} className="flex items-center gap-2 md:hidden">
+          <LogoIcon size={26} />
+          <span className="font-bold text-[15px] text-neutral-900">Dinthialma</span>
+        </button>
 
         <div className="hidden md:block" />
 
-        <div className="flex items-center gap-2">
-          {/* Toggle dark/light mode */}
-          <button
-            onClick={toggleTheme}
-            className="p-1.5 rounded-lg text-neutral-500 dark:text-[#9ca3af] hover:text-neutral-700 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-[#1f2937] transition-colors"
-            title={isDark ? 'Mode clair' : 'Mode sombre'}
-          >
-            {isDark ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
-
-          {/* Cloche */}
-          <button
-            onClick={() => navigate('/notifications')}
-            className="relative p-1.5 text-neutral-500 dark:text-[#9ca3af] hover:text-neutral-700 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-[#1f2937] rounded-lg transition-colors"
-          >
-            {unreadCount > 0 ? <BellRing size={18} className="text-primary-500" /> : <Bell size={18} />}
+        <div className="flex items-center gap-1">
+          {/* Notifications */}
+          <button onClick={() => navigate('/notifications')} className={iconBtn} aria-label="Notifications">
+            <Bell size={20} />
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+              <span className="absolute top-1.5 right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-white">
                 {unreadCount > 9 ? '9+' : unreadCount}
               </span>
             )}
           </button>
 
-          {/* User menu */}
+          {/* Avatar → menu */}
           <div className="relative">
             <button
               onClick={() => setShowMenu(!showMenu)}
-              className="flex items-center gap-2 hover:bg-neutral-50 dark:hover:bg-[#1f2937] rounded-lg px-2 py-1.5 transition-colors"
+              className="flex items-center gap-2 rounded-full pl-1 pr-1 md:pr-3 py-1 hover:bg-neutral-100 transition-colors"
+              aria-label="Menu utilisateur"
             >
-              <span className="w-8 h-8 rounded-full bg-primary-600 text-white text-sm font-bold flex items-center justify-center flex-shrink-0">
+              <span className="w-8 h-8 rounded-full bg-primary-600 text-white text-xs font-bold flex items-center justify-center">
                 {initials}
               </span>
-              <div className="text-left hidden sm:block">
-                <p className="text-sm font-semibold text-neutral-900 dark:text-white leading-tight">{displayName}</p>
-                <p className="text-xs text-neutral-500 dark:text-[#9ca3af] leading-tight">{roleLabel}</p>
-              </div>
+              <span className="hidden md:block text-left">
+                <span className="block text-sm font-semibold text-neutral-900 leading-tight">{displayName}</span>
+                <span className="block text-xs text-neutral-500 leading-tight">{roleLabel}</span>
+              </span>
             </button>
 
             {showMenu && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
-                <div className="absolute right-0 mt-1 w-52 bg-white dark:bg-[#1f2937] rounded-xl shadow-lg dark:shadow-2xl border border-neutral-200 dark:border-[#374151] z-20 overflow-hidden">
-                  <div className="px-4 py-3 border-b border-neutral-100 dark:border-[#374151]">
-                    <p className="text-sm font-semibold text-neutral-900 dark:text-white truncate">{displayName}</p>
-                    <p className="text-xs text-neutral-500 dark:text-[#9ca3af]">{roleLabel}</p>
+                <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-lg border border-neutral-100 z-20 overflow-hidden animate-slideDown">
+                  <div className="px-4 py-3 border-b border-neutral-100">
+                    <p className="text-sm font-semibold text-neutral-900 truncate">{displayName}</p>
+                    <p className="text-xs text-neutral-500">{roleLabel}</p>
                   </div>
                   <button
                     onClick={() => { setShowMenu(false); navigate('/profile') }}
-                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-neutral-700 dark:text-[#d1d5db] hover:bg-neutral-50 dark:hover:bg-[#111827] transition-colors"
+                    className="w-full flex items-center gap-3 px-4 h-11 text-sm text-neutral-700 hover:bg-neutral-50"
                   >
-                    <User size={15} />
-                    Mon profil
+                    <User size={17} /> Mon profil
+                  </button>
+                  <button
+                    onClick={() => { toggleTheme() }}
+                    className="w-full flex items-center gap-3 px-4 h-11 text-sm text-neutral-700 hover:bg-neutral-50"
+                  >
+                    {isDark ? <Sun size={17} /> : <Moon size={17} />}
+                    {isDark ? 'Mode clair' : 'Mode sombre'}
                   </button>
                   <button
                     onClick={async () => { setShowMenu(false); await logout() }}
-                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-neutral-50 dark:hover:bg-[#111827] transition-colors border-t border-neutral-100 dark:border-[#374151]"
+                    className="w-full flex items-center gap-3 px-4 h-11 text-sm text-red-600 hover:bg-red-50 border-t border-neutral-100"
                   >
-                    <LogOut size={15} />
-                    Déconnexion
+                    <LogOut size={17} /> Déconnexion
                   </button>
                 </div>
               </>

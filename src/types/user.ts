@@ -22,7 +22,8 @@ export interface AdminUserResponse {
   active: boolean
   pinConfigured: boolean
   roles: string[]
-  accountStatus?: string
+  /** PRE_ENROLLED = ajouté par un admin de tontine, pas encore inscrit */
+  accountStatus: 'ACTIVE' | 'PRE_ENROLLED'
   createdAt: string
   updatedAt: string
 }

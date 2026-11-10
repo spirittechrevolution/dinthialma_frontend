@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -9,12 +10,16 @@ import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Spinner } from '@/components/ui/Spinner'
 import { Modal } from '@/components/ui/Modal'
+import { Pagination } from '@/components/ui/Pagination'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { formatMontant, formatDateHeure } from '@/lib/format'
 import { useCotisations, useRecordCotisation } from '@/hooks/useCotisations'
 import { useTontines } from '@/hooks/useTontines'
 import { useCycles } from '@/hooks/useCycles'
 import { Cotisation } from '@/types/cotisation'
 import { CotisationStatut, TontineStatut } from '@/types/common'
-import { CheckCircle, Clock, AlertTriangle, Trophy, Plus, Lock } from 'lucide-react'
+import { CheckCircle, Clock, AlertTriangle, Plus, Lock } from 'lucide-react'
+import { ChipRow } from '@/components/ui/ChipRow'
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
 const schema = z.object({
@@ -44,15 +49,20 @@ const METHODES = [
 
 export function MesCotisationsPage() {
   const [page, setPage]           = useState(0)
-  const [isOpen, setIsOpen]       = useState(false)
+  const location = useLocation()
+  // Ouverture directe du formulaire depuis le bouton « Payer » de l'accueil
+  const [isOpen, setIsOpen]       = useState(() => !!(location.state as { openPay?: boolean } | null)?.openPay)
   const [selectedTontineId, setSelectedTontineId] = useState('')
   const [selectedMethode, setSelectedMethode]     = useState('')
 
+  const [listTontineId, setListTontineId] = useState('')
+
   const { data: tontinesData } = useTontines(0, 50)
   const tontines    = (tontinesData?.content || []).filter((t) => t.statut === TontineStatut.ACTIVE)
-  const firstTontineId = tontines[0]?.id || ''
+  const historyTontineId = listTontineId || tontines[0]?.id || ''
+  const historyTontine = tontines.find((t) => t.id === historyTontineId)
 
-  const { data: cotisationsData, isLoading } = useCotisations(firstTontineId, undefined, page, 20)
+  const { data: cotisationsData, isLoading } = useCotisations(historyTontineId, undefined, page, 20)
   const { data: cyclesData }   = useCycles(selectedTontineId, 0, 50)
   const { mutate: recordCotisation, isPending } = useRecordCotisation()
 
@@ -60,9 +70,6 @@ export function MesCotisationsPage() {
   const totalPages  = cotisationsData?.totalPages || 1
   const cycles      = (cyclesData?.content || []).filter((c) => c.statut === 'EN_COURS')
 
-  const totalVerse     = cotisations.filter((c: Cotisation) => c.statut === CotisationStatut.VALIDE).reduce((s: number, c: Cotisation) => s + c.montant, 0)
-  const enAttenteCount = cotisations.filter((c: Cotisation) => c.statut === CotisationStatut.EN_ATTENTE).length
-  const jackpotVerse   = cotisations.filter((c: Cotisation) => c.statut === CotisationStatut.VALIDE && c.montant > 50000)
 
   const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -72,7 +79,20 @@ export function MesCotisationsPage() {
   if (watchedTontineId && watchedTontineId !== selectedTontineId) {
     setSelectedTontineId(watchedTontineId)
     setValue('cycleId', '')
+    const t = tontines.find((x) => x.id === watchedTontineId)
+    if (t && !t.montantLibre) setValue('montant', t.montant)
   }
+  const payTontine = tontines.find((t) => t.id === watchedTontineId)
+
+  // À l'ouverture (y compris depuis « Payer » de l'accueil), présélectionner la tontine affichée
+  useEffect(() => {
+    if (isOpen && !watchedTontineId && historyTontineId) setValue('tontineId', historyTontineId)
+  }, [isOpen, watchedTontineId, historyTontineId, setValue])
+
+  // Un seul cycle en cours → le présélectionner
+  useEffect(() => {
+    if (isOpen && cycles.length === 1 && !watch('cycleId')) setValue('cycleId', cycles[0].id)
+  }, [isOpen, cycles, setValue, watch])
 
   const onSubmit = (data: FormData) => {
     recordCotisation(
@@ -88,41 +108,39 @@ export function MesCotisationsPage() {
 
   return (
     <AppLayout>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h1 className="text-xl font-bold text-neutral-900">Mes cotisations</h1>
-          <p className="text-sm text-neutral-500 mt-0.5">Historique de vos paiements.</p>
-        </div>
-        <Button size="sm" onClick={() => setIsOpen(true)}>
-          <Plus size={14} className="mr-1" /> Payer
-        </Button>
-      </div>
+      <PageHeader
+        title="Mes cotisations"
+        description="Historique de vos paiements."
+        action={
+          <Button onClick={() => setIsOpen(true)} disabled={tontines.length === 0}>
+            <Plus size={18} /> Payer
+          </Button>
+        }
+      />
 
-      {/* Stats KPI */}
-      <div className="grid grid-cols-3 gap-2 mb-5">
-        <div className="bg-primary-600 rounded-2xl p-3 text-center">
-          <p className="text-primary-200 text-[10px] mb-1">Total versé</p>
-          <p className="text-white font-extrabold text-sm">{(totalVerse / 1000).toFixed(0)} 000</p>
-          <p className="text-primary-200 text-[10px]">FCFA</p>
-        </div>
-        <div className="bg-white border border-neutral-100 rounded-2xl p-3 text-center shadow-sm">
-          <p className="text-neutral-400 text-[10px] mb-1">En attente</p>
-          <p className="text-orange-500 font-extrabold text-sm">{enAttenteCount}</p>
-          <p className="text-neutral-400 text-[10px]">cotisation{enAttenteCount > 1 ? 's' : ''}</p>
-        </div>
-        <div className="bg-amber-50 border border-amber-100 rounded-2xl p-3 text-center">
-          <p className="text-amber-600 text-[10px] mb-1">Jackpots</p>
-          <p className="text-amber-700 font-extrabold text-sm">{jackpotVerse.length}</p>
-          <p className="text-amber-500 text-[10px]">reçu{jackpotVerse.length > 1 ? 's' : ''}</p>
-        </div>
-      </div>
+      {/* Choix de la tontine (si plusieurs) */}
+      {tontines.length > 1 && (
+        <ChipRow className="mb-3">
+          {tontines.map((t) => (
+            <button
+              aria-pressed={historyTontineId === t.id}
+              key={t.id}
+              onClick={() => { setListTontineId(t.id); setPage(0) }}
+              className={`h-9 px-4 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                historyTontineId === t.id ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-100'
+              }`}
+            >
+              {t.nom.length > 24 ? t.nom.slice(0, 24) + '…' : t.nom}
+            </button>
+          ))}
+        </ChipRow>
+      )}
 
       {/* Historique — style timeline */}
-      <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-hidden">
-        <div className="px-4 py-3 border-b border-neutral-50 flex items-center justify-between">
-          <p className="text-sm font-semibold text-neutral-900">Historique</p>
-          <button className="text-xs text-neutral-400 hover:text-neutral-600">Filtrer</button>
+      <div className="bg-white rounded-2xl border border-neutral-100 overflow-hidden">
+        <div className="px-4 py-3 border-b border-neutral-100 flex items-center justify-between">
+          <p className="text-sm font-semibold text-neutral-900">{historyTontine?.nom || 'Historique'}</p>
+          {cotisationsData && <p className="text-xs text-neutral-500">{cotisationsData.totalElements} paiement{cotisationsData.totalElements > 1 ? 's' : ''}</p>}
         </div>
 
         {isLoading ? (
@@ -133,29 +151,17 @@ export function MesCotisationsPage() {
           <div className="divide-y divide-neutral-50">
             {cotisations.map((c: Cotisation) => {
               const cfg = STATUT_CONFIG[c.statut] || STATUT_CONFIG.EN_ATTENTE
-              const tontine = tontines.find((t) => t.id === firstTontineId)
-              const isJackpot = c.montant > 50000
               return (
                 <div key={c.id} className="flex items-center gap-3 px-4 py-3.5">
-                  {/* Icône statut */}
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${cfg.bg} ${cfg.color}`}>
-                    {isJackpot ? <Trophy size={16} className="text-amber-600" /> : cfg.icon}
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${cfg.bg} ${cfg.color}`}>
+                    {cfg.icon}
                   </div>
-
-                  {/* Texte */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-neutral-900">
-                      {isJackpot ? 'Jackpot versé' : cfg.label}
-                    </p>
-                    <p className="text-xs text-neutral-400 truncate">
-                      {tontine?.nom || '—'} · {new Date(c.createdAt).toLocaleDateString('fr-FR')} à{' '}
-                      {new Date(c.createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                    </p>
+                    <p className="text-sm font-semibold text-neutral-900">{cfg.label}</p>
+                    <p className="text-xs text-neutral-500 truncate">{formatDateHeure(c.createdAt)}</p>
                   </div>
-
-                  {/* Montant */}
-                  <p className={`text-sm font-bold flex-shrink-0 ${isJackpot ? 'text-amber-600' : c.statut === CotisationStatut.VALIDE ? 'text-primary-600' : c.statut === CotisationStatut.EN_RETARD ? 'text-red-500' : 'text-neutral-500'}`}>
-                    {c.montant.toLocaleString('fr-FR')} FCFA
+                  <p className={`text-sm font-bold tabular flex-shrink-0 ${c.statut === CotisationStatut.VALIDE ? 'text-neutral-900' : c.statut === CotisationStatut.EN_RETARD ? 'text-red-600' : 'text-neutral-500'}`}>
+                    {formatMontant(c.montant)} F
                   </p>
                 </div>
               )
@@ -164,13 +170,14 @@ export function MesCotisationsPage() {
         )}
 
         {totalPages > 1 && (
-          <div className="flex justify-center gap-2 py-3 border-t border-neutral-50">
-            {Array.from({ length: totalPages }, (_, i) => (
-              <button key={i} onClick={() => setPage(i)}
-                className={`w-7 h-7 rounded-lg text-xs font-medium ${page === i ? 'bg-primary-600 text-white' : 'text-neutral-500 hover:bg-neutral-100'}`}>
-                {i + 1}
-              </button>
-            ))}
+          <div className="border-t border-neutral-100">
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              totalElements={cotisationsData?.totalElements}
+              pageSize={20}
+              onPageChange={setPage}
+            />
           </div>
         )}
       </div>
@@ -197,7 +204,7 @@ export function MesCotisationsPage() {
           <div className="text-center py-4 border-b border-neutral-100">
             <p className="text-xs text-neutral-400 mb-1">Montant à payer</p>
             <p className="text-4xl font-extrabold text-neutral-900">
-              {tontines[0]?.montant.toLocaleString('fr-FR') || '—'}
+              {payTontine && !payTontine.montantLibre ? formatMontant(payTontine.montant) : '—'}
               <span className="text-lg font-bold text-neutral-400 ml-2">FCFA</span>
             </p>
           </div>
