@@ -17,6 +17,40 @@ export interface PageResponse<T> {
   last: boolean
 }
 
+/**
+ * Format brut renvoyé par le backend.
+ * Spring Data est configuré en `PageSerializationMode.VIA_DTO` :
+ *   { content: [...], page: { size, number, totalElements, totalPages } }
+ * L'ancien format « à plat » (totalPages à la racine) est aussi accepté.
+ */
+export interface RawPage<T> {
+  content?: T[]
+  page?: { size: number; number: number; totalElements: number; totalPages: number }
+  totalElements?: number
+  totalPages?: number
+  size?: number
+  number?: number
+}
+
+/** Convertit n'importe quelle page backend en `PageResponse<T>` (format utilisé par le front). */
+export function toPage<T>(raw: RawPage<T> | null | undefined): PageResponse<T> {
+  const content = raw?.content ?? []
+  const meta = raw?.page
+  const number = meta?.number ?? raw?.number ?? 0
+  const size = meta?.size ?? raw?.size ?? content.length
+  const totalElements = meta?.totalElements ?? raw?.totalElements ?? content.length
+  const totalPages = Math.max(1, meta?.totalPages ?? raw?.totalPages ?? 1)
+  return {
+    content,
+    totalElements,
+    totalPages,
+    size,
+    number,
+    first: number <= 0,
+    last: number >= totalPages - 1,
+  }
+}
+
 // ─── Erreur API ───────────────────────────────────────────────────────────────
 export interface ApiError {
   status: string

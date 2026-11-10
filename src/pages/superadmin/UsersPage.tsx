@@ -10,6 +10,9 @@ import { Spinner } from '@/components/ui/Spinner'
 import { userService } from '@/services/userService'
 import { AdminUserResponse, UpdateUserRolesRequest } from '@/types/user'
 import { Search, MoreHorizontal, UserCheck, UserX, Edit2, Clock } from 'lucide-react'
+import { Pagination } from '@/components/ui/Pagination'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { ChipRow } from '@/components/ui/ChipRow'
 
 type UserAction = { type: 'enable' | 'disable'; userId: string; nom: string } | null
 type RolesAction = { userId: string; nom: string; currentRoles: string[] } | null
@@ -25,7 +28,7 @@ const ROLE_TABS = [
 
 const PAGE_SIZE = 10
 
-const STATUS_TABS = [
+const STATUS_TABS: { label: string; value: '' | 'ACTIVE' | 'PRE_ENROLLED' }[] = [
   { label: 'Tous', value: '' },
   { label: 'Inscrits', value: 'ACTIVE' },
   { label: 'En attente', value: 'PRE_ENROLLED' },
@@ -95,15 +98,17 @@ export function UsersPage() {
   const [page, setPage] = useState(0)
   const [search, setSearch] = useState('')
   const [roleTab, setRoleTab] = useState('')
-  const [statusTab, setStatusTab] = useState('')
+  const [statusTab, setStatusTab] = useState<'' | 'ACTIVE' | 'PRE_ENROLLED'>('')
   const [userAction, setUserAction] = useState<UserAction>(null)
   const [rolesAction, setRolesAction] = useState<RolesAction>(null)
   const [selectedRoles, setSelectedRoles] = useState<string[]>([])
   const queryClient = useQueryClient()
 
   const { data: usersData, isLoading } = useQuery({
-    queryKey: ['adminUsers', page],
-    queryFn: () => userService.listUsers(page, PAGE_SIZE),
+    // Filtre « Inscrits / En attente » appliqué côté serveur (porte sur toutes les pages)
+    queryKey: ['adminUsers', page, statusTab],
+    queryFn: () => userService.listUsers(page, PAGE_SIZE, statusTab),
+    placeholderData: (prev) => prev,
   })
 
   const { mutate: enableUser, isPending: isEnabling } = useMutation({
@@ -126,7 +131,7 @@ export function UsersPage() {
   })
 
   const allUsers = usersData?.content || []
-  const totalElements = usersData?.totalElements || allUsers.length
+  const totalElements = usersData?.totalElements || 0
   const totalPages = usersData?.totalPages || 1
 
   const filtered = allUsers.filter((u) => {
@@ -136,8 +141,7 @@ export function UsersPage() {
       u.phone.includes(q) ||
       (u.email || '').toLowerCase().includes(q)
     const matchRole = !roleTab || u.roles.some((r) => r.replace('DINTHIALMA_', '') === roleTab)
-    const matchStatus = !statusTab || u.accountStatus === statusTab
-    return matchSearch && matchRole && matchStatus
+    return matchSearch && matchRole
   })
 
   const openRolesModal = (user: AdminUserResponse) => {
@@ -164,44 +168,32 @@ export function UsersPage() {
     )
   }
 
-  const activeCount = allUsers.filter((u) => u.accountStatus !== 'PRE_ENROLLED').length
-  const preEnrolledCount = allUsers.filter((u) => u.accountStatus === 'PRE_ENROLLED').length
 
   return (
     <AppLayout>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-neutral-900">Utilisateurs</h1>
-          <p className="text-sm text-neutral-500 mt-1">
-            {totalElements} comptes —{' '}
-            <span className="text-primary-600 font-medium">{activeCount} inscrits</span>
-            {preEnrolledCount > 0 && (
-              <span className="text-orange-600 font-medium"> · {preEnrolledCount} en attente</span>
-            )}
-          </p>
-        </div>
-      </div>
+      <PageHeader title="Utilisateurs" description={`${totalElements} compte${totalElements > 1 ? 's' : ''}`} />
 
-      <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-visible">
+      <div className="bg-white rounded-2xl border border-neutral-100 overflow-visible">
         {/* Filtres */}
-        <div className="px-5 pt-4 pb-3 border-b border-neutral-100 space-y-3">
+        <div className="px-4 sm:px-5 pt-4 pb-3 border-b border-neutral-100 space-y-3">
           {/* Barre de recherche */}
-          <div className="relative max-w-sm">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+          <div className="relative sm:max-w-sm">
+            <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher par nom, téléphone, email..."
-              className="w-full pl-9 pr-4 py-2 text-sm border border-neutral-200 rounded-xl bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-transparent"
+              placeholder="Nom, téléphone, email…"
+              className="w-full h-11 pl-11 pr-4 text-[15px] border border-neutral-200 rounded-full bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white"
             />
           </div>
 
           {/* Onglets rôle + statut compte */}
-          <div className="flex flex-wrap items-center gap-4">
+          <ChipRow>
             {/* Filtre rôle */}
             <div className="flex items-center gap-1">
               {ROLE_TABS.map((tab) => (
                 <button
+                  aria-pressed={roleTab === tab.value}
                   key={tab.value}
                   onClick={() => setRoleTab(tab.value)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
@@ -215,86 +207,74 @@ export function UsersPage() {
               ))}
             </div>
 
-            <div className="w-px h-5 bg-neutral-200" />
+            <div className="w-px h-5 bg-neutral-200 flex-shrink-0" />
 
-            {/* Filtre statut compte */}
+            {/* Filtre statut compte (côté serveur) */}
             <div className="flex items-center gap-1">
-              {STATUS_TABS.map((tab) => (
-                <button
-                  key={tab.value}
-                  onClick={() => setStatusTab(tab.value)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
-                    statusTab === tab.value
-                      ? tab.value === 'PRE_ENROLLED'
-                        ? 'bg-orange-500 text-white'
-                        : 'bg-primary-600 text-white'
-                      : 'text-neutral-600 hover:bg-neutral-100'
-                  }`}
-                >
-                  {tab.label}
-                  {tab.value === 'PRE_ENROLLED' && preEnrolledCount > 0 && (
-                    <span className={`ml-1 px-1.5 py-0.5 rounded-full text-xs ${statusTab === 'PRE_ENROLLED' ? 'bg-orange-400' : 'bg-orange-100 text-orange-600'}`}>
-                      {preEnrolledCount}
-                    </span>
-                  )}
-                </button>
-              ))}
+                  {STATUS_TABS.map((tab) => (
+                    <button
+                      key={tab.value}
+                      aria-pressed={statusTab === tab.value}
+                      onClick={() => { setStatusTab(tab.value); setPage(0) }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
+                        statusTab === tab.value
+                          ? tab.value === 'PRE_ENROLLED'
+                            ? 'bg-orange-500 text-white'
+                            : 'bg-primary-600 text-white'
+                          : 'text-neutral-600 hover:bg-neutral-100'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
             </div>
-          </div>
+          </ChipRow>
         </div>
 
-        {/* Cards — mobile */}
-        <div className="md:hidden divide-y divide-neutral-50">
+        {/* Cartes — mobile */}
+        <ul className="md:hidden divide-y divide-neutral-100">
           {isLoading ? (
-            <div className="flex justify-center py-10"><Spinner /></div>
+            <li className="flex justify-center py-10"><Spinner /></li>
           ) : filtered.length === 0 ? (
-            <p className="text-center py-10 text-neutral-400 text-sm">Aucun utilisateur trouvé</p>
+            <li className="text-center py-10 text-sm text-neutral-500">Aucun utilisateur trouvé</li>
           ) : (
             filtered.map((user) => {
               const nom = `${user.firstName} ${user.lastName}`
-              const normalRoles = user.roles.map((r) => r.replace('DINTHIALMA_', ''))
+              const normalRoles = user.roles.map((r) => r.replace('DINTHIALMA_', '')).filter((r) => r !== 'USER')
               const isPreEnrolled = user.accountStatus === 'PRE_ENROLLED'
               return (
-                <div key={user.id} className={`px-4 py-3 flex items-center justify-between gap-3 ${isPreEnrolled ? 'opacity-80' : ''}`}>
-                  <div className="flex items-center gap-3 min-w-0">
-                    <UserInitials name={nom} />
-                    <div className="min-w-0">
-                      <p className="font-semibold text-sm text-neutral-900 truncate">{nom}</p>
-                      <p className="text-xs text-neutral-400 font-mono truncate">{user.phone}</p>
-                      <div className="flex flex-wrap gap-1 mt-0.5">
-                        {isPreEnrolled ? (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-orange-100 text-orange-700">
-                            <Clock size={9} /> En attente
-                          </span>
-                        ) : (
-                          normalRoles.filter((r) => r !== 'USER').map((r) => (
-                            <span key={r} className="px-1.5 py-0.5 bg-primary-50 text-primary-700 text-[10px] font-semibold rounded-full uppercase">
-                              {r === 'SUPER_ADMIN' ? 'S.ADMIN' : r}
+                <li key={user.id} className="flex items-center gap-3 px-4 py-3">
+                  <UserInitials name={nom} />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-neutral-900 truncate">{nom}</p>
+                    <p className="text-xs text-neutral-500 truncate">{user.phone}{user.email ? ` · ${user.email}` : ''}</p>
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                      {isPreEnrolled ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-50 text-orange-700">
+                          <Clock size={10} /> Non activé
+                        </span>
+                      ) : (
+                        <>
+                          <Badge variant={user.active ? 'success' : 'error'}>{user.active ? 'Actif' : 'Désactivé'}</Badge>
+                          {normalRoles.map((r) => (
+                            <span key={r} className="px-2 py-0.5 bg-neutral-100 text-neutral-700 text-[11px] font-semibold rounded-full">
+                              {r === 'SUPER_ADMIN' ? 'Super admin' : r === 'ADMIN' ? 'Admin' : r === 'MEMBER' ? 'Membre' : r}
                             </span>
-                          ))
-                        )}
-                      </div>
+                          ))}
+                        </>
+                      )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {isPreEnrolled ? (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-neutral-100 text-neutral-500">Non activé</span>
-                    ) : (
-                      <Badge variant={user.active ? 'success' : 'error'}>
-                        {user.active ? 'Actif' : 'Désact.'}
-                      </Badge>
-                    )}
-                    <ActionsMenu
-                      user={user}
-                      onEdit={() => openRolesModal(user)}
-                      onToggle={() => setUserAction({ type: user.active ? 'disable' : 'enable', userId: user.id, nom })}
-                    />
-                  </div>
-                </div>
+                  <ActionsMenu
+                    user={user}
+                    onEdit={() => openRolesModal(user)}
+                    onToggle={() => setUserAction({ type: user.active ? 'disable' : 'enable', userId: user.id, nom })}
+                  />
+                </li>
               )
             })
           )}
-        </div>
+        </ul>
 
         {/* Table — desktop */}
         <div className="hidden md:block overflow-x-auto pb-16">
@@ -390,16 +370,14 @@ export function UsersPage() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="flex justify-center gap-2 py-4 border-t border-neutral-100">
-            {Array.from({ length: totalPages }, (_, i) => (
-              <button
-                key={i}
-                onClick={() => setPage(i)}
-                className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${page === i ? 'bg-primary-600 text-white' : 'text-neutral-600 hover:bg-neutral-100'}`}
-              >
-                {i + 1}
-              </button>
-            ))}
+          <div className="border-t border-neutral-100">
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              totalElements={usersData?.totalElements}
+              pageSize={PAGE_SIZE}
+              onPageChange={setPage}
+            />
           </div>
         )}
       </div>

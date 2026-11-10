@@ -14,6 +14,9 @@ import { Membre } from '@/types/membre'
 import { Cycle } from '@/types/cycle'
 import { MembreStatut, AccountStatus, CycleStatut } from '@/types/common'
 import { Plus, MoreHorizontal, Search, Clock, CreditCard } from 'lucide-react'
+import { Pagination } from '@/components/ui/Pagination'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { ChipRow } from '@/components/ui/ChipRow'
 
 type MembreAction = { type: 'suspendre' | 'activer' | 'retirer'; membreId: string; nom: string; tontineId: string } | null
 
@@ -149,60 +152,44 @@ export function MembresPage() {
 
   return (
     <AppLayout>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-neutral-900">Membres</h1>
-          <p className="text-sm text-neutral-500 mt-1">Gérez les participants de vos tontines.</p>
-        </div>
-        <Button size="sm" onClick={() => setIsAddOpen(true)} disabled={!activeTontineId} className="self-start sm:self-auto">
-          <Plus size={16} className="mr-1" /> Ajouter
-        </Button>
-      </div>
+      <PageHeader
+        title="Membres"
+        description={activeTontine ? `${activeTontine.nom} · ${membresData?.totalElements ?? 0} membre${(membresData?.totalElements ?? 0) > 1 ? 's' : ''}` : 'Gérez les participants de vos tontines.'}
+        action={
+          <Button onClick={() => setIsAddOpen(true)} disabled={!activeTontineId}>
+            <Plus size={18} /> Ajouter
+          </Button>
+        }
+      />
 
-      <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-hidden">
-        {/* Filter tabs by tontine */}
-        <div className="px-5 pt-4 pb-0 flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="relative flex-1 max-w-sm">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+      {/* Choix de la tontine (les membres sont gérés tontine par tontine) */}
+      {tontines.length > 1 && (
+        <ChipRow className="mb-3">
+          {tontines.map((t) => (
+            <button
+              aria-pressed={activeTontineId === t.id}
+              key={t.id}
+              onClick={() => { setSelectedTontineId(t.id); setPage(0); setSearch('') }}
+              className={`h-9 px-4 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                activeTontineId === t.id ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-100'
+              }`}
+            >
+              {t.nom.length > 24 ? t.nom.slice(0, 24) + '…' : t.nom}
+            </button>
+          ))}
+        </ChipRow>
+      )}
+
+      <div className="bg-white rounded-2xl border border-neutral-100 overflow-hidden">
+        <div className="px-4 sm:px-5 pt-4">
+          <div className="relative sm:max-w-sm">
+            <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher un membre..."
-              className="w-full pl-9 pr-4 py-2 text-sm border border-neutral-200 rounded-xl bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-primary-300"
+              placeholder="Rechercher un membre…"
+              className="w-full h-11 pl-11 pr-4 text-[15px] border border-neutral-200 rounded-full bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white"
             />
-          </div>
-          {/* Mobile — select */}
-          <select
-            value={selectedTontineId}
-            onChange={(e) => { setSelectedTontineId(e.target.value); setPage(0) }}
-            className="sm:hidden w-full text-sm text-neutral-700 bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-300"
-          >
-            <option value="">Toutes les tontines</option>
-            {tontines.map((t) => (
-              <option key={t.id} value={t.id}>{t.nom}</option>
-            ))}
-          </select>
-          {/* Desktop — buttons */}
-          <div className="hidden sm:flex items-center gap-1 overflow-x-auto pb-1">
-            <button
-              onClick={() => { setSelectedTontineId(''); setPage(0) }}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                selectedTontineId === '' ? 'bg-primary-600 text-white' : 'text-neutral-600 hover:bg-neutral-100'
-              }`}
-            >
-              Tous
-            </button>
-            {tontines.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => { setSelectedTontineId(t.id); setPage(0) }}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                  selectedTontineId === t.id ? 'bg-primary-600 text-white' : 'text-neutral-600 hover:bg-neutral-100'
-                }`}
-              >
-                {t.nom.length > 20 ? t.nom.slice(0, 20) + '…' : t.nom}
-              </button>
-            ))}
           </div>
         </div>
 
@@ -321,16 +308,14 @@ export function MembresPage() {
         </div>
 
         {totalPages > 1 && (
-          <div className="flex justify-center gap-2 py-4 border-t border-neutral-100">
-            {Array.from({ length: totalPages }, (_, i) => (
-              <button
-                key={i}
-                onClick={() => setPage(i)}
-                className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${page === i ? 'bg-primary-600 text-white' : 'text-neutral-600 hover:bg-neutral-100'}`}
-              >
-                {i + 1}
-              </button>
-            ))}
+          <div className="border-t border-neutral-100">
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              totalElements={membresData?.totalElements}
+              pageSize={20}
+              onPageChange={setPage}
+            />
           </div>
         )}
       </div>

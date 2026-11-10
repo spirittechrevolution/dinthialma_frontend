@@ -1,42 +1,17 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { Badge } from '@/components/ui/Badge'
 import { Spinner } from '@/components/ui/Spinner'
+import { QuickAction } from '@/components/ui/QuickAction'
+import { Section, ListItem, InitialsAvatar } from '@/components/ui/Section'
+import { BalanceCard } from '@/components/shared/BalanceCard'
+import { CreateTontineModal } from '@/components/shared/CreateTontineModal'
 import { useMyDashboard } from '@/hooks/useDashboard'
 import { useAuth } from '@/hooks/useAuth'
 import { TontineStats } from '@/types/dashboard'
-import { TontineStatut } from '@/types/common'
-import { BookCopy, Users, Clock, AlertTriangle, ArrowRight, Bell, TrendingUp, ChevronRight, UserCheck, CalendarHeart, RotateCcw } from 'lucide-react'
-
-const statutVariants: Record<string, 'success' | 'warning' | 'info' | 'default'> = {
-  ACTIVE: 'success', BROUILLON: 'default', SUSPENDUE: 'warning', TERMINEE: 'default',
-}
-
-// ─── KPI card ─────────────────────────────────────────────────────────────────
-function KpiCard({ label, value, sub, icon, accent = false, to }: {
-  label: string; value: React.ReactNode; sub?: string; icon: React.ReactNode; accent?: boolean; to?: string
-}) {
-  const baseClass = `rounded-2xl border p-4 flex items-start justify-between shadow-sm ${
-    accent ? 'bg-primary-600 border-primary-500' : 'bg-white border-neutral-100'
-  } ${to ? 'hover:shadow-md hover:-translate-y-px transition-all' : ''}`
-
-  const inner = (
-    <>
-      <div>
-        <p className={`text-xs mb-1.5 ${accent ? 'text-primary-200' : 'text-neutral-500'}`}>{label}</p>
-        <p className={`text-2xl font-bold ${accent ? 'text-white' : 'text-neutral-900'}`}>{value}</p>
-        {sub && <p className={`text-xs mt-1 ${accent ? 'text-primary-200' : 'text-neutral-400'}`}>{sub}</p>}
-      </div>
-      <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${accent ? 'bg-white/20 text-white' : 'bg-primary-50 text-primary-600'}`}>
-        {icon}
-      </div>
-    </>
-  )
-
-  if (to) return <Link to={to} className={baseClass}>{inner}</Link>
-  return <div className={baseClass}>{inner}</div>
-}
+import { formatFCFA } from '@/lib/format'
+import { Plus, CreditCard, Users, RefreshCw, AlertTriangle, ChevronRight, UserCheck, CheckCircle2 } from 'lucide-react'
 
 // ─── Données bar chart (mockées — à connecter au vrai endpoint stats) ─────────
 const MONTHLY_DATA = [
@@ -48,7 +23,6 @@ const MONTHLY_DATA = [
   { month: 'Jun', montant: 420000 },
 ]
 
-// ─── Tooltip custom ───────────────────────────────────────────────────────────
 function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: { value: number }[]; label?: string }) {
   if (active && payload && payload.length) {
     return (
@@ -61,183 +35,178 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
   return null
 }
 
+const LIST_SIZE = 5
+
+const STATUT_PILL: Record<string, string> = {
+  ACTIVE: 'bg-primary-50 text-primary-700',
+  BROUILLON: 'bg-neutral-100 text-neutral-600',
+  SUSPENDUE: 'bg-amber-50 text-amber-700',
+  TERMINEE: 'bg-neutral-100 text-neutral-500',
+}
+
 export function AdminDashboard() {
   const { user } = useAuth()
-  const { data: dashboard, isLoading } = useMyDashboard()
+  // Les totaux viennent des agrégats calculés en base : on ne charge que les tontines affichées
+  const { data: dashboard, isLoading } = useMyDashboard(0, LIST_SIZE)
+  const [createOpen, setCreateOpen] = useState(false)
 
   if (isLoading) return <AppLayout><div className="flex justify-center py-20"><Spinner /></div></AppLayout>
 
-  const tontines = dashboard?.tontines || []
-  const totalMembres  = tontines.reduce((s: number, t: TontineStats) => s + (t.nombreMembres || 0), 0)
-  const totalEnAttente = tontines.reduce((s: number, t: TontineStats) => s + t.cotisationsEnAttente, 0)
-  const totalEnRetard  = tontines.reduce((s: number, t: TontineStats) => s + t.cotisationsEnRetard, 0)
-  const totalValide    = tontines.reduce((s: number, t: TontineStats) => s + t.montantTotalValide, 0)
+  const tontines = dashboard?.tontines.content || []
+  const totalMembres   = dashboard?.totalMembres ?? 0
+  const totalEnAttente = dashboard?.totalCotisationsEnAttente ?? 0
+  const totalEnRetard  = dashboard?.totalCotisationsEnRetard ?? 0
+  const totalValide    = dashboard?.montantTotalValide ?? 0
+  const nbTontines     = dashboard?.nombreTontinesGerees || 0
   const prenom = user?.firstName || 'Admin'
-  const nom    = user?.lastName  || ''
 
   return (
     <AppLayout>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h1 className="text-xl font-bold text-neutral-900">Bonjour {prenom} {nom} 👋</h1>
-          <p className="text-sm text-neutral-500 mt-0.5">Aperçu de vos tontines.</p>
-        </div>
-        <Link to="/notifications"
-          className="relative w-10 h-10 rounded-xl bg-white border border-neutral-200 shadow-sm flex items-center justify-center text-neutral-500 hover:text-neutral-700 transition-colors">
-          <Bell size={18} />
-          {totalEnAttente > 0 && (
-            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
-              {totalEnAttente > 9 ? '9+' : totalEnAttente}
-            </span>
-          )}
-        </Link>
+      {/* Salutation */}
+      <div className="mb-4 px-1">
+        <p className="text-sm text-neutral-500">Bonjour,</p>
+        <h1 className="text-2xl font-bold text-neutral-900">{prenom} 👋</h1>
       </div>
 
-      {/* KPIs — grille 2×2 */}
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        <KpiCard
-          label="Tontines gérées"
-          value={<span className="text-primary-600">{dashboard?.nombreTontinesGerees || 0}</span>}
-          icon={<BookCopy size={18} />}
-        />
-        <KpiCard
-          label="Membres total"
-          value={totalMembres}
-          icon={<Users size={18} />}
-        />
-        <KpiCard
-          label="À valider"
-          value={totalEnAttente}
-          sub="cotisations"
-          icon={<Clock size={18} />}
-          to="/admin/cotisations"
-        />
-        <KpiCard
-          label="En retard"
-          value={totalEnRetard}
-          sub="à relancer"
-          icon={<AlertTriangle size={18} />}
-          to="/admin/cotisations"
-        />
-      </div>
+      <div className="md:grid md:grid-cols-5 md:gap-6">
+        {/* Colonne principale */}
+        <div className="md:col-span-3">
+          <BalanceCard
+            label="Montant validé"
+            amount={totalValide}
+            eyebrow={
+              <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-medium">
+                {nbTontines} tontine{nbTontines > 1 ? 's' : ''} · {totalMembres} membre{totalMembres > 1 ? 's' : ''}
+              </span>
+            }
+            footer="Toutes tontines confondues"
+            action={
+              <Link
+                to="/admin/cotisations"
+                className="flex items-center justify-center gap-2 w-full h-12 rounded-full bg-white text-primary-700 font-bold text-[15px] active:scale-[0.98] transition"
+              >
+                <CheckCircle2 size={18} />
+                {totalEnAttente > 0 ? `Valider ${totalEnAttente} paiement${totalEnAttente > 1 ? 's' : ''}` : 'Voir les paiements'}
+              </Link>
+            }
+          />
 
-      {/* Montant validé — card accent */}
-      <div className="mb-4">
-        <KpiCard
-          accent
-          label="Montant validé ce mois"
-          value={`${totalValide.toLocaleString('fr-FR')} FCFA`}
-          sub="Toutes tontines"
-          icon={<TrendingUp size={18} />}
-        />
-      </div>
-
-      {/* Bar chart volume mensuel */}
-      <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm p-4 mb-4">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <p className="text-sm font-semibold text-neutral-900">Volume collecté</p>
-            <p className="text-xs text-neutral-400">6 derniers mois</p>
+          {/* Actions rapides */}
+          <div className="grid grid-cols-4 gap-2 mb-6">
+            <QuickAction icon={<Plus size={22} />} label="Créer" onClick={() => setCreateOpen(true)} tone="primary" />
+            <QuickAction icon={<CreditCard size={22} />} label="Paiements" to="/admin/cotisations" tone="blue" badge={totalEnAttente} />
+            <QuickAction icon={<Users size={22} />} label="Membres" to="/admin/membres" tone="purple" />
+            <QuickAction icon={<RefreshCw size={22} />} label="Cycles" to="/admin/cycles" tone="amber" />
           </div>
-          <TrendingUp size={16} className="text-primary-500" />
-        </div>
-        <div className="h-36">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={MONTHLY_DATA} margin={{ top: 0, right: 0, bottom: 0, left: 0 }} barSize={24}>
-              <XAxis dataKey="month" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-              <YAxis hide />
-              <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f3f4f6', radius: 6 }} />
-              <Bar dataKey="montant" radius={[6, 6, 0, 0]}>
-                {MONTHLY_DATA.map((_, i) => (
-                  <Cell
-                    key={i}
-                    fill={i === MONTHLY_DATA.length - 1 ? '#16a34a' : '#bbf7d0'}
-                  />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
 
-      </div>
+          {/* À traiter */}
+          {totalEnRetard > 0 && (
+            <Link
+              to="/admin/cotisations"
+              className="flex items-center gap-3 bg-red-50 border border-red-100 rounded-2xl px-4 py-3.5 mb-5 active:scale-[0.99] transition"
+            >
+              <span className="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle size={18} />
+              </span>
+              <span className="flex-1 min-w-0">
+                <span className="block text-sm font-semibold text-red-800">
+                  {totalEnRetard} cotisation{totalEnRetard > 1 ? 's' : ''} en retard
+                </span>
+                <span className="block text-xs text-red-700/80">Pensez à relancer les membres concernés</span>
+              </span>
+              <ChevronRight size={18} className="text-red-300" />
+            </Link>
+          )}
 
-      {/* Mes participations (vue membre) */}
-      <Link
-        to="/member/dashboard"
-        className="flex items-center gap-4 bg-white border border-neutral-100 shadow-sm rounded-2xl p-4 mb-4 hover:border-primary-200 hover:shadow-md transition-all"
-      >
-        <div className="w-10 h-10 rounded-2xl bg-primary-50 flex items-center justify-center flex-shrink-0">
-          <UserCheck size={20} className="text-primary-600" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-neutral-900">Mes participations</p>
-          <p className="text-xs text-neutral-400 mt-0.5">Voir votre vue en tant que membre</p>
-        </div>
-        <ChevronRight size={16} className="text-neutral-300 flex-shrink-0" />
-      </Link>
-
-      {/* Liste tontines */}
-      <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-neutral-900">Mes tontines</h3>
-          <Link to="/admin/tontines" className="text-xs font-medium text-primary-600 flex items-center gap-0.5 hover:underline">
-            Voir tout <ArrowRight size={12} />
-          </Link>
-        </div>
-        <div className="space-y-1">
-          {tontines.length === 0 ? (
-            <p className="text-sm text-neutral-400 text-center py-4">Aucune tontine gérée</p>
-          ) : (
-            tontines.slice(0, 4).map((t: TontineStats) => {
-              const isEvent = t.tontineType === 'EVENEMENTIELLE'
-              const jours = t.dateEcheance
-                ? Math.ceil((new Date(t.dateEcheance).getTime() - Date.now()) / 86400000)
-                : null
-              return (
-                <Link key={t.id} to={`/admin/tontines/${t.id}`}
-                  className="flex items-center justify-between py-2.5 border-b border-neutral-50 last:border-0 hover:bg-neutral-50 rounded-xl px-1 -mx-1 transition-colors">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-semibold text-neutral-900 text-sm truncate">{t.nom}</p>
-                      <Badge variant={statutVariants[t.statut as TontineStatut]} className="text-[10px] px-1.5 py-0.5">
-                        {t.statut.charAt(0) + t.statut.slice(1).toLowerCase()}
-                      </Badge>
-                      {isEvent ? (
-                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-purple-600">
-                          <CalendarHeart size={9} /> Évén.
+          {/* Mes tontines */}
+          <Section title="Mes tontines" to="/admin/tontines">
+            {tontines.length === 0 ? (
+              <div className="text-center py-8 px-4">
+                <p className="text-sm text-neutral-500 mb-3">Aucune tontine gérée</p>
+                <button onClick={() => setCreateOpen(true)} className="inline-flex items-center gap-1 text-sm font-semibold text-primary-700">
+                  <Plus size={16} /> Créer ma première tontine
+                </button>
+              </div>
+            ) : (
+              tontines.map((t: TontineStats) => {
+                const isEvent = t.tontineType === 'EVENEMENTIELLE'
+                const jours = t.dateEcheance
+                  ? Math.ceil((new Date(t.dateEcheance).getTime() - Date.now()) / 86400000)
+                  : null
+                const subtitle = isEvent
+                  ? `${t.nombreMembresCotise != null ? `${t.nombreMembresCotise} cotisants` : `${t.nombreMembres} membres`}${jours != null ? ` · ${jours > 0 ? `J-${jours}` : jours === 0 ? "Aujourd'hui" : `J+${Math.abs(jours)}`}` : ''}`
+                  // `montant` vaut null pour une événementielle à montant libre
+                  : [
+                      t.montant != null ? formatFCFA(t.montant) : null,
+                      `${t.nombreMembres} membre${t.nombreMembres > 1 ? 's' : ''}`,
+                      t.cycleEnCours ? `Cycle ${t.cycleEnCours.numeroCycle}` : null,
+                    ].filter(Boolean).join(' · ')
+                return (
+                  <ListItem
+                    key={t.id}
+                    to={`/admin/tontines/${t.id}`}
+                    leading={<InitialsAvatar name={t.nom} />}
+                    title={
+                      <span className="flex items-center gap-2">
+                        <span className="truncate">{t.nom}</span>
+                        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${STATUT_PILL[t.statut] || STATUT_PILL.TERMINEE}`}>
+                          {t.statut.charAt(0) + t.statut.slice(1).toLowerCase()}
+                        </span>
+                      </span>
+                    }
+                    subtitle={subtitle}
+                    trailing={
+                      t.cotisationsEnAttente > 0 ? (
+                        <span className="text-[11px] font-bold text-sky-700 bg-sky-50 rounded-full px-2 py-1">
+                          {t.cotisationsEnAttente} à valider
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-blue-500">
-                          <RotateCcw size={9} /> Rot.
-                        </span>
-                      )}
-                    </div>
-                    {isEvent ? (
-                      <p className="text-xs text-neutral-400 mt-0.5">
-                        {t.nombreMembresCotise != null ? `${t.nombreMembresCotise} cotisants` : `${t.nombreMembres} membres`}
-                        {jours != null && (
-                          <span className={`ml-2 font-semibold ${jours > 0 ? 'text-purple-500' : 'text-red-500'}`}>
-                            {jours > 0 ? `J-${jours}` : jours === 0 ? "Aujourd'hui" : `J+${Math.abs(jours)}`}
-                          </span>
-                        )}
-                      </p>
-                    ) : (
-                      <p className="text-xs text-neutral-400 mt-0.5">
-                        {t.montant?.toLocaleString('fr-FR')} FCFA · {t.nombreMembres} membres
-                        {t.cycleEnCours && (
-                          <span className="ml-2">· Cycle {t.cycleEnCours.numeroCycle}</span>
-                        )}
-                      </p>
-                    )}
-                  </div>
-                  <ChevronRight size={14} className="text-neutral-300 flex-shrink-0 ml-2" />
-                </Link>
-              )
-            })
-          )}
+                        <ChevronRight size={18} className="text-neutral-300" />
+                      )
+                    }
+                  />
+                )
+              })
+            )}
+          </Section>
+        </div>
+
+        {/* Colonne secondaire (desktop) */}
+        <div className="md:col-span-2">
+          <Section title="Mon espace membre" card>
+            <ListItem
+              to="/member/dashboard"
+              leading={<span className="w-10 h-10 rounded-full bg-primary-50 text-primary-700 flex items-center justify-center"><UserCheck size={18} /></span>}
+              title="Mes participations"
+              subtitle="Vos tontines en tant que membre"
+              trailing={<ChevronRight size={18} className="text-neutral-300" />}
+            />
+          </Section>
+
+          {/* Graphique (desktop uniquement — données illustratives) */}
+          <Section title="Volume collecté" className="hidden md:block">
+            <div className="p-4">
+              <div className="h-40">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={MONTHLY_DATA} margin={{ top: 0, right: 0, bottom: 0, left: 0 }} barSize={22}>
+                    <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+                    <YAxis hide />
+                    <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f3f4f6', radius: 6 }} />
+                    <Bar dataKey="montant" radius={[6, 6, 0, 0]}>
+                      {MONTHLY_DATA.map((_, i) => (
+                        <Cell key={i} fill={i === MONTHLY_DATA.length - 1 ? '#16a34a' : '#bbf7d0'} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="text-[11px] text-neutral-400 mt-1 text-right">* Données illustratives (6 derniers mois)</p>
+            </div>
+          </Section>
         </div>
       </div>
+
+      <CreateTontineModal isOpen={createOpen} onClose={() => setCreateOpen(false)} />
     </AppLayout>
   )
 }

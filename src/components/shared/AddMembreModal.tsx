@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { zPhone } from '@/lib/validation'
 import { isAxiosError } from 'axios'
 import { toast } from 'sonner'
 import { Modal } from '@/components/ui/Modal'
@@ -24,7 +25,7 @@ const optionalPosition = z.preprocess(
 )
 
 const searchSchema = z.object({
-  phone: z.string().min(8, 'Numéro invalide'),
+  phone: zPhone,
 })
 
 const positionSchema = z.object({

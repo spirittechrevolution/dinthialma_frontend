@@ -11,12 +11,17 @@ interface ModalProps {
   size?: 'sm' | 'md' | 'lg' | 'xl'
 }
 
+/**
+ * Modale responsive :
+ * - Mobile : « bottom sheet » qui monte du bas (geste naturel, pouce)
+ * - Desktop : boîte centrée classique
+ */
 export function Modal({ isOpen, onClose, title, children, footer, size = 'md' }: ModalProps) {
   const sizeStyles = {
-    sm: 'max-w-sm',
-    md: 'max-w-md',
-    lg: 'max-w-lg',
-    xl: 'max-w-2xl',
+    sm: 'sm:max-w-sm',
+    md: 'sm:max-w-md',
+    lg: 'sm:max-w-lg',
+    xl: 'sm:max-w-2xl',
   }
 
   return (
@@ -24,44 +29,53 @@ export function Modal({ isOpen, onClose, title, children, footer, size = 'md' }:
       <Dialog as="div" className="relative z-50" onClose={onClose}>
         <Transition.Child
           as={Fragment}
-          enter="ease-out duration-300"
+          enter="ease-out duration-200"
           enterFrom="opacity-0"
           enterTo="opacity-100"
-          leave="ease-in duration-200"
+          leave="ease-in duration-150"
           leaveFrom="opacity-100"
           leaveTo="opacity-0"
         >
-          <div className="fixed inset-0 bg-black/40" />
+          <div className="fixed inset-0 bg-neutral-900/50" />
         </Transition.Child>
 
         <div className="fixed inset-0 overflow-y-auto">
-          <div className="flex min-h-full items-center justify-center p-4">
+          <div className="flex min-h-full items-end sm:items-center justify-center sm:p-4">
             <Transition.Child
               as={Fragment}
               enter="ease-out duration-300"
-              enterFrom="opacity-0 scale-95"
-              enterTo="opacity-100 scale-100"
+              enterFrom="opacity-0 translate-y-full sm:translate-y-0 sm:scale-95"
+              enterTo="opacity-100 translate-y-0 sm:scale-100"
               leave="ease-in duration-200"
-              leaveFrom="opacity-100 scale-100"
-              leaveTo="opacity-0 scale-95"
+              leaveFrom="opacity-100 translate-y-0 sm:scale-100"
+              leaveTo="opacity-0 translate-y-full sm:translate-y-0 sm:scale-95"
             >
               <Dialog.Panel
-                className={`w-full ${sizeStyles[size]} transform overflow-hidden rounded-2xl bg-white shadow-xl transition-all`}
+                className={`w-full ${sizeStyles[size]} transform bg-white shadow-xl transition-all rounded-t-3xl sm:rounded-3xl flex flex-col max-h-[92vh]`}
               >
-                <div className="flex items-center justify-between border-b border-neutral-200 p-6">
-                  <Dialog.Title className="text-xl font-bold text-neutral-900">{title}</Dialog.Title>
+                {/* Poignée mobile */}
+                <div className="sm:hidden pt-2.5 flex justify-center">
+                  <span className="h-1.5 w-10 rounded-full bg-neutral-200" />
+                </div>
+
+                <div className="flex items-center justify-between px-5 pt-3 pb-3 sm:pt-5">
+                  <Dialog.Title className="text-lg font-bold text-neutral-900">{title}</Dialog.Title>
                   <button
                     onClick={onClose}
-                    className="text-neutral-500 hover:text-neutral-700 transition-colors"
-                    aria-label="Close"
+                    className="w-9 h-9 -mr-1 rounded-full flex items-center justify-center text-neutral-500 hover:bg-neutral-100 transition-colors"
+                    aria-label="Fermer"
                   >
-                    <X size={24} />
+                    <X size={20} />
                   </button>
                 </div>
 
-                <div className="p-6">{children}</div>
+                <div className="px-5 pb-5 overflow-y-auto flex-1">{children}</div>
 
-                {footer && <div className="border-t border-neutral-200 p-6">{footer}</div>}
+                {footer && (
+                  <div className="border-t border-neutral-100 px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+                    {footer}
+                  </div>
+                )}
               </Dialog.Panel>
             </Transition.Child>
           </div>

@@ -1,6 +1,9 @@
 import api from './api'
-import { Cotisation, RecordCotisationRequest, AdminRecordCotisationRequest, UpdateCotisationRequest, CotisationRecapItem, MembreTotalCotisation } from '@/types/cotisation'
-import { PageResponse, CustomResponse } from '@/types/common'
+import { Cotisation, RecordCotisationRequest, AdminRecordCotisationRequest, UpdateCotisationRequest, CycleRecapLigne, CotisationRecapItem, MembreTotalCotisation } from '@/types/cotisation'
+import { PageResponse, CustomResponse, RawPage, toPage } from '@/types/common'
+
+/** Taille max acceptée par le backend pour une page */
+const RECAP_MAX = 200
 
 export const cotisationService = {
   // ─── Lister les cotisations d'une tontine ────────────────────────────────────
@@ -12,7 +15,7 @@ export const cotisationService = {
     size = 20,
     membreId?: string
   ): Promise<PageResponse<Cotisation>> => {
-    const response = await api.get<CustomResponse<PageResponse<Cotisation>>>(
+    const response = await api.get<CustomResponse<RawPage<Cotisation>>>(
       `/v1/tontines/${tontineId}/cotisations`,
       {
         params: {
@@ -22,7 +25,26 @@ export const cotisationService = {
         },
       }
     )
-    return response.data.data
+    return toPage(response.data.data)
+  },
+
+  // ─── Récap d'un cycle (paginé, membres SORTI exclus) ──────────────────────────
+  // Accès : créateur de la tontine + SUPER_ADMIN. Tri backend : ordreJackpot ASC, createdAt ASC
+  getRecapCycle: async (tontineId: string, cycleId: string, page = 0, size = 20): Promise<PageResponse<CycleRecapLigne>> => {
+    const response = await api.get<CustomResponse<RawPage<CycleRecapLigne>>>(
+      `/v1/tontines/${tontineId}/cotisations/recap/${cycleId}`,
+      { params: { page, size } }
+    )
+    return toPage(response.data.data)
+  },
+
+  // ─── Total cotisé par membre (paginé) ─────────────────────────────────────────
+  getRecapTotal: async (tontineId: string, page = 0, size = 20): Promise<PageResponse<MembreTotalCotisation>> => {
+    const response = await api.get<CustomResponse<RawPage<MembreTotalCotisation>>>(
+      `/v1/tontines/${tontineId}/cotisations/recap-total`,
+      { params: { page, size } }
+    )
+    return toPage(response.data.data)
   },
 
   // ─── Récupérer une cotisation ─────────────────────────────────────────────────
@@ -72,19 +94,16 @@ export const cotisationService = {
     return response.data.data
   },
 
-  // ─── Récapitulatif cotisations d'un cycle par membre ─────────────────────────
+  // ─── Récap complet (sans pagination) — utilisé par CycleRecapModal / CotisationsRecapTotal ──
+  // Les endpoints sont paginés côté backend : on demande la taille max (200).
+  // Une tontine ayant au plus 100 membres, la liste est complète.
   getCotisationRecap: async (tontineId: string, cycleId: string): Promise<CotisationRecapItem[]> => {
-    const response = await api.get<CustomResponse<CotisationRecapItem[]>>(
-      `/v1/tontines/${tontineId}/cotisations/recap/${cycleId}`
-    )
-    return response.data.data
+    const page = await cotisationService.getRecapCycle(tontineId, cycleId, 0, RECAP_MAX)
+    return page.content
   },
 
-  // ─── Total cotisé par membre — tous cycles confondus ─────────────────────────
   getCotisationsRecapTotal: async (tontineId: string): Promise<MembreTotalCotisation[]> => {
-    const response = await api.get<CustomResponse<MembreTotalCotisation[]>>(
-      `/v1/tontines/${tontineId}/cotisations/recap-total`
-    )
-    return response.data.data
+    const page = await cotisationService.getRecapTotal(tontineId, 0, RECAP_MAX)
+    return page.content
   },
 }

@@ -1,23 +1,30 @@
 import { useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { toast } from 'sonner'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
-import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { Select } from '@/components/ui/Select'
 import { Spinner } from '@/components/ui/Spinner'
+import { Pagination } from '@/components/ui/Pagination'
+import { ChipRow } from '@/components/ui/ChipRow'
+import { InitialsAvatar } from '@/components/ui/Section'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { AdminEditCotisationModal, EditCotisationInitialValues } from '@/components/shared/AdminEditCotisationModal'
 import { AdminEnregistrerPaiementModal } from '@/components/shared/AdminEnregistrerPaiementModal'
+import { CotisationsRecapTotal } from '@/components/shared/CotisationsRecapTotal'
 import { useTontines } from '@/hooks/useTontines'
 import { useMyDashboard } from '@/hooks/useDashboard'
 import { useCycles } from '@/hooks/useCycles'
 import { useCotisations, useValiderCotisation } from '@/hooks/useCotisations'
 import { useMembres } from '@/hooks/useMembres'
-import { CotisationsRecapTotal } from '@/components/shared/CotisationsRecapTotal'
 import { Cotisation, EnregistreParInfo } from '@/types/cotisation'
+import { Cycle } from '@/types/cycle'
 import { CotisationStatut, CycleStatut } from '@/types/common'
-import { Search, Download, CheckCircle, XCircle, Edit2, PlusCircle, LayoutList, Users2 } from 'lucide-react'
-import { useLocation } from 'react-router-dom'
+import { formatMontant, formatFCFA, formatDateCourte } from '@/lib/format'
+import { Search, CheckCircle, Edit2, PlusCircle, LayoutList, Users2, X } from 'lucide-react'
 
 interface EditCotisationState {
   isOpen: boolean
@@ -26,25 +33,25 @@ interface EditCotisationState {
   initialValues: EditCotisationInitialValues
 }
 
+const PAGE_SIZE = 20
+
 const STATUT_TABS = [
   { label: 'Toutes', value: '' },
   { label: 'En attente', value: CotisationStatut.EN_ATTENTE },
-  { label: 'Validée', value: CotisationStatut.VALIDE },
-  { label: 'Retard', value: CotisationStatut.EN_RETARD },
+  { label: 'Validées', value: CotisationStatut.VALIDE },
+  { label: 'En retard', value: CotisationStatut.EN_RETARD },
 ]
 
 const STATUT_BADGE: Record<string, 'success' | 'warning' | 'error' | 'default'> = {
   VALIDE: 'success',
   EN_ATTENTE: 'warning',
   EN_RETARD: 'error',
-  REFUSE: 'default',
 }
 
 const STATUT_LABEL: Record<string, string> = {
   VALIDE: 'Validée',
-  EN_ATTENTE: 'En Attente',
-  EN_RETARD: 'Retard',
-  REFUSE: 'Refusée',
+  EN_ATTENTE: 'En attente',
+  EN_RETARD: 'En retard',
 }
 
 const METHODE_LABELS: Record<string, string> = {
@@ -53,17 +60,24 @@ const METHODE_LABELS: Record<string, string> = {
   FREE_MONEY: 'Free Money',
   CASH: 'Espèces',
   VIREMENT: 'Virement',
-  MTN_MOMO: 'Mtn Momo',
+  MTN_MOMO: 'MTN MoMo',
 }
+
+const chip = (active: boolean) =>
+  `h-9 px-4 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+    active ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-100'
+  }`
 
 export function CotisationsPage() {
   const location = useLocation()
+  // Arrivée depuis « Voir les cotisations » (page Cycles) : tontine + cycle présélectionnés
   const navState = location.state as { tontineId?: string; cycleId?: string } | null
 
   const [page, setPage] = useState(0)
   const [search, setSearch] = useState('')
   const [statutTab, setStatutTab] = useState('')
   const [selectedTontineId, setSelectedTontineId] = useState(navState?.tontineId || '')
+  /** undefined = cycle en cours par défaut ; '' = tous les cycles ; sinon id du cycle */
   const [selectedCycleId, setSelectedCycleId] = useState<string | undefined>(navState?.cycleId)
   const [selectedMembreId, setSelectedMembreId] = useState<string | undefined>(undefined)
   const [cotisationToValidate, setCotisationToValidate] = useState<string | null>(null)
@@ -83,29 +97,37 @@ export function CotisationsPage() {
   const { data: tontinesData } = useTontines(0, 50)
   const tontines = tontinesData?.content || []
   const activeTontineId = selectedTontineId || tontines[0]?.id || ''
+  const activeTontine = tontines.find((t) => t.id === activeTontineId)
 
-  const { data: cyclesData } = useCycles(activeTontineId, 0, 50)
-  const { data: membresData } = useMembres(activeTontineId, 0, 50)
+  const { data: cyclesData } = useCycles(activeTontineId, 0, 100)
+  const { data: membresData } = useMembres(activeTontineId, 0, 100)
   const cycles = cyclesData?.content || []
   const membres = membresData?.content || []
   const cycleEnCours = cycles.find((c) => c.statut === CycleStatut.EN_COURS)
-  const activeTontine = tontines.find((t) => t.id === activeTontineId)
+  // Cycle sur lequel enregistrer un paiement admin : en cours, sinon le prochain ouvert
   const paiementCycleId = cycleEnCours?.id || cycles.find((c) => c.statut === CycleStatut.EN_ATTENTE)?.id || ''
-  const baseCycleFilter = selectedCycleId !== undefined ? selectedCycleId : cycleEnCours?.id
-  const effectiveCycleFilter = selectedMembreId ? undefined : baseCycleFilter
 
-  const { data: cotisationsData, isLoading } = useCotisations(activeTontineId, effectiveCycleFilter, page, selectedMembreId ? 200 : 50, selectedMembreId)
-  const { data: dashboard } = useMyDashboard()
+  const baseCycleFilter = selectedCycleId !== undefined ? (selectedCycleId || undefined) : cycleEnCours?.id
+  // Fiche membre : toutes ses cotisations, tous cycles confondus
+  const effectiveCycleFilter = selectedMembreId ? undefined : baseCycleFilter
+  const activeCycleId = selectedCycleId !== undefined ? selectedCycleId : cycleEnCours?.id ?? ''
+
+  const { data: cotisationsData, isLoading } = useCotisations(
+    activeTontineId,
+    effectiveCycleFilter,
+    selectedMembreId ? 0 : page,
+    // Un seul membre : on charge tout (quelques lignes) pour calculer sa fiche
+    selectedMembreId ? 200 : PAGE_SIZE,
+    selectedMembreId
+  )
   const { mutate: valider, isPending: isValidating } = useValiderCotisation()
+
+  // Statistiques par tontine calculées côté backend (fiables quel que soit le volume)
+  const { data: dashboard } = useMyDashboard(0, 50)
+  const activeTontineStats = dashboard?.tontines.content.find((t) => t.tontineId === activeTontineId)
 
   const allCotisations = cotisationsData?.content || []
   const totalPages = cotisationsData?.totalPages || 1
-
-  // Stats précalculées côté backend — fiables quel que soit le nombre de cotisations
-  const activeTontineStats = dashboard?.tontines.find((t) => t.tontineId === activeTontineId)
-  const montantValide  = activeTontineStats?.montantTotalValide  ?? 0
-  const enAttenteCount = activeTontineStats?.cotisationsEnAttente ?? 0
-  const enRetardCount  = activeTontineStats?.cotisationsEnRetard  ?? 0
 
   const filtered = allCotisations.filter((c: Cotisation) => {
     const q = search.toLowerCase()
@@ -114,6 +136,31 @@ export function CotisationsPage() {
       (c.referenceTransaction || '').toLowerCase().includes(q)
     const matchStatut = !statutTab || c.statut === statutTab
     return matchSearch && matchStatut
+  })
+
+  // ─── Changements de filtre : toujours revenir à la page 1 ─────────────────
+  const changeTontine = (id: string) => {
+    setSelectedTontineId(id); setSelectedCycleId(undefined); setSelectedMembreId(undefined); setPage(0); setSearch('')
+  }
+  const changeCycle = (id: string) => { setSelectedCycleId(id); setPage(0) }
+  const changeMembre = (id: string | undefined) => { setSelectedMembreId(id); setPage(0) }
+
+  const canEdit = (c: Cotisation) => {
+    const cycleOfCotisation = cycles.find((cy) => cy.id === c.cycleId)
+    return c.statut === CotisationStatut.EN_ATTENTE ||
+      (c.statut === CotisationStatut.VALIDE && cycleOfCotisation?.statut === CycleStatut.EN_COURS)
+  }
+
+  const openEdit = (c: Cotisation) => setEditCotisationState({
+    isOpen: true,
+    cotisationId: c.id,
+    membreNom: `${c.membre.firstName} ${c.membre.lastName}`,
+    initialValues: {
+      montant: c.montant,
+      methodePaiement: c.methodePaiement,
+      referenceTransaction: c.referenceTransaction,
+      note: c.note,
+    },
   })
 
   const handleValider = () => {
@@ -127,409 +174,305 @@ export function CotisationsPage() {
     )
   }
 
+  const cyclesTries = [...cycles].sort((a: Cycle, b: Cycle) => b.numeroCycle - a.numeroCycle)
+  const membreInfo = membres.find((m) => m.id === selectedMembreId)
+
   return (
     <AppLayout>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-neutral-900">Cotisations</h1>
-          <p className="text-sm text-neutral-500 mt-1">Validez les paiements reçus.</p>
-        </div>
-        <div className="flex items-center gap-2 self-start sm:self-auto">
-          <button className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-neutral-700 border border-neutral-200 rounded-xl hover:bg-neutral-50 transition-colors shadow-sm">
-            <Download size={15} /> Exporter
-          </button>
-          <Button
-            size="sm"
-            onClick={() => setPickerOpen(true)}
-            disabled={!paiementCycleId || membres.length === 0}
-          >
-            <PlusCircle size={15} className="mr-1.5" />
-            Enregistrer paiement
+      <PageHeader
+        title="Cotisations"
+        description={activeTontine ? activeTontine.nom : 'Validez les paiements reçus.'}
+        action={
+          <Button onClick={() => setPickerOpen(true)} disabled={!paiementCycleId || membres.length === 0}>
+            <PlusCircle size={18} /> <span className="hidden sm:inline">Enregistrer un paiement</span><span className="sm:hidden">Paiement</span>
           </Button>
+        }
+      />
+
+      {/* Choix de la tontine */}
+      {tontines.length > 1 && (
+        <ChipRow className="mb-3">
+          {tontines.map((t) => (
+            <button key={t.id} aria-pressed={activeTontineId === t.id} onClick={() => changeTontine(t.id)} className={chip(activeTontineId === t.id)}>
+              {t.nom.length > 24 ? t.nom.slice(0, 24) + '…' : t.nom}
+            </button>
+          ))}
+        </ChipRow>
+      )}
+
+      {/* Statistiques de la tontine (backend) */}
+      {activeTontineStats && (
+        <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4">
+          <div className="bg-white rounded-2xl border border-neutral-100 p-3 sm:p-4">
+            <p className="text-[11px] sm:text-xs text-neutral-500 mb-1">Total validé</p>
+            <p className="text-base sm:text-xl font-bold text-primary-700 tabular truncate">{formatMontant(activeTontineStats.montantTotalValide)} F</p>
+          </div>
+          <button
+            onClick={() => setStatutTab(CotisationStatut.EN_ATTENTE)}
+            className="bg-white rounded-2xl border border-neutral-100 p-3 sm:p-4 text-left hover:border-amber-200 transition-colors"
+          >
+            <p className="text-[11px] sm:text-xs text-neutral-500 mb-1">À valider</p>
+            <p className="text-base sm:text-xl font-bold text-amber-600 tabular">{activeTontineStats.cotisationsEnAttente}</p>
+          </button>
+          <button
+            onClick={() => setStatutTab(CotisationStatut.EN_RETARD)}
+            className="bg-white rounded-2xl border border-neutral-100 p-3 sm:p-4 text-left hover:border-red-200 transition-colors"
+          >
+            <p className="text-[11px] sm:text-xs text-neutral-500 mb-1">En retard</p>
+            <p className="text-base sm:text-xl font-bold text-red-600 tabular">{activeTontineStats.cotisationsEnRetard}</p>
+          </button>
         </div>
+      )}
+
+      {/* Bascule Par cycle / Vue d'ensemble */}
+      <div className="inline-flex p-1 bg-neutral-100 rounded-full mb-3">
+        {([
+          ['par-cycle', 'Par cycle', <LayoutList key="l" size={15} />],
+          ['vue-ensemble', "Vue d'ensemble", <Users2 key="u" size={15} />],
+        ] as const).map(([v, label, icon]) => (
+          <button
+            key={v}
+            onClick={() => setCotisationView(v)}
+            className={`h-9 px-4 rounded-full text-sm font-medium inline-flex items-center gap-1.5 transition-colors ${
+              cotisationView === v ? 'bg-white text-neutral-900 shadow-sm' : 'text-neutral-500 hover:text-neutral-700'
+            }`}
+          >
+            {icon} {label}
+          </button>
+        ))}
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 mb-6">
-        <div className="bg-white rounded-xl border border-neutral-100 shadow-sm p-4">
-          <p className="text-xs text-neutral-500 mb-1">Total validé</p>
-          <p className="text-xl font-bold text-primary-600">{montantValide.toLocaleString('fr-FR')} FCFA</p>
+      {cotisationView === 'vue-ensemble' ? (
+        <div className="bg-white rounded-2xl border border-neutral-100 p-4 sm:p-5">
+          <CotisationsRecapTotal tontineId={activeTontineId} />
         </div>
-        <div className="bg-white rounded-xl border border-neutral-100 shadow-sm p-4">
-          <p className="text-xs text-neutral-500 mb-1">À valider</p>
-          <p className="text-xl font-bold text-neutral-900">{enAttenteCount}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-neutral-100 shadow-sm p-4">
-          <p className="text-xs text-neutral-500 mb-1">En retard</p>
-          <p className="text-xl font-bold text-neutral-900">{enRetardCount}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-neutral-100 shadow-sm p-4">
-          <p className="text-xs text-neutral-500 mb-1">Refusées</p>
-          <p className="text-xl font-bold text-neutral-900">0</p>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-hidden">
-        {/* Toggle Par cycle / Vue d'ensemble */}
-        <div className="px-5 pt-4 pb-0 flex items-center justify-between">
-          <div className="flex gap-1 p-1 bg-neutral-100 rounded-xl w-fit">
-            <button
-              onClick={() => setCotisationView('par-cycle')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                cotisationView === 'par-cycle'
-                  ? 'bg-white text-neutral-900 shadow-sm'
-                  : 'text-neutral-500 hover:text-neutral-700'
-              }`}
-            >
-              <LayoutList size={13} /> Par cycle
-            </button>
-            <button
-              onClick={() => setCotisationView('vue-ensemble')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                cotisationView === 'vue-ensemble'
-                  ? 'bg-white text-neutral-900 shadow-sm'
-                  : 'text-neutral-500 hover:text-neutral-700'
-              }`}
-            >
-              <Users2 size={13} /> Vue d'ensemble
-            </button>
-          </div>
-        </div>
-
-        {/* Vue d'ensemble */}
-        {cotisationView === 'vue-ensemble' && (
-          <div className="px-5 py-4">
-            <CotisationsRecapTotal tontineId={activeTontineId} />
-          </div>
-        )}
-
-        {/* Filters + table */}
-        {cotisationView === 'par-cycle' && (
+      ) : (
         <>
-        <div className="px-5 pt-4 pb-0 flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="relative flex-1 max-w-sm">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher un membre ou une référence..."
-              className="w-full pl-9 pr-4 py-2 text-sm border border-neutral-200 rounded-xl bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-primary-300"
-            />
-          </div>
-          <div className="flex items-center gap-1 flex-wrap">
-            {STATUT_TABS.map((tab) => (
-              <button
-                key={tab.value}
-                onClick={() => setStatutTab(tab.value)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                  statutTab === tab.value
-                    ? 'bg-primary-600 text-white'
-                    : 'text-neutral-600 hover:bg-neutral-100'
-                }`}
-              >
-                {tab.label}
+          {/* Choix du cycle (cycle en cours par défaut) */}
+          {cycles.length > 0 && !selectedMembreId && (
+            <ChipRow className="mb-3">
+              <button aria-pressed={activeCycleId === ''} onClick={() => changeCycle('')} className={chip(activeCycleId === '')}>
+                Tous les cycles
               </button>
-            ))}
-          </div>
-        </div>
+              {cyclesTries.map((c) => (
+                <button key={c.id} aria-pressed={activeCycleId === c.id} onClick={() => changeCycle(c.id)} className={chip(activeCycleId === c.id)}>
+                  Cycle {c.numeroCycle}
+                  {c.statut === CycleStatut.EN_COURS && (
+                    <span className={`ml-1.5 inline-block w-2 h-2 rounded-full ${activeCycleId === c.id ? 'bg-lime-300' : 'bg-primary-500'}`} title="En cours" />
+                  )}
+                </button>
+              ))}
+            </ChipRow>
+          )}
 
-        {/* Filter tontine */}
-        {tontines.length > 1 && (
-          <>
-            {/* Mobile — select */}
-            <div className="sm:hidden px-5 pt-3 pb-1">
-              <select
-                value={selectedTontineId}
-                onChange={(e) => { setSelectedTontineId(e.target.value); setSelectedCycleId(undefined); setSelectedMembreId(undefined) }}
-                className="w-full text-sm text-neutral-700 bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-300"
-              >
-                {tontines.map((t) => (
-                  <option key={t.id} value={t.id}>{t.nom}</option>
+          <div className="bg-white rounded-2xl border border-neutral-100 overflow-hidden">
+            {/* Membre + recherche + statut */}
+            <div className="px-4 sm:px-5 pt-4 space-y-3">
+              <div className="flex flex-col sm:flex-row gap-3">
+                {membres.length > 0 && (
+                  <div className="sm:w-72">
+                    <Select
+                      aria-label="Filtrer par membre"
+                      value={selectedMembreId || ''}
+                      onChange={(e) => changeMembre(e.target.value || undefined)}
+                      options={[{ value: '', label: 'Tous les membres' }, ...membres.map((m) => ({ value: m.id, label: `${m.user.firstName} ${m.user.lastName}` }))]}
+                    />
+                  </div>
+                )}
+                <div className="relative flex-1 sm:max-w-sm">
+                  <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
+                  <input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Membre ou référence…"
+                    className="w-full h-12 pl-11 pr-4 text-[15px] border border-neutral-200 rounded-full bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white"
+                  />
+                </div>
+              </div>
+              <ChipRow bleed={false}>
+                {STATUT_TABS.map((tab) => (
+                  <button
+                    key={tab.value}
+                    aria-pressed={statutTab === tab.value}
+                    onClick={() => setStatutTab(tab.value)}
+                    className={`h-9 px-4 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
+                      statutTab === tab.value ? 'bg-primary-600 text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
                 ))}
-              </select>
+              </ChipRow>
             </div>
-            {/* Desktop — buttons */}
-            <div className="hidden sm:flex px-5 pt-3 items-center gap-1 overflow-x-auto pb-1">
-              {tontines.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => { setSelectedTontineId(t.id); setSelectedCycleId(undefined); setSelectedMembreId(undefined) }}
-                  className={`px-3 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
-                    activeTontineId === t.id
-                      ? 'bg-neutral-800 text-white'
-                      : 'text-neutral-500 hover:bg-neutral-100 border border-neutral-200'
-                  }`}
-                >
-                  {t.nom}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
 
-        {/* Indicateur cycle actif (masqué quand un membre est sélectionné) */}
-        {!selectedMembreId && effectiveCycleFilter && (
-          <div className="px-5 pt-2 pb-1 flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
-              {selectedCycleId !== undefined
-                ? `Cycle #${cycles.find((c) => c.id === selectedCycleId)?.numeroCycle ?? '?'} — filtré`
-                : `Cycle #${cycleEnCours?.numeroCycle} — en cours`}
-            </span>
-            {selectedCycleId !== undefined && (
-              <button
-                onClick={() => setSelectedCycleId(undefined)}
-                className="text-xs text-neutral-400 hover:text-neutral-600 underline"
-              >
-                Voir cycle en cours
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Sélecteur membre */}
-        {membres.length > 0 && (
-          <div className="px-5 pt-2 pb-1">
-            <select
-              value={selectedMembreId || ''}
-              onChange={(e) => { setSelectedMembreId(e.target.value || undefined); setPage(0) }}
-              className="w-full sm:w-72 text-sm text-neutral-700 bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-300"
-            >
-              <option value="">Tous les membres</option>
-              {membres.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.user.firstName} {m.user.lastName}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {/* Fiche résumé membre sélectionné */}
-        {selectedMembreId && (() => {
-          const membreInfo = membres.find((m) => m.id === selectedMembreId)
-          const cots = allCotisations
-          const totalValide = cots.filter((c: Cotisation) => c.statut === CotisationStatut.VALIDE).reduce((s: number, c: Cotisation) => s + c.montant, 0)
-          const nbEnAttente = cots.filter((c: Cotisation) => c.statut === CotisationStatut.EN_ATTENTE).length
-          const nbEnRetard = cots.filter((c: Cotisation) => c.statut === CotisationStatut.EN_RETARD).length
-          return (
-            <div className="mx-5 mt-3 mb-1 bg-primary-50 border border-primary-100 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-9 h-9 rounded-full bg-primary-500 text-white text-sm font-bold flex items-center justify-center shrink-0">
-                    {membreInfo ? `${membreInfo.user.firstName[0]}${membreInfo.user.lastName[0]}`.toUpperCase() : '?'}
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-primary-900">
-                      {membreInfo ? `${membreInfo.user.firstName} ${membreInfo.user.lastName}` : '—'}
-                    </p>
-                    <p className="text-xs text-primary-500">Toutes les cotisations sur cette tontine</p>
-                  </div>
-                </div>
-                <button onClick={() => setSelectedMembreId(undefined)} className="text-xs text-neutral-400 hover:text-neutral-600 underline">
-                  Voir tous
-                </button>
-              </div>
-              <div className="grid grid-cols-3 gap-2 mb-3">
-                <div className="bg-white rounded-xl p-2.5 text-center">
-                  <p className="text-xs text-neutral-400 mb-0.5">Validées</p>
-                  <p className="font-bold text-primary-600">{cots.filter((c: Cotisation) => c.statut === CotisationStatut.VALIDE).length}</p>
-                </div>
-                <div className="bg-white rounded-xl p-2.5 text-center">
-                  <p className="text-xs text-neutral-400 mb-0.5">En attente</p>
-                  <p className="font-bold text-orange-500">{nbEnAttente}</p>
-                </div>
-                <div className="bg-white rounded-xl p-2.5 text-center">
-                  <p className="text-xs text-neutral-400 mb-0.5">En retard</p>
-                  <p className="font-bold text-red-500">{nbEnRetard}</p>
-                </div>
-              </div>
-              <div className="pt-2 border-t border-primary-100 flex items-center justify-between">
-                <p className="text-xs text-primary-600">Total versé (validé)</p>
-                <p className="text-sm font-extrabold text-primary-700">{totalValide.toLocaleString('fr-FR')} FCFA</p>
-              </div>
-              <button
-                onClick={() => {
-                  const m = membres.find((memb) => memb.id === selectedMembreId)
-                  if (m && paiementCycleId) {
-                    setPaiementModal({
-                      isOpen: true,
-                      membreId: m.id,
-                      membreNom: `${m.user.firstName} ${m.user.lastName}`,
-                    })
-                  }
-                }}
-                disabled={!paiementCycleId}
-                className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold bg-primary-600 text-white hover:bg-primary-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                <PlusCircle size={15} />
-                Enregistrer son paiement
-              </button>
-            </div>
-          )
-        })()}
-
-        {/* Cards — mobile */}
-        <div className="md:hidden divide-y divide-neutral-50 mt-3">
-          {isLoading ? (
-            <div className="flex justify-center py-10"><Spinner /></div>
-          ) : filtered.length === 0 ? (
-            <p className="text-center py-10 text-neutral-400 text-sm">Aucune cotisation</p>
-          ) : (
-            filtered.map((c: Cotisation) => {
-              const tontine = tontines.find((t) => t.id === activeTontineId)
+            {/* Fiche du membre sélectionné */}
+            {selectedMembreId && (() => {
+              const cots = allCotisations
+              const valides = cots.filter((c: Cotisation) => c.statut === CotisationStatut.VALIDE)
+              const totalValide = valides.reduce((s: number, c: Cotisation) => s + c.montant, 0)
+              const nbEnAttente = cots.filter((c: Cotisation) => c.statut === CotisationStatut.EN_ATTENTE).length
+              const nbEnRetard = cots.filter((c: Cotisation) => c.statut === CotisationStatut.EN_RETARD).length
+              const nom = membreInfo ? `${membreInfo.user.firstName} ${membreInfo.user.lastName}` : '—'
               return (
-                <div key={c.id} className="px-4 py-3">
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <p className="font-semibold text-sm text-neutral-900">{c.membre.firstName} {c.membre.lastName}</p>
-                    <Badge variant={STATUT_BADGE[c.statut] || 'default'}>{STATUT_LABEL[c.statut] || c.statut}</Badge>
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs text-neutral-400">
-                      {tontine?.nom} · {METHODE_LABELS[c.methodePaiement || ''] || c.methodePaiement || '—'}
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <p className="font-bold text-sm text-neutral-900">{c.montant.toLocaleString('fr-FR')} FCFA</p>
-                      {c.statut === CotisationStatut.EN_ATTENTE && (
-                        <button onClick={() => setCotisationToValidate(c.id)}
-                          className="w-7 h-7 rounded-full bg-primary-50 text-primary-600 flex items-center justify-center hover:bg-primary-100"
-                          title="Valider">
-                          <CheckCircle size={14} />
-                        </button>
-                      )}
-                      {(() => {
-                        const cycleOfCotisation = cycles.find((cy) => cy.id === c.cycleId)
-                        const cycleIsEnCours = cycleOfCotisation?.statut === CycleStatut.EN_COURS
-                        const showEdit =
-                          c.statut === CotisationStatut.EN_ATTENTE ||
-                          (c.statut === CotisationStatut.VALIDE && cycleIsEnCours)
-                        return showEdit ? (
-                          <button
-                            onClick={() => setEditCotisationState({
-                              isOpen: true,
-                              cotisationId: c.id,
-                              membreNom: `${c.membre.firstName} ${c.membre.lastName}`,
-                              initialValues: {
-                                montant: c.montant,
-                                methodePaiement: c.methodePaiement,
-                                referenceTransaction: c.referenceTransaction,
-                                note: c.note,
-                              },
-                            })}
-                            className="w-7 h-7 rounded-full bg-neutral-100 text-neutral-600 flex items-center justify-center hover:bg-neutral-200"
-                            title="Modifier"
-                          >
-                            <Edit2 size={14} />
-                          </button>
-                        ) : null
-                      })()}
+                <div className="mx-4 sm:mx-5 mt-4 bg-primary-50 border border-primary-100 rounded-2xl p-4">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <InitialsAvatar name={nom} />
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-primary-900 truncate">{nom}</p>
+                        <p className="text-xs text-primary-700/80">Toutes ses cotisations sur cette tontine</p>
+                      </div>
                     </div>
+                    <button onClick={() => changeMembre(undefined)} className="w-9 h-9 rounded-full flex items-center justify-center text-primary-700 hover:bg-primary-100" aria-label="Voir tous les membres">
+                      <X size={18} />
+                    </button>
                   </div>
+                  <div className="grid grid-cols-3 gap-2 mb-3">
+                    {[
+                      { label: 'Validées', value: valides.length, cls: 'text-primary-700' },
+                      { label: 'En attente', value: nbEnAttente, cls: 'text-amber-600' },
+                      { label: 'En retard', value: nbEnRetard, cls: 'text-red-600' },
+                    ].map((x) => (
+                      <div key={x.label} className="bg-white rounded-xl p-2.5 text-center">
+                        <p className="text-[11px] text-neutral-500 mb-0.5">{x.label}</p>
+                        <p className={`font-bold tabular ${x.cls}`}>{x.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between pt-2 border-t border-primary-100">
+                    <p className="text-xs text-primary-700">Total versé (validé)</p>
+                    <p className="text-sm font-extrabold text-primary-800 tabular">{formatFCFA(totalValide)}</p>
+                  </div>
+                  <Button
+                    className="w-full mt-3"
+                    disabled={!paiementCycleId || !membreInfo}
+                    onClick={() => membreInfo && setPaiementModal({ isOpen: true, membreId: membreInfo.id, membreNom: nom })}
+                  >
+                    <PlusCircle size={18} /> Enregistrer son paiement
+                  </Button>
                 </div>
               )
-            })
-          )}
-        </div>
+            })()}
 
-        {/* Table — desktop */}
-        <div className="hidden md:block overflow-x-auto mt-3">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-neutral-100">
-                {['Membre', 'Tontine', 'Montant', 'Méthode', 'Référence', 'Validé le', 'Statut', 'Saisie par', ''].map((h) => (
-                  <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
+            {/* Cartes — mobile */}
+            <div className="md:hidden divide-y divide-neutral-100 mt-3">
               {isLoading ? (
-                <tr><td colSpan={9} className="text-center py-10"><Spinner /></td></tr>
+                <div className="flex justify-center py-10"><Spinner /></div>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={9} className="text-center py-10 text-neutral-400">Aucune cotisation trouvée</td></tr>
+                <p className="text-center py-10 text-neutral-500 text-sm">Aucune cotisation</p>
               ) : (
                 filtered.map((c: Cotisation) => {
-                  const tontine = tontines.find((t) => t.id === activeTontineId)
-                  const ep: EnregistreParInfo | undefined = c.enregistrePar
-                  const isAutoDeclaré = ep && ep.id === c.membre.userId
+                  const nom = `${c.membre.firstName} ${c.membre.lastName}`
                   return (
-                    <tr key={c.id} className="border-b border-neutral-50 hover:bg-neutral-50 transition-colors">
-                      <td className="px-5 py-4 font-semibold text-neutral-900">{c.membre.firstName} {c.membre.lastName}</td>
-                      <td className="px-5 py-4 text-neutral-600">{tontine?.nom || '—'}</td>
-                      <td className="px-5 py-4 font-semibold text-neutral-900">{c.montant.toLocaleString('fr-FR')} FCFA</td>
-                      <td className="px-5 py-4 text-neutral-600">{METHODE_LABELS[c.methodePaiement || ''] || c.methodePaiement || '—'}</td>
-                      <td className="px-5 py-4 text-neutral-500 text-xs font-mono">{c.referenceTransaction || '—'}</td>
-                      <td className="px-5 py-4 text-neutral-500 text-xs">{c.dateValidation ? new Date(c.dateValidation).toLocaleDateString('fr-FR') : '—'}</td>
-                      <td className="px-5 py-4"><Badge variant={STATUT_BADGE[c.statut] || 'default'}>{STATUT_LABEL[c.statut] || c.statut}</Badge></td>
-                      <td className="px-5 py-4">
-                        {!ep ? <span className="text-neutral-300 text-xs">—</span>
-                          : isAutoDeclaré
-                            ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-neutral-100 text-neutral-600">Auto-déclaré</span>
-                            : <span title={`${ep.firstName} ${ep.lastName}`} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 cursor-help">Saisie admin</span>
-                        }
-                      </td>
-                      <td className="px-5 py-4">
-                        {(() => {
-                          const cycleOfCotisation = cycles.find((cy) => cy.id === c.cycleId)
-                          const cycleIsEnCours = cycleOfCotisation?.statut === CycleStatut.EN_COURS
-                          const showEdit =
-                            c.statut === CotisationStatut.EN_ATTENTE ||
-                            (c.statut === CotisationStatut.VALIDE && cycleIsEnCours)
-                          return (
-                            <div className="flex gap-2">
-                              {c.statut === CotisationStatut.EN_ATTENTE && (
-                                <>
-                                  <button onClick={() => setCotisationToValidate(c.id)} className="w-7 h-7 rounded-full bg-primary-50 text-primary-600 flex items-center justify-center hover:bg-primary-100" title="Valider"><CheckCircle size={14} /></button>
-                                  <button className="w-7 h-7 rounded-full bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100" title="Refuser"><XCircle size={14} /></button>
-                                </>
-                              )}
-                              {showEdit && (
-                                <button
-                                  onClick={() => setEditCotisationState({
-                                    isOpen: true,
-                                    cotisationId: c.id,
-                                    membreNom: `${c.membre.firstName} ${c.membre.lastName}`,
-                                    initialValues: {
-                                      montant: c.montant,
-                                      methodePaiement: c.methodePaiement,
-                                      referenceTransaction: c.referenceTransaction,
-                                      note: c.note,
-                                    },
-                                  })}
-                                  className="w-7 h-7 rounded-full bg-neutral-100 text-neutral-600 flex items-center justify-center hover:bg-neutral-200"
-                                  title="Modifier"
-                                >
-                                  <Edit2 size={14} />
-                                </button>
-                              )}
-                            </div>
-                          )
-                        })()}
-                      </td>
-                    </tr>
+                    <div key={c.id} className="px-4 py-3 flex items-center gap-3">
+                      <InitialsAvatar name={nom} />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm text-neutral-900 truncate">{nom}</p>
+                        <p className="text-xs text-neutral-500 truncate">
+                          {METHODE_LABELS[c.methodePaiement || ''] || c.methodePaiement || '—'}
+                          {c.referenceTransaction ? ` · ${c.referenceTransaction}` : ''}
+                        </p>
+                        <div className="mt-1"><Badge variant={STATUT_BADGE[c.statut] || 'default'}>{STATUT_LABEL[c.statut] || c.statut}</Badge></div>
+                      </div>
+                      <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                        <p className="font-bold text-sm text-neutral-900 tabular">{formatMontant(c.montant)} F</p>
+                        <div className="flex gap-1.5">
+                          {canEdit(c) && (
+                            <button
+                              onClick={() => openEdit(c)}
+                              className="h-8 w-8 rounded-full bg-neutral-100 text-neutral-700 inline-flex items-center justify-center active:scale-95 transition"
+                              aria-label={`Modifier la cotisation de ${nom}`}
+                            >
+                              <Edit2 size={14} />
+                            </button>
+                          )}
+                          {c.statut === CotisationStatut.EN_ATTENTE && (
+                            <button
+                              onClick={() => setCotisationToValidate(c.id)}
+                              className="h-8 px-3 rounded-full bg-primary-600 text-white text-xs font-semibold inline-flex items-center gap-1 active:scale-95 transition"
+                            >
+                              <CheckCircle size={14} /> Valider
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   )
                 })
               )}
-            </tbody>
-          </table>
-        </div>
+            </div>
 
-        {totalPages > 1 && (
-          <div className="flex justify-center gap-2 py-4 border-t border-neutral-100">
-            {Array.from({ length: totalPages }, (_, i) => (
-              <button
-                key={i}
-                onClick={() => setPage(i)}
-                className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${page === i ? 'bg-primary-600 text-white' : 'text-neutral-600 hover:bg-neutral-100'}`}
-              >
-                {i + 1}
-              </button>
-            ))}
+            {/* Tableau — desktop */}
+            <div className="hidden md:block overflow-x-auto mt-3">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-neutral-100 bg-neutral-50/70">
+                    {['Membre', 'Montant', 'Méthode', 'Référence', 'Validée le', 'Statut', 'Saisie par', ''].map((h) => (
+                      <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wide">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {isLoading ? (
+                    <tr><td colSpan={8} className="text-center py-10"><Spinner /></td></tr>
+                  ) : filtered.length === 0 ? (
+                    <tr><td colSpan={8} className="text-center py-10 text-neutral-500">Aucune cotisation trouvée</td></tr>
+                  ) : (
+                    filtered.map((c: Cotisation) => {
+                      const ep: EnregistreParInfo | undefined = c.enregistrePar
+                      const isAutoDeclare = ep && ep.id === c.membre.userId
+                      return (
+                        <tr key={c.id} className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50 transition-colors">
+                          <td className="px-5 py-3.5 font-semibold text-neutral-900">{c.membre.firstName} {c.membre.lastName}</td>
+                          <td className="px-5 py-3.5 font-semibold text-neutral-900 tabular whitespace-nowrap">{formatFCFA(c.montant)}</td>
+                          <td className="px-5 py-3.5 text-neutral-600">{METHODE_LABELS[c.methodePaiement || ''] || c.methodePaiement || '—'}</td>
+                          <td className="px-5 py-3.5 text-neutral-500 text-xs font-mono">{c.referenceTransaction || '—'}</td>
+                          <td className="px-5 py-3.5 text-neutral-500 text-xs">{c.dateValidation ? formatDateCourte(c.dateValidation) : '—'}</td>
+                          <td className="px-5 py-3.5"><Badge variant={STATUT_BADGE[c.statut] || 'default'}>{STATUT_LABEL[c.statut] || c.statut}</Badge></td>
+                          <td className="px-5 py-3.5">
+                            {!ep ? <span className="text-neutral-300 text-xs">—</span>
+                              : isAutoDeclare
+                                ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-neutral-100 text-neutral-600">Auto-déclaré</span>
+                                : <span title={`${ep.firstName} ${ep.lastName}`} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-sky-50 text-sky-700 cursor-help">Saisie admin</span>}
+                          </td>
+                          <td className="px-5 py-3.5">
+                            <div className="flex gap-2 justify-end">
+                              {canEdit(c) && (
+                                <button onClick={() => openEdit(c)} className="h-8 px-3 rounded-full bg-neutral-100 text-neutral-700 text-xs font-semibold inline-flex items-center gap-1 hover:bg-neutral-200">
+                                  <Edit2 size={14} /> Modifier
+                                </button>
+                              )}
+                              {c.statut === CotisationStatut.EN_ATTENTE && (
+                                <button onClick={() => setCotisationToValidate(c.id)} className="h-8 px-3 rounded-full bg-primary-600 text-white text-xs font-semibold inline-flex items-center gap-1 hover:bg-primary-700">
+                                  <CheckCircle size={14} /> Valider
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {!selectedMembreId && totalPages > 1 && (
+              <div className="border-t border-neutral-100">
+                <Pagination
+                  page={page}
+                  totalPages={totalPages}
+                  totalElements={cotisationsData?.totalElements}
+                  pageSize={PAGE_SIZE}
+                  onPageChange={setPage}
+                />
+              </div>
+            )}
           </div>
-        )}
         </>
-        )}
-      </div>
+      )}
 
-      {/* Modal : sélection du membre pour enregistrer un paiement */}
+      {/* Modal : choix du membre pour enregistrer un paiement */}
       <Modal
         isOpen={pickerOpen}
         onClose={() => { setPickerOpen(false); setPickerSearch('') }}
@@ -537,51 +480,43 @@ export function CotisationsPage() {
         size="sm"
       >
         <div className="relative mb-3">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
           <input
             value={pickerSearch}
             onChange={(e) => setPickerSearch(e.target.value)}
-            placeholder="Rechercher un membre..."
+            placeholder="Rechercher un membre…"
             autoFocus
-            className="w-full pl-9 pr-4 py-2 text-sm border border-neutral-200 rounded-xl bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-primary-300"
+            className="w-full h-12 pl-11 pr-4 text-[15px] border border-neutral-200 rounded-full bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white"
           />
         </div>
-        <div className="space-y-1 max-h-64 overflow-y-auto">
-          {membres
-            .filter((m) =>
+        <div className="max-h-72 overflow-y-auto -mx-1">
+          {(() => {
+            const list = membres.filter((m) =>
               `${m.user.firstName} ${m.user.lastName}`.toLowerCase().includes(pickerSearch.toLowerCase())
             )
-            .map((m) => (
-              <button
-                key={m.id}
-                onClick={() => {
-                  setPaiementModal({
-                    isOpen: true,
-                    membreId: m.id,
-                    membreNom: `${m.user.firstName} ${m.user.lastName}`,
-                  })
-                  setPickerOpen(false)
-                  setPickerSearch('')
-                }}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-primary-50 text-left transition-colors"
-              >
-                <div className="w-8 h-8 rounded-full bg-primary-500 text-white text-xs font-bold flex items-center justify-center flex-shrink-0 uppercase">
-                  {m.user.firstName?.[0]}{m.user.lastName?.[0]}
-                </div>
-                <p className="text-sm font-semibold text-neutral-900">
-                  {m.user.firstName} {m.user.lastName}
-                </p>
-              </button>
-            ))}
-          {membres.filter((m) =>
-            `${m.user.firstName} ${m.user.lastName}`.toLowerCase().includes(pickerSearch.toLowerCase())
-          ).length === 0 && (
-            <p className="py-4 text-center text-sm text-neutral-400">Aucun membre trouvé</p>
-          )}
+            if (list.length === 0) return <p className="py-6 text-center text-sm text-neutral-500">Aucun membre trouvé</p>
+            return list.map((m) => {
+              const nom = `${m.user.firstName} ${m.user.lastName}`
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => {
+                    setPaiementModal({ isOpen: true, membreId: m.id, membreNom: nom })
+                    setPickerOpen(false)
+                    setPickerSearch('')
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl hover:bg-primary-50 active:bg-primary-100 text-left transition-colors"
+                >
+                  <InitialsAvatar name={nom} size={36} />
+                  <span className="text-sm font-semibold text-neutral-900">{nom}</span>
+                </button>
+              )
+            })
+          })()}
         </div>
       </Modal>
 
-      {/* Modal : enregistrer paiement admin */}
+      {/* Modal : enregistrer un paiement (admin) */}
       <AdminEnregistrerPaiementModal
         isOpen={paiementModal.isOpen}
         onClose={() => setPaiementModal((s) => ({ ...s, isOpen: false }))}

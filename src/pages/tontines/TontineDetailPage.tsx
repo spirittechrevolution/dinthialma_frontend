@@ -11,9 +11,14 @@ import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Spinner } from '@/components/ui/Spinner'
+import { Pagination } from '@/components/ui/Pagination'
+import { InitialsAvatar } from '@/components/ui/Section'
+import { formatMontant, formatFCFA, formatDateCourte } from '@/lib/format'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { AddMembreModal } from '@/components/shared/AddMembreModal'
 import { AdminEnregistrerPaiementModal } from '@/components/shared/AdminEnregistrerPaiementModal'
+import { RecapCotisationsPanel } from '@/components/shared/RecapCotisationsPanel'
+import { AdminEditCotisationModal, EditCotisationInitialValues } from '@/components/shared/AdminEditCotisationModal'
 import { useAuth } from '@/hooks/useAuth'
 import {
   useTontine,
@@ -49,7 +54,6 @@ import {
   Percent,
   Trash2,
   CheckCircle,
-  XCircle,
   UserMinus,
   UserCheck,
   Clock,
@@ -61,11 +65,13 @@ import {
   PartyPopper,
   CalendarHeart,
   Download,
+  Send,
+  Users,
   AlertTriangle,
-  LayoutList,
-  Users2,
+  Lock,
+  Edit2,
 } from 'lucide-react'
-import { CotisationsRecapTotal } from '@/components/shared/CotisationsRecapTotal'
+import { ChipRow } from '@/components/ui/ChipRow'
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
@@ -177,7 +183,7 @@ function SaisieParBadge({ cotisation }: { cotisation: Cotisation }) {
   )
 }
 
-type Tab = 'infos' | 'membres' | 'cycles' | 'cotisations' | 'commissions' | 'historique'
+type Tab = 'infos' | 'membres' | 'cycles' | 'cotisations' | 'recap' | 'commissions' | 'historique'
 
 // ─── Page principale ──────────────────────────────────────────────────────────
 
@@ -202,24 +208,58 @@ export function TontineDetailPage() {
   const [randomJackpotCycle, setRandomJackpotCycle] = useState<string | null>(null)
   const [expandedHistoriqueCycle, setExpandedHistoriqueCycle] = useState<string | null>(null)
   const [distributionFinale, setDistributionFinale] = useState<MembreDistributionInfo[] | null>(null)
-  // undefined = auto (EN_COURS), '' = tout afficher, 'id' = cycle explicite
+  const [membresPage, setMembresPage] = useState(0)
+  const [cotPage, setCotPage] = useState(0)
+  // Filtres de l'onglet Paiements (repris de main)
+  // undefined = cycle en cours par défaut, '' = tous les cycles, 'id' = cycle choisi
   const [cotisationCycleFilter, setCotisationCycleFilter] = useState<string | undefined>(undefined)
   const [selectedMembreId, setSelectedMembreId] = useState<string | undefined>(undefined)
   const [showMembresSansCot, setShowMembresSansCot] = useState(false)
-  const [cotisationView, setCotisationView] = useState<'par-cycle' | 'recap-total'>('par-cycle')
+  const [editCot, setEditCot] = useState<{ cotisationId: string; membreNom: string; initialValues: EditCotisationInitialValues } | null>(null)
 
   // ─── Data ─────────────────────────────────────────────────────────────────
   const { data: tontine, isLoading } = useTontine(id || '')
-  const { data: membresData } = useMembres(id || '', 0, 50)
-  const { data: cyclesData } = useCycles(id || '', 0, 50)
-  const cycleEnCoursId = (cyclesData?.content || []).find((c: Cycle) => c.statut === CycleStatut.EN_COURS)?.id
-  // undefined = auto → EN_COURS, '' = tout, 'id' = cycle choisi
-  // quand un membre est sélectionné → pas de filtre cycle (on veut toutes ses cotisations)
-  const baseCycleFilter = cotisationCycleFilter === undefined ? cycleEnCoursId : (cotisationCycleFilter || undefined)
-  const effectiveCycleFilter = selectedMembreId ? undefined : baseCycleFilter
-  const { data: cotisationsData } = useCotisations(id || '', effectiveCycleFilter, 0, selectedMembreId ? 200 : 50, selectedMembreId)
+  const { data: membresData } = useMembres(id || '', 0, 100)
+  const { data: cyclesData } = useCycles(id || '', 0, 100)
   const { data: commissionsData } = useCommissions(id || '', 0, 20)
   const { data: historiqueBeneficiaires, isLoading: isLoadingHistorique } = useBeneficiairesHistorique(id || '', 0, 50)
+
+  // ─── Permissions (nécessaires aux filtres ci-dessous) ─────────────────────
+  const isSuperAdmin = hasRole(UserRole.SUPER_ADMIN)
+  const isAdminRole = hasRole(UserRole.ADMIN)
+  const isCreator = tontine && user && tontine.creePar.phone === user.phone
+  const canManage = isCreator && isAdminRole
+  const voitTout = !!(canManage || isSuperAdmin)
+
+  const cycleEnCoursId = (cyclesData?.content || []).find((c: Cycle) => c.statut === CycleStatut.EN_COURS)?.id
+
+  // Confidentialité : hors gestionnaire / super-admin, on ne demande que SES cotisations
+  // (filtre serveur ?membreId= → pagination exacte). Membre retrouvé par téléphone
+  // (Keycloak stocke "221…", l'API "7…" → on retire l'indicatif).
+  const normalizePhone = (p: string) => p.replace(/\D/g, '').replace(/^221/, '')
+  const myMembreId = (membresData?.content || []).find(
+    (m: Membre) => normalizePhone(m.user.phone) === normalizePhone(user?.phone || '')
+  )?.id
+  const membreFilter = voitTout ? selectedMembreId : myMembreId
+  const cotisationsAutorisees = voitTout || !!myMembreId
+
+  // undefined = cycle en cours ; '' = tous ; 'id' = cycle choisi. Fiche membre → tous cycles.
+  const baseCycleFilter = cotisationCycleFilter === undefined ? cycleEnCoursId : (cotisationCycleFilter || undefined)
+  const effectiveCycleFilter = selectedMembreId ? undefined : baseCycleFilter
+
+  // 1) Cycle en cours, complet : bouton « Valider N », badge, membres sans cotisation
+  const { data: currentCycleCotData } = useCotisations(id || '', cycleEnCoursId, 0, 200, undefined, voitTout && !!cycleEnCoursId)
+  // 2) Vue filtrée, complète : mini-stats et fiche membre
+  const { data: viewCotData } = useCotisations(id || '', effectiveCycleFilter, 0, 200, membreFilter, cotisationsAutorisees)
+  // 3) Liste affichée, paginée (même requête que 2 quand un membre est sélectionné)
+  const LIST_SIZE = 20
+  const { data: listCotData, isLoading: listCotLoading } = useCotisations(
+    id || '', effectiveCycleFilter,
+    selectedMembreId ? 0 : cotPage, selectedMembreId ? 200 : LIST_SIZE,
+    membreFilter, cotisationsAutorisees
+  )
+  const listLoading = listCotLoading && cotisationsAutorisees
+  const { data: membresPageData, isLoading: membresPageLoading } = useMembres(id || '', membresPage, LIST_SIZE)
 
   // ─── Mutations ────────────────────────────────────────────────────────────
   const { mutate: activer, isPending: isActivating } = useActiverTontine()
@@ -240,15 +280,8 @@ export function TontineDetailPage() {
   })
   const commissionForm = useForm<CommissionForm>({ resolver: zodResolver(commissionSchema) })
 
-  // ─── Permissions ──────────────────────────────────────────────────────────
-  const isSuperAdmin = hasRole(UserRole.SUPER_ADMIN)
-  const isAdminRole = hasRole(UserRole.ADMIN)
-  const isCreator = tontine && user && tontine.creePar.phone === user.phone
-  const canManage = isCreator && isAdminRole
-
   const membres = membresData?.content || []
   const cycles = cyclesData?.content || []
-  const cotisations = cotisationsData?.content || []
   const commissions = commissionsData?.content || []
 
   const isEvenementielle = tontine?.tontineType === TontineType.EVENEMENTIELLE
@@ -257,19 +290,18 @@ export function TontineDetailPage() {
     ? Math.round((tontine.nombreMembresActuels / tontine.nombreMembres) * 100)
     : 0
 
-  // Visibilité: membre voit seulement ses cotisations; admin/superadmin voient tout
-  const normalizePhone = (p: string) => p.replace(/^\+?221/, '')
-  const myPhone = normalizePhone(user?.phone || '')
-  const cotisationsToShow = cotisations
-    .filter((c: Cotisation) => (canManage || isSuperAdmin) ? true : normalizePhone(c.membre.phone) === myPhone)
-
-  const cotValidees = cotisationsToShow.filter((c) => c.statut === CotisationStatut.VALIDE).length
-  const cotEnAttente = cotisationsToShow.filter((c) => c.statut === CotisationStatut.EN_ATTENTE).length
-  const cotEnRetard = cotisationsToShow.filter((c) => c.statut === CotisationStatut.EN_RETARD).length
+  // Liste affichée et statistiques de la vue filtrée
+  const cotisationsToShow = listCotData?.content || []
+  const viewCotisations = viewCotData?.content || []
+  const cotValidees = viewCotisations.filter((c) => c.statut === CotisationStatut.VALIDE).length
+  const cotEnRetard = viewCotisations.filter((c) => c.statut === CotisationStatut.EN_RETARD).length
+  // Le bouton « Valider N paiements » et le badge portent toujours sur le cycle en cours
+  const currentCycleCotisations = currentCycleCotData?.content || []
+  const cotEnAttente = currentCycleCotisations.filter((c) => c.statut === CotisationStatut.EN_ATTENTE).length
+  const cotEnAttenteVue = viewCotisations.filter((c) => c.statut === CotisationStatut.EN_ATTENTE).length
 
   const currentCycle = cycles.find((c: Cycle) => c.statut === CycleStatut.EN_COURS)
-  const cotisationsCurrentCycle = cotisations.filter((c: Cotisation) => currentCycle && c.cycleId === currentCycle.id)
-  const paidMembreIds = new Set(cotisationsCurrentCycle.map((c: Cotisation) => c.membre.membreId))
+  const paidMembreIds = new Set(currentCycleCotisations.map((c: Cotisation) => c.membre.membreId))
   // Inclut ACTIF et PRE_ENROLLED — seul moyen pour un PRE_ENROLLED de déclarer
   const membresWithoutCotisation = membres.filter(
     (m: Membre) =>
@@ -277,12 +309,12 @@ export function TontineDetailPage() {
       m.statut !== MembreStatut.SUSPENDU &&
       !paidMembreIds.has(m.id)
   )
-  // Exclut les membres qui ont déjà reçu un jackpot (aRecuJackpot true ou undefined=jamais reçu)
+  // Exclut les membres qui ont déjà reçu un jackpot
   const membresEligiblesJackpot = membres.filter(
     (m: Membre) =>
       m.statut !== MembreStatut.SORTI &&
       m.statut !== MembreStatut.SUSPENDU &&
-      m.aRecuJackpot !== true
+      !m.aRecuJackpot
   )
 
   // ─── Handlers ─────────────────────────────────────────────────────────────
@@ -400,21 +432,18 @@ export function TontineDetailPage() {
     )
   }
 
-  // Compteurs pour les badges d'onglets
+  // Compteurs affichés sur les onglets
   const membresActifs = membres.filter((m: Membre) => m.statut === MembreStatut.ACTIF).length
-  const cyclesEnCours = cycles.filter((c: Cycle) => c.statut === CycleStatut.EN_COURS).length
-  // cotEnAttente et cotEnRetard déjà calculés plus haut
 
   const tabs: { id: Tab; label: string; show: boolean; badge?: number; badgeAlert?: boolean }[] = [
-    { id: 'infos',       label: 'Général',                                   show: true },
-    { id: 'membres',     label: 'Membres',      badge: membresActifs,        show: true },
-    { id: 'cycles',      label: isEvenementielle ? 'Périodes' : 'Cycles',
-                                                badge: cyclesEnCours > 0 ? cyclesEnCours : undefined, show: true },
-    { id: 'cotisations', label: 'Cotisations',
-                                                badge: cotEnAttente + cotEnRetard || undefined,
-                                                badgeAlert: cotEnRetard > 0,                show: true },
-    { id: 'historique',  label: 'Jackpots',                                  show: !isEvenementielle },
-    { id: 'commissions', label: 'Commissions',                               show: !!canManage },
+    { id: 'infos',        label: 'Infos',       show: true },
+    { id: 'membres',      label: 'Membres',     show: true, badge: membresActifs || undefined },
+    { id: 'cycles',       label: isEvenementielle ? 'Périodes' : 'Cycles', show: true },
+    { id: 'cotisations',  label: 'Paiements',   show: true, badge: (canManage && cotEnAttente) || undefined, badgeAlert: true },
+    // Récap : mêmes droits que l'API (créateur de la tontine + SUPER_ADMIN)
+    { id: 'recap',        label: 'Récap',       show: !!(isCreator || isSuperAdmin) },
+    { id: 'historique',   label: 'Jackpots',    show: !isEvenementielle },
+    { id: 'commissions',  label: 'Commissions', show: !!canManage },
   ]
 
   if (isLoading || !tontine) {
@@ -430,220 +459,165 @@ export function TontineDetailPage() {
   return (
     <AppLayout>
       {/* ── En-tête ─────────────────────────────────────────────────────── */}
-      <div className="flex items-start gap-3 mb-5">
+      <div className="flex items-center gap-2 mb-4">
         <button
           onClick={() => navigate(-1)}
-          className="mt-1 p-2 rounded-xl hover:bg-neutral-100 text-neutral-500 transition-colors flex-shrink-0"
+          className="w-10 h-10 -ml-2 rounded-full hover:bg-neutral-100 text-neutral-600 flex items-center justify-center transition-colors flex-shrink-0"
+          aria-label="Retour"
         >
-          <ArrowLeft size={18} />
+          <ArrowLeft size={20} />
         </button>
         <div className="flex-1 min-w-0">
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-bold text-neutral-900 truncate">{tontine.nom}</h1>
-            <Badge variant={STATUT_BADGE[tontine.statut]}>
-              {STATUT_LABEL[tontine.statut]}
-            </Badge>
+          <h1 className="text-xl sm:text-2xl font-bold text-neutral-900 truncate">{tontine.nom}</h1>
+          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+            <Badge variant={STATUT_BADGE[tontine.statut]}>{STATUT_LABEL[tontine.statut]}</Badge>
             {isEvenementielle ? (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-violet-50 text-violet-700">
                 <CalendarHeart size={11} /> Événementielle
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-50 text-sky-700">
                 <RefreshCw size={11} /> Rotative
               </span>
             )}
+            {!canManage && (
+              <span
+                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-neutral-100 text-neutral-500"
+                title={isSuperAdmin ? 'Vue Super Admin — lecture seule' : "Vous n'êtes pas le créateur de cette tontine"}
+              >
+                <Lock size={10} /> Lecture seule
+              </span>
+            )}
           </div>
-          {tontine.description && (
-            <p className="text-sm text-neutral-500 mt-0.5">{tontine.description}</p>
-          )}
         </div>
 
-        {/* Actions (créateur admin uniquement) */}
-        {canManage && (
-          <div className="flex gap-2 flex-shrink-0">
-            {tontine.statut === TontineStatut.BROUILLON && (
-              <Button
-                size="sm"
-                onClick={() => setConfirmAction({ type: 'activer' })}
-                loading={isActivating}
-              >
-                <Play size={14} className="mr-1" /> Activer
-              </Button>
-            )}
-            {tontine.statut === TontineStatut.ACTIVE && (
-              <Button
-                variant="danger"
-                size="sm"
-                onClick={() => setConfirmAction({ type: 'suspendre' })}
-                loading={isSuspending}
-              >
-                <Pause size={14} className="mr-1" /> Suspendre
-              </Button>
-            )}
-          </div>
+        {/* Suspendre (créateur admin) — action secondaire, discrète */}
+        {canManage && tontine.statut === TontineStatut.ACTIVE && (
+          <Button variant="secondary" size="sm" onClick={() => setConfirmAction({ type: 'suspendre' })} loading={isSuspending}>
+            <Pause size={14} /> <span className="hidden sm:inline">Suspendre</span>
+          </Button>
         )}
       </div>
 
-      {/* ── Bande de résumé ──────────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm p-5 mb-5">
-        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4">
-          {/* Montant — ROTATIVE = montant fixe, EVENEMENTIELLE = libre ou fixe */}
-          <div>
-            <p className="text-xs text-neutral-400 mb-1">{isEvenementielle ? 'Cotisation' : 'Montant'}</p>
-            {isEvenementielle && tontine.montantLibre ? (
-              <>
-                <p className="font-bold text-purple-600 text-lg">Libre</p>
-                {tontine.montantMinimum && (
-                  <p className="text-xs text-neutral-400">min {tontine.montantMinimum.toLocaleString('fr-FR')} FCFA</p>
-                )}
-              </>
-            ) : (
-              <>
-                <p className="font-bold text-primary-600 text-lg">{tontine.montant.toLocaleString('fr-FR')} FCFA</p>
-                <p className="text-xs text-neutral-400">{FREQ_LABELS[tontine.frequence] || tontine.frequence}</p>
-              </>
-            )}
-          </div>
+      {/* ── Carte principale (façon Wave) ────────────────────────────────── */}
+      {(() => {
+        const jackpotEstime = tontine.montant * tontine.nombreMembres
+        const joursEvt = tontine.dateEcheance
+          ? Math.ceil((new Date(tontine.dateEcheance).getTime() - Date.now()) / 86400000)
+          : null
+        const btn = 'flex items-center justify-center gap-2 w-full h-12 rounded-full bg-white text-primary-700 font-bold text-[15px] active:scale-[0.98] transition disabled:opacity-60'
 
-          {/* Membres */}
-          <div>
-            <p className="text-xs text-neutral-400 mb-1">Membres</p>
-            <p className="font-bold text-neutral-900 text-lg">{tontine.nombreMembresActuels}{!isEvenementielle && `/${tontine.nombreMembres}`}</p>
-            {!isEvenementielle && (
-              <div className="mt-1 w-full bg-neutral-100 rounded-full h-1.5">
-                <div className="h-1.5 rounded-full bg-primary-500" style={{ width: `${pct}%` }} />
-              </div>
-            )}
-          </div>
+        // Action principale selon le rôle et l'état de la tontine
+        let action: React.ReactNode = null
+        if (canManage && tontine.statut === TontineStatut.BROUILLON) {
+          action = (
+            <button className={btn} onClick={() => setConfirmAction({ type: 'activer' })} disabled={isActivating}>
+              <Play size={18} /> Activer la tontine
+            </button>
+          )
+        } else if (canManage && cotEnAttente > 0) {
+          action = (
+            <button className={btn} onClick={() => setActiveTab('cotisations')}>
+              <CheckCircle size={18} /> Valider {cotEnAttente} paiement{cotEnAttente > 1 ? 's' : ''}
+            </button>
+          )
+        } else if (canManage && currentCycle && membresWithoutCotisation.length > 0) {
+          action = (
+            <button className={btn} onClick={() => setActiveTab('cotisations')}>
+              <Plus size={18} /> Enregistrer un paiement
+            </button>
+          )
+        } else if (!canManage && !isSuperAdmin && tontine.statut === TontineStatut.ACTIVE) {
+          action = (
+            <button className={btn} onClick={() => navigate('/member/cotisations', { state: { openPay: true } })}>
+              <Send size={18} /> Payer ma cotisation
+            </button>
+          )
+        }
 
-          {/* Champs ROTATIVE uniquement */}
-          {!isEvenementielle && (
-            <>
-              <div>
-                <p className="text-xs text-neutral-400 mb-1">Mode</p>
-                <p className="font-semibold text-neutral-900 uppercase text-sm">{tontine.modeCycle}</p>
-              </div>
-              <div>
-                <p className="text-xs text-neutral-400 mb-1">Fréquence</p>
-                <p className="font-semibold text-neutral-900 text-sm">{FREQ_LABELS[tontine.frequence] || tontine.frequence}</p>
-              </div>
-              <div>
-                <p className="text-xs text-neutral-400 mb-1">Gagnants / cycle</p>
-                <p className="font-semibold text-neutral-900 text-sm">
-                  {tontine.nombreGagnants ?? 1}
-                  {(tontine.nombreGagnants ?? 1) > 1 && (
-                    <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700">Multi</span>
-                  )}
+        return (
+          <div className={`relative overflow-hidden rounded-3xl text-white p-5 sm:p-6 mb-5 ${isEvenementielle ? 'bg-gradient-to-br from-violet-700 via-violet-600 to-fuchsia-500' : 'bg-gradient-to-br from-primary-700 via-primary-600 to-emerald-500'}`}>
+            <div className="pointer-events-none absolute -top-16 -right-10 w-48 h-48 rounded-full bg-white/10" />
+            <div className="relative">
+              <p className="text-sm text-white/80">
+                {isEvenementielle ? 'Cotisation' : `Cotisation ${(FREQ_LABELS[tontine.frequence] || tontine.frequence).toLowerCase()}`}
+              </p>
+              {isEvenementielle && tontine.montantLibre ? (
+                <p className="mt-1 text-3xl font-extrabold">
+                  Montant libre
+                  {tontine.montantMinimum ? <span className="ml-2 text-base font-semibold text-white/75">min {formatFCFA(tontine.montantMinimum)}</span> : null}
                 </p>
-              </div>
-            </>
-          )}
-
-          {/* Champs EVENEMENTIELLE uniquement */}
-          {isEvenementielle && (
-            <>
-              <div>
-                <p className="text-xs text-neutral-400 mb-1">Fréquence rappels</p>
-                <p className="font-semibold text-neutral-900 text-sm">{FREQ_LABELS[tontine.frequence] || tontine.frequence}</p>
-              </div>
-              {tontine.nomEvenement && (
-                <div>
-                  <p className="text-xs text-neutral-400 mb-1">Événement</p>
-                  <p className="font-semibold text-neutral-900 text-sm truncate">{tontine.nomEvenement}</p>
-                </div>
+              ) : (
+                <p className="mt-1 text-[34px] sm:text-4xl font-extrabold tracking-tight tabular leading-tight">
+                  {formatMontant(tontine.montant)} <span className="text-lg font-semibold text-white/70">FCFA</span>
+                </p>
               )}
-              {tontine.dateEcheance && (() => {
-                const jours = Math.ceil((new Date(tontine.dateEcheance).getTime() - Date.now()) / 86400000)
-                return (
-                  <div>
-                    <p className="text-xs text-neutral-400 mb-1">Date événement</p>
-                    <p className="font-bold text-purple-700 text-sm">{new Date(tontine.dateEcheance).toLocaleDateString('fr-FR')}</p>
-                    <p className={`text-xs font-semibold ${jours > 0 ? 'text-purple-500' : 'text-red-500'}`}>
-                      {jours > 0 ? `J-${jours}` : jours === 0 ? "Aujourd'hui" : `J+${Math.abs(jours)}`}
+
+              <div className="grid grid-cols-2 gap-2 mt-4">
+                <div className="bg-white/15 rounded-2xl px-3 py-2.5">
+                  <p className="text-[11px] text-white/75 flex items-center gap-1"><Users size={12} /> Membres</p>
+                  <p className="font-bold tabular">{tontine.nombreMembresActuels}{!isEvenementielle && ` / ${tontine.nombreMembres}`}</p>
+                  {!isEvenementielle && (
+                    <div className="mt-1.5 h-1.5 rounded-full bg-white/20">
+                      <div className="h-1.5 rounded-full bg-white" style={{ width: `${pct}%` }} />
+                    </div>
+                  )}
+                </div>
+                {isEvenementielle ? (
+                  <div className="bg-white/15 rounded-2xl px-3 py-2.5">
+                    <p className="text-[11px] text-white/75 flex items-center gap-1"><Calendar size={12} /> Événement</p>
+                    <p className="font-bold truncate">{tontine.dateEcheance ? formatDateCourte(tontine.dateEcheance) : '—'}</p>
+                    {joursEvt != null && (
+                      <p className="text-[11px] font-semibold text-white/85">
+                        {joursEvt > 0 ? `J-${joursEvt}` : joursEvt === 0 ? "Aujourd'hui" : `J+${Math.abs(joursEvt)}`}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="bg-white/15 rounded-2xl px-3 py-2.5">
+                    <p className="text-[11px] text-white/75 flex items-center gap-1"><Trophy size={12} /> Jackpot estimé</p>
+                    <p className="font-bold tabular">{formatMontant(jackpotEstime)} F</p>
+                    <p className="text-[11px] text-white/85">
+                      {currentCycle ? `Cycle ${currentCycle.numeroCycle} en cours` : 'Aucun cycle en cours'}
                     </p>
                   </div>
-                )
-              })()}
-            </>
-          )}
+                )}
+              </div>
 
-          {/* Début */}
-          <div>
-            <p className="text-xs text-neutral-400 mb-1">Début</p>
-            <p className="font-semibold text-neutral-900 text-sm">{new Date(tontine.dateDebut).toLocaleDateString('fr-FR')}</p>
+              {action && <div className="mt-5">{action}</div>}
+            </div>
           </div>
-          {/* Créateur */}
-          <div>
-            <p className="text-xs text-neutral-400 mb-1">Créateur</p>
-            <p className="font-semibold text-neutral-900 text-sm">{tontine.creePar.firstName} {tontine.creePar.lastName}</p>
-          </div>
-        </div>
-      </div>
+        )
+      })()}
 
-
-      {/* ── Onglets ──────────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-hidden">
-        {/* Mobile — pills scrollables avec compteurs */}
-        <div className="sm:hidden overflow-x-auto border-b border-neutral-100">
-          <div className="flex items-center gap-1.5 px-3 py-3 min-w-max">
-            {tabs.filter((t) => t.show).map((tab) => {
-              const active = activeTab === tab.id
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
-                    active
-                      ? 'bg-primary-600 text-white shadow-sm'
-                      : 'bg-neutral-100 text-neutral-600'
-                  }`}
-                >
-                  {tab.label}
-                  {tab.badge != null && tab.badge > 0 && (
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
-                      active
-                        ? 'bg-white/25 text-white'
-                        : tab.badgeAlert
-                          ? 'bg-red-500 text-white'
-                          : 'bg-primary-100 text-primary-700'
-                    }`}>
-                      {tab.badge}
-                    </span>
-                  )}
-                </button>
-              )
-            })}
-          </div>
-        </div>
-        {/* Desktop — tab buttons */}
-        <div className="hidden sm:flex border-b border-neutral-100 overflow-x-auto">
-          {tabs.filter((t) => t.show).map((tab) => (
+      {/* ── Onglets (pastilles défilables, avec compteurs) ───────────────── */}
+      <ChipRow className="mb-3">
+        {tabs.filter((t) => t.show).map((tab) => {
+          const active = activeTab === tab.id
+          return (
             <button
+              aria-pressed={active}
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-1.5 px-5 py-3.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-                activeTab === tab.id
-                  ? 'border-primary-500 text-primary-600'
-                  : 'border-transparent text-neutral-500 hover:text-neutral-700'
+              className={`h-9 px-4 rounded-full text-sm font-medium whitespace-nowrap transition-colors inline-flex items-center ${
+                active ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-100'
               }`}
             >
               {tab.label}
               {tab.badge != null && tab.badge > 0 && (
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
-                  activeTab === tab.id
-                    ? 'bg-primary-100 text-primary-700'
-                    : tab.badgeAlert
-                      ? 'bg-red-100 text-red-600'
-                      : 'bg-neutral-100 text-neutral-500'
+                <span className={`ml-1.5 inline-flex min-w-5 h-5 px-1 rounded-full text-[11px] font-bold items-center justify-center ${
+                  active ? 'bg-white text-neutral-900' : tab.badgeAlert ? 'bg-red-500 text-white' : 'bg-neutral-100 text-neutral-600'
                 }`}>
                   {tab.badge}
                 </span>
               )}
             </button>
-          ))}
-        </div>
+          )
+        })}
+      </ChipRow>
 
-        <div className="p-5">
+      <div className="bg-white rounded-2xl border border-neutral-100 overflow-hidden">
+        <div className="p-4 sm:p-5">
           {/* ── Vue générale ─────────────────────────────────────────────── */}
           {activeTab === 'infos' && (
             <div className="space-y-4">
@@ -694,21 +668,24 @@ export function TontineDetailPage() {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              <dl className="divide-y divide-neutral-100 rounded-2xl border border-neutral-100">
                 {[
+                  { label: isEvenementielle ? 'Fréquence des rappels' : 'Fréquence', value: FREQ_LABELS[tontine.frequence] || tontine.frequence },
+                  !isEvenementielle && { label: 'Mode des cycles', value: tontine.modeCycle === ModeCycle.MANUEL ? 'Manuel' : tontine.modeCycle === ModeCycle.AUTOMATIQUE ? 'Automatique' : '—' },
+                  !isEvenementielle && { label: 'Gagnants par cycle', value: String(tontine.nombreGagnants ?? 1) },
                   !isEvenementielle && { label: 'Ordre bénéficiaire', value: tontine.ordreBeneficiaire ?? '—' },
                   { label: 'Date de début', value: new Date(tontine.dateDebut).toLocaleDateString('fr-FR') },
-                  { label: 'Créé le', value: new Date(tontine.createdAt).toLocaleDateString('fr-FR') },
-                  { label: 'Modifié le', value: new Date(tontine.updatedAt).toLocaleDateString('fr-FR') },
                   { label: 'Créateur', value: `${tontine.creePar.firstName} ${tontine.creePar.lastName}` },
                   { label: 'Téléphone créateur', value: tontine.creePar.phone },
+                  { label: 'Créée le', value: new Date(tontine.createdAt).toLocaleDateString('fr-FR') },
+                  { label: 'Modifiée le', value: new Date(tontine.updatedAt).toLocaleDateString('fr-FR') },
                 ].filter((item): item is { label: string; value: string } => Boolean(item)).map(({ label, value }) => (
-                  <div key={label} className="p-3 bg-neutral-50 rounded-xl">
-                    <p className="text-xs text-neutral-400 mb-1">{label}</p>
-                    <p className="text-sm font-semibold text-neutral-800">{value}</p>
+                  <div key={label} className="flex items-center justify-between gap-4 px-4 py-3">
+                    <dt className="text-sm text-neutral-500">{label}</dt>
+                    <dd className="text-sm font-semibold text-neutral-900 text-right truncate">{value}</dd>
                   </div>
                 ))}
-              </div>
+              </dl>
             </div>
           )}
 
@@ -722,107 +699,98 @@ export function TontineDetailPage() {
                   </Button>
                 </div>
               )}
-              {/* Desktop */}
-              <div className="hidden sm:block overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-neutral-100">
-                      {['#', 'Membre', 'Téléphone', 'Statut', 'Compte', canManage ? '' : undefined]
-                        .filter(Boolean)
-                        .map((h) => (
-                          <th key={String(h)} className="px-4 py-3 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                            {h}
-                          </th>
-                        ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {membres.length === 0 ? (
-                      <tr><td colSpan={6} className="text-center py-8 text-neutral-400">Aucun membre</td></tr>
-                    ) : (
-                      membres.map((m: Membre) => {
-                        const nom = `${m.user.firstName} ${m.user.lastName}`
-                        const isPreEnrolled = m.user.accountStatus === AccountStatus.PRE_ENROLLED
-                        return (
-                          <tr key={m.id} className="border-b border-neutral-50 hover:bg-neutral-50">
-                            <td className="px-4 py-3 font-semibold text-neutral-500 text-xs">#{m.ordreJackpot}</td>
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-3">
-                                <MiniAvatar name={nom} />
-                                <div>
-                                  <div className="flex items-center gap-2">
-                                    <p className="font-semibold text-neutral-900">{nom}</p>
-                                    {m.aRecuJackpot && (
-                                      <span title={m.dateJackpot ? `Jackpot reçu le ${new Date(m.dateJackpot).toLocaleDateString('fr-FR')}` : 'Jackpot reçu'}
-                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 cursor-help">
-                                        <Star size={9} /> Jackpot
-                                      </span>
-                                    )}
-                                  </div>
-                                  <p className="text-xs text-neutral-400">Adhésion : {m.dateAdhesion ? new Date(m.dateAdhesion).toLocaleDateString('fr-FR') : '—'}</p>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 text-neutral-600 text-xs font-mono">{m.user.phone}</td>
-                            <td className="px-4 py-3"><Badge variant={MEMBRE_BADGE[m.statut]}>{m.statut === 'ACTIF' ? 'Actif' : m.statut === 'SUSPENDU' ? 'Suspendu' : 'Sorti'}</Badge></td>
-                            <td className="px-4 py-3">
-                              {isPreEnrolled ? (
-                                <span title="Ce membre n'a pas encore activé son compte sur Dinthialma"
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 cursor-help">
-                                  <Clock size={10} /> Non inscrit
-                                </span>
-                              ) : <span className="text-neutral-300 text-xs">—</span>}
-                            </td>
-                            {canManage && (
-                              <td className="px-4 py-3">
-                                <div className="flex gap-1.5">
-                                  {m.statut === MembreStatut.ACTIF && <button onClick={() => setMembreAction({ type: 'suspendre', id: m.id, nom })} className="w-7 h-7 rounded-lg bg-orange-50 text-orange-500 flex items-center justify-center hover:bg-orange-100 transition-colors" title="Suspendre"><UserMinus size={13} /></button>}
-                                  {m.statut === MembreStatut.SUSPENDU && <button onClick={() => setMembreAction({ type: 'activer', id: m.id, nom })} className="w-7 h-7 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center hover:bg-primary-100 transition-colors" title="Réactiver"><UserCheck size={13} /></button>}
-                                  {m.statut !== MembreStatut.SORTI && <button onClick={() => setMembreAction({ type: 'retirer', id: m.id, nom })} className="w-7 h-7 rounded-lg bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors" title="Retirer"><Trash2 size={13} /></button>}
-                                </div>
-                              </td>
+              {membresPageLoading ? (
+                <div className="flex justify-center py-10"><Spinner /></div>
+              ) : (membresPageData?.content || []).length === 0 ? (
+                <p className="text-center py-10 text-sm text-neutral-500">Aucun membre</p>
+              ) : (
+                <ul className="-mx-4 sm:-mx-5 divide-y divide-neutral-100 border-y border-neutral-100">
+                  {(membresPageData?.content || []).map((m: Membre) => {
+                    const nom = `${m.user.firstName} ${m.user.lastName}`
+                    const isPreEnrolled = m.user.accountStatus === AccountStatus.PRE_ENROLLED
+                    const actionBtn = 'w-10 h-10 rounded-full flex items-center justify-center transition-colors'
+                    return (
+                      <li key={m.id} className="flex items-center gap-3 px-4 sm:px-5 py-3">
+                        <div className="relative flex-shrink-0">
+                          <InitialsAvatar name={nom} size={44} />
+                          {m.ordreJackpot != null && (
+                            <span className="absolute -bottom-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-white border border-neutral-200 text-[10px] font-bold text-neutral-600 flex items-center justify-center">
+                              {m.ordreJackpot}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-neutral-900 truncate">{nom}</p>
+                          <p className="text-xs text-neutral-500 truncate">{m.user.phone}</p>
+                          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                            <Badge variant={MEMBRE_BADGE[m.statut]}>
+                              {m.statut === 'ACTIF' ? 'Actif' : m.statut === 'SUSPENDU' ? 'Suspendu' : 'Sorti'}
+                            </Badge>
+                            {m.aRecuJackpot && (
+                              <span
+                                title={m.dateJackpot ? `Jackpot reçu le ${new Date(m.dateJackpot).toLocaleDateString('fr-FR')}` : 'Jackpot reçu'}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700"
+                              >
+                                <Star size={10} /> Jackpot reçu
+                              </span>
                             )}
-                          </tr>
-                        )
-                      })
-                    )}
-                  </tbody>
-                </table>
-              </div>
-              {/* Mobile — cards */}
-              <div className="sm:hidden space-y-2 pt-1">
-                {membres.length === 0 ? (
-                  <p className="text-center py-8 text-neutral-400 text-sm">Aucun membre</p>
-                ) : membres.map((m: Membre) => {
-                  const nom = `${m.user.firstName} ${m.user.lastName}`
-                  const isPreEnrolled = m.user.accountStatus === AccountStatus.PRE_ENROLLED
-                  const statutColor: Record<MembreStatut, string> = { ACTIF: 'bg-primary-100 text-primary-700', SUSPENDU: 'bg-orange-100 text-orange-700', SORTI: 'bg-red-100 text-red-700' }
-                  return (
-                    <div key={m.id} className="flex items-center gap-3 px-3 py-3 rounded-xl border border-neutral-100 bg-neutral-50">
-                      <MiniAvatar name={nom} />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-[10px] font-bold text-neutral-400">#{m.ordreJackpot}</span>
-                          <p className="text-sm font-semibold text-neutral-900 truncate">{nom}</p>
-                          {m.aRecuJackpot && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700"><Star size={8} /> Jackpot</span>}
+                            {isPreEnrolled && (
+                              <span
+                                title="Ce membre n'a pas encore activé son compte sur Dinthialma"
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-50 text-orange-700"
+                              >
+                                <Clock size={10} /> Non inscrit
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <p className="text-xs text-neutral-400 font-mono mb-1">{m.user.phone}</p>
-                        <div className="flex flex-wrap gap-1">
-                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${statutColor[m.statut]}`}>{m.statut === 'ACTIF' ? 'Actif' : m.statut === 'SUSPENDU' ? 'Suspendu' : 'Sorti'}</span>
-                          {isPreEnrolled && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-700"><Clock size={8} /> Non inscrit</span>}
-                        </div>
-                      </div>
-                      {canManage && (
-                        <div className="flex flex-col gap-1.5 shrink-0">
-                          {m.statut === MembreStatut.ACTIF && <button onClick={() => setMembreAction({ type: 'suspendre', id: m.id, nom })} className="w-11 h-11 rounded-xl bg-orange-50 text-orange-500 flex items-center justify-center hover:bg-orange-100 transition-colors"><UserMinus size={16} /></button>}
-                          {m.statut === MembreStatut.SUSPENDU && <button onClick={() => setMembreAction({ type: 'activer', id: m.id, nom })} className="w-11 h-11 rounded-xl bg-primary-50 text-primary-600 flex items-center justify-center hover:bg-primary-100 transition-colors"><UserCheck size={16} /></button>}
-                          {m.statut !== MembreStatut.SORTI && <button onClick={() => setMembreAction({ type: 'retirer', id: m.id, nom })} className="w-11 h-11 rounded-xl bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors"><Trash2 size={16} /></button>}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
+                        {canManage && (
+                          <div className="flex gap-1 flex-shrink-0">
+                            {m.statut === MembreStatut.ACTIF && (
+                              <button
+                                onClick={() => setMembreAction({ type: 'suspendre', id: m.id, nom })}
+                                className={`${actionBtn} text-orange-600 hover:bg-orange-50`}
+                                title="Suspendre"
+                                aria-label={`Suspendre ${nom}`}
+                              >
+                                <UserMinus size={18} />
+                              </button>
+                            )}
+                            {m.statut === MembreStatut.SUSPENDU && (
+                              <button
+                                onClick={() => setMembreAction({ type: 'activer', id: m.id, nom })}
+                                className={`${actionBtn} text-primary-600 hover:bg-primary-50`}
+                                title="Réactiver"
+                                aria-label={`Réactiver ${nom}`}
+                              >
+                                <UserCheck size={18} />
+                              </button>
+                            )}
+                            {m.statut !== MembreStatut.SORTI && (
+                              <button
+                                onClick={() => setMembreAction({ type: 'retirer', id: m.id, nom })}
+                                className={`${actionBtn} text-red-500 hover:bg-red-50`}
+                                title="Retirer"
+                                aria-label={`Retirer ${nom}`}
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+              <Pagination
+                className="px-0 pt-4 pb-0"
+                page={membresPage}
+                totalPages={membresPageData?.totalPages ?? 1}
+                totalElements={membresPageData?.totalElements}
+                pageSize={LIST_SIZE}
+                onPageChange={setMembresPage}
+              />
             </div>
           )}
 
@@ -842,14 +810,22 @@ export function TontineDetailPage() {
                 </p>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                  {[...cycles].sort((a, b) => {
-                    if (a.statut === CycleStatut.EN_COURS) return -1
-                    if (b.statut === CycleStatut.EN_COURS) return 1
-                    return 0
-                  }).map((cycle: Cycle) => (
+                  {/* Le cycle en cours remonte en premier, puis l'ordre habituel */}
+                  {[...cycles]
+                    .sort((a: Cycle, b: Cycle) =>
+                      (a.statut === CycleStatut.EN_COURS ? 0 : 1) - (b.statut === CycleStatut.EN_COURS ? 0 : 1))
+                    .map((cycle: Cycle) => {
+                    const enCours = cycle.statut === CycleStatut.EN_COURS
+                    return (
                     <div
                       key={cycle.id}
-                      className={`rounded-2xl border p-4 ${isEvenementielle ? 'bg-purple-50 border-purple-100' : 'bg-neutral-50 border-neutral-100'}`}
+                      className={`rounded-2xl p-4 ${
+                        enCours
+                          ? isEvenementielle
+                            ? 'border-2 border-violet-500 ring-4 ring-violet-100 bg-gradient-to-b from-violet-50 to-white md:col-span-2 xl:col-span-1'
+                            : 'border-2 border-primary-500 ring-4 ring-primary-100 bg-gradient-to-b from-primary-50 to-white md:col-span-2 xl:col-span-1'
+                          : isEvenementielle ? 'border bg-purple-50 border-purple-100' : 'border bg-neutral-50 border-neutral-100'
+                      }`}
                     >
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
@@ -860,9 +836,19 @@ export function TontineDetailPage() {
                             {isEvenementielle ? 'Période' : 'Cycle'} #{cycle.numeroCycle}
                           </span>
                         </div>
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${CYCLE_STATUT_COLORS[cycle.statut]}`}>
-                          {CYCLE_STATUT_LABELS[cycle.statut]}
-                        </span>
+                        {enCours ? (
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold text-white ${isEvenementielle ? 'bg-violet-600' : 'bg-primary-600'}`}>
+                            <span className="relative flex w-2 h-2">
+                              <span className="absolute inline-flex h-full w-full rounded-full bg-white opacity-75 animate-ping" />
+                              <span className="relative inline-flex w-2 h-2 rounded-full bg-white" />
+                            </span>
+                            En cours
+                          </span>
+                        ) : (
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${CYCLE_STATUT_COLORS[cycle.statut]}`}>
+                            {CYCLE_STATUT_LABELS[cycle.statut]}
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-1 text-xs text-neutral-500 mb-3">
                         <Calendar size={11} />
@@ -973,7 +959,8 @@ export function TontineDetailPage() {
                         </button>
                       )}
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </div>
@@ -982,81 +969,55 @@ export function TontineDetailPage() {
           {/* ── Cotisations ──────────────────────────────────────────────── */}
           {activeTab === 'cotisations' && (
             <div>
-              {/* Toggle vue (gestionnaire uniquement) */}
-              {canManage && (
-                <div className="flex gap-1 p-1 bg-neutral-100 rounded-xl mb-4 w-fit">
-                  <button
-                    onClick={() => setCotisationView('par-cycle')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                      cotisationView === 'par-cycle'
-                        ? 'bg-white text-neutral-900 shadow-sm'
-                        : 'text-neutral-500 hover:text-neutral-700'
-                    }`}
-                  >
-                    <LayoutList size={13} /> Par cycle
-                  </button>
-                  <button
-                    onClick={() => setCotisationView('recap-total')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                      cotisationView === 'recap-total'
-                        ? 'bg-white text-neutral-900 shadow-sm'
-                        : 'text-neutral-500 hover:text-neutral-700'
-                    }`}
-                  >
-                    <Users2 size={13} /> Vue d'ensemble
-                  </button>
-                </div>
-              )}
-
-              {/* Vue d'ensemble : recap total par membre */}
-              {cotisationView === 'recap-total' && canManage && id && (
-                <CotisationsRecapTotal tontineId={id} />
-              )}
-
-              {/* Vue par cycle */}
-              {(cotisationView === 'par-cycle' || !canManage) && (
-              <>{/* Indicateur cycle affiché */}
-              {effectiveCycleFilter && (
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
-                    {(() => {
-                      const cy = cycles.find((c: Cycle) => c.id === effectiveCycleFilter)
-                      return cy ? `${isEvenementielle ? 'Période' : 'Cycle'} #${cy.numeroCycle}` : 'Cycle'
-                    })()} — cotisations
-                  </span>
-                  <button
-                    onClick={() => setCotisationCycleFilter('')}
-                    className="text-xs text-neutral-400 hover:text-neutral-600 underline"
-                  >
-                    Voir tout
-                  </button>
-                </div>
+              {/* Choix du cycle (cycle en cours par défaut) */}
+              {cycles.length > 0 && !selectedMembreId && (
+                <ChipRow className="mb-4">
+                  {(() => {
+                    const actif = cotisationCycleFilter === undefined ? cycleEnCoursId ?? '' : cotisationCycleFilter
+                    const cls = (on: boolean) => `h-9 px-4 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                      on ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                    }`
+                    return (
+                      <>
+                        <button aria-pressed={actif === ''} onClick={() => { setCotisationCycleFilter(''); setCotPage(0) }} className={cls(actif === '')}>
+                          Tous
+                        </button>
+                        {[...cycles].sort((a: Cycle, b: Cycle) => b.numeroCycle - a.numeroCycle).map((cy: Cycle) => (
+                          <button key={cy.id} aria-pressed={actif === cy.id} onClick={() => { setCotisationCycleFilter(cy.id); setCotPage(0) }} className={cls(actif === cy.id)}>
+                            {isEvenementielle ? 'Période' : 'Cycle'} {cy.numeroCycle}
+                            {cy.statut === CycleStatut.EN_COURS && (
+                              <span className={`ml-1.5 inline-block w-2 h-2 rounded-full ${actif === cy.id ? 'bg-lime-300' : 'bg-primary-500'}`} title="En cours" />
+                            )}
+                          </button>
+                        ))}
+                      </>
+                    )
+                  })()}
+                </ChipRow>
               )}
 
               {/* Sélecteur membre (gestionnaire uniquement) */}
               {canManage && membres.length > 0 && (
-                <div className="mb-4">
-                  <select
+                <div className="mb-4 sm:w-72">
+                  <Select
+                    aria-label="Filtrer par membre"
                     value={selectedMembreId || ''}
-                    onChange={(e) => setSelectedMembreId(e.target.value || undefined)}
-                    className="w-full sm:w-72 text-sm text-neutral-700 bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-300"
-                  >
-                    <option value="">Tous les membres</option>
-                    {membres.filter((m: Membre) => m.statut !== MembreStatut.SORTI).map((m: Membre) => (
-                      <option key={m.id} value={m.id}>
-                        {m.user.firstName} {m.user.lastName}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(e) => { setSelectedMembreId(e.target.value || undefined); setCotPage(0) }}
+                    options={[
+                      { value: '', label: 'Tous les membres' },
+                      ...membres.filter((m: Membre) => m.statut !== MembreStatut.SORTI)
+                        .map((m: Membre) => ({ value: m.id, label: `${m.user.firstName} ${m.user.lastName}` })),
+                    ]}
+                  />
                 </div>
               )}
 
               {/* Fiche membre sélectionné */}
               {selectedMembreId && (() => {
                 const membreInfo = membres.find((m: Membre) => m.id === selectedMembreId)
-                const totalValide = cotisationsToShow.filter((c: Cotisation) => c.statut === CotisationStatut.VALIDE).reduce((s: number, c: Cotisation) => s + c.montant, 0)
-                const nbEnAttente = cotisationsToShow.filter((c: Cotisation) => c.statut === CotisationStatut.EN_ATTENTE).length
-                const nbEnRetard = cotisationsToShow.filter((c: Cotisation) => c.statut === CotisationStatut.EN_RETARD).length
+                const totalValide = viewCotisations.filter((c: Cotisation) => c.statut === CotisationStatut.VALIDE).reduce((s: number, c: Cotisation) => s + c.montant, 0)
+                const nbEnAttente = viewCotisations.filter((c: Cotisation) => c.statut === CotisationStatut.EN_ATTENTE).length
+                const nbEnRetard = viewCotisations.filter((c: Cotisation) => c.statut === CotisationStatut.EN_RETARD).length
                 return (
                   <div className="mb-4 bg-primary-50 border border-primary-100 rounded-xl p-4">
                     <div className="flex items-center justify-between mb-3">
@@ -1070,16 +1031,16 @@ export function TontineDetailPage() {
                         </div>
                       </div>
                       <button
-                        onClick={() => setSelectedMembreId(undefined)}
-                        className="text-xs text-neutral-400 hover:text-neutral-600 underline"
+                        onClick={() => { setSelectedMembreId(undefined); setCotPage(0) }}
+                        className="text-sm font-semibold text-primary-700 hover:underline"
                       >
-                        Voir tous les membres
+                        Voir tous
                       </button>
                     </div>
                     <div className="grid grid-cols-3 gap-2 mb-3">
                       <div className="bg-white rounded-xl p-2.5 text-center">
                         <p className="text-xs text-neutral-400 mb-0.5">Validées</p>
-                        <p className="font-bold text-primary-600">{cotisationsToShow.filter((c: Cotisation) => c.statut === CotisationStatut.VALIDE).length}</p>
+                        <p className="font-bold text-primary-600">{viewCotisations.filter((c: Cotisation) => c.statut === CotisationStatut.VALIDE).length}</p>
                       </div>
                       <div className="bg-white rounded-xl p-2.5 text-center">
                         <p className="text-xs text-neutral-400 mb-0.5">En attente</p>
@@ -1107,7 +1068,7 @@ export function TontineDetailPage() {
                 </div>
                 <div className="bg-orange-50 rounded-xl p-3 text-center">
                   <p className="text-xs text-orange-500 mb-0.5">En attente</p>
-                  <p className="font-bold text-orange-700 text-lg">{cotEnAttente}</p>
+                  <p className="font-bold text-orange-700 text-lg">{cotEnAttenteVue}</p>
                 </div>
                 <div className="bg-red-50 rounded-xl p-3 text-center">
                   <p className="text-xs text-red-500 mb-0.5">En retard</p>
@@ -1166,77 +1127,66 @@ export function TontineDetailPage() {
                 </div>
               )}
 
-              {/* Desktop */}
-              <div className="hidden sm:block overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-neutral-100">
-                      {['Membre', 'Montant', 'Méthode', 'Référence', 'Date', 'Statut', 'Saisie par', canManage ? '' : undefined]
-                        .filter(Boolean)
-                        .map((h) => (
-                          <th key={String(h)} className="px-4 py-3 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">{h}</th>
-                        ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cotisationsToShow.length === 0 ? (
-                      <tr><td colSpan={canManage ? 8 : 7} className="text-center py-8 text-neutral-400">Aucune cotisation</td></tr>
-                    ) : cotisationsToShow.map((c: Cotisation) => (
-                      <tr key={c.id} className="border-b border-neutral-50 hover:bg-neutral-50">
-                        <td className="px-4 py-3 font-semibold text-neutral-900">{c.membre.firstName} {c.membre.lastName}</td>
-                        <td className="px-4 py-3 font-semibold">{c.montant.toLocaleString('fr-FR')} FCFA</td>
-                        <td className="px-4 py-3 text-neutral-600">{METHODE_LABELS[c.methodePaiement] || c.methodePaiement || '—'}</td>
-                        <td className="px-4 py-3 text-neutral-500 text-xs font-mono">{c.referenceTransaction || '—'}</td>
-                        <td className="px-4 py-3 text-neutral-500 text-xs">{new Date(c.createdAt).toLocaleDateString('fr-FR')}</td>
-                        <td className="px-4 py-3"><Badge variant={COT_BADGE[c.statut]}>{COT_LABEL[c.statut]}</Badge></td>
-                        <td className="px-4 py-3"><SaisieParBadge cotisation={c} /></td>
-                        {canManage && (
-                          <td className="px-4 py-3">
-                            {c.statut === CotisationStatut.EN_ATTENTE && (
-                              <div className="flex gap-1.5">
-                                <button onClick={() => setCotisationToValidate(c.id)} className="w-8 h-8 rounded-lg bg-primary-50 text-primary-600 flex items-center justify-center hover:bg-primary-100 transition-colors" title="Valider"><CheckCircle size={15} /></button>
-                                <button className="w-8 h-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100 transition-colors" title="Refuser"><XCircle size={15} /></button>
-                              </div>
-                            )}
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {/* Mobile — cards */}
-              <div className="sm:hidden space-y-2 pt-1">
-                {cotisationsToShow.length === 0 ? (
-                  <p className="text-center py-8 text-neutral-400 text-sm">Aucune cotisation</p>
-                ) : cotisationsToShow.map((c: Cotisation) => (
-                  <div key={c.id} className="px-3 py-3 rounded-xl border border-neutral-100 bg-neutral-50">
-                    <div className="flex items-start justify-between gap-2 mb-1.5">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <MiniAvatar name={`${c.membre.firstName} ${c.membre.lastName}`} />
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-neutral-900 truncate">{c.membre.firstName} {c.membre.lastName}</p>
-                          <p className="text-xs text-neutral-400">{METHODE_LABELS[c.methodePaiement] || c.methodePaiement} · {new Date(c.createdAt).toLocaleDateString('fr-FR')}</p>
+              {listLoading ? (
+                <div className="flex justify-center py-10"><Spinner /></div>
+              ) : cotisationsToShow.length === 0 ? (
+                <p className="text-center py-10 text-sm text-neutral-500">Aucune cotisation</p>
+              ) : (
+                <ul className="-mx-4 sm:-mx-5 divide-y divide-neutral-100 border-y border-neutral-100">
+                  {cotisationsToShow.map((c: Cotisation) => {
+                    const nom = `${c.membre.firstName} ${c.membre.lastName}`
+                    return (
+                      <li key={c.id} className="flex items-center gap-3 px-4 sm:px-5 py-3">
+                        <InitialsAvatar name={nom} />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-neutral-900 truncate">{nom}</p>
+                          <p className="text-xs text-neutral-500 truncate">
+                            {METHODE_LABELS[c.methodePaiement] || c.methodePaiement || '—'}
+                            {' · '}{formatDateCourte(c.createdAt)}
+                            {c.referenceTransaction && <> · <span className="font-mono">{c.referenceTransaction}</span></>}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                            <Badge variant={COT_BADGE[c.statut]}>{COT_LABEL[c.statut]}</Badge>
+                            <SaisieParBadge cotisation={c} />
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex flex-col items-end gap-1 shrink-0">
-                        <p className="text-sm font-bold text-neutral-800">{c.montant.toLocaleString('fr-FR')} FCFA</p>
-                        <Badge variant={COT_BADGE[c.statut]}>{COT_LABEL[c.statut]}</Badge>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between pt-1.5 border-t border-neutral-100">
-                      <SaisieParBadge cotisation={c} />
-                      {canManage && c.statut === CotisationStatut.EN_ATTENTE && (
-                        <div className="flex gap-1.5">
-                          <button onClick={() => setCotisationToValidate(c.id)} className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary-50 text-primary-600 text-xs font-semibold hover:bg-primary-100 transition-colors"><CheckCircle size={12} /> Valider</button>
-                          <button className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-50 text-red-500 text-xs font-semibold hover:bg-red-100 transition-colors"><XCircle size={12} /> Refuser</button>
+                        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                          <span className="text-sm font-bold text-neutral-900 tabular">{formatMontant(c.montant)} F</span>
+                          {canManage && (c.statut === CotisationStatut.EN_ATTENTE ||
+                            (c.statut === CotisationStatut.VALIDE && cycles.find((cy: Cycle) => cy.id === c.cycleId)?.statut === CycleStatut.EN_COURS)) && (
+                            <button
+                              onClick={() => setEditCot({
+                                cotisationId: c.id,
+                                membreNom: nom,
+                                initialValues: { montant: c.montant, methodePaiement: c.methodePaiement, referenceTransaction: c.referenceTransaction, note: c.note },
+                              })}
+                              className="h-8 px-3 rounded-full bg-neutral-100 text-neutral-700 text-xs font-semibold inline-flex items-center gap-1 hover:bg-neutral-200 active:scale-95 transition"
+                            >
+                              <Edit2 size={14} /> Modifier
+                            </button>
+                          )}
+                          {canManage && c.statut === CotisationStatut.EN_ATTENTE && (
+                            <button
+                              onClick={() => setCotisationToValidate(c.id)}
+                              className="h-8 px-3 rounded-full bg-primary-600 text-white text-xs font-semibold inline-flex items-center gap-1 hover:bg-primary-700 active:scale-95 transition"
+                            >
+                              <CheckCircle size={14} /> Valider
+                            </button>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              </>)}
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+              <Pagination
+                className="px-0 pt-4 pb-0"
+                page={cotPage}
+                totalPages={selectedMembreId ? 1 : listCotData?.totalPages ?? 1}
+                totalElements={listCotData?.totalElements}
+                pageSize={LIST_SIZE}
+                onPageChange={setCotPage}
+              />
             </div>
           )}
 
@@ -1431,6 +1381,15 @@ export function TontineDetailPage() {
           )}
 
           {/* ── Commissions (créateur seulement) ─────────────────────────── */}
+          {/* ── Récap des cotisations (créateur + SUPER_ADMIN) ────────────── */}
+          {activeTab === 'recap' && (isCreator || isSuperAdmin) && (
+            <RecapCotisationsPanel
+              tontineId={tontine.id}
+              cycles={cycles}
+              cycleLabel={isEvenementielle ? 'Période' : 'Cycle'}
+            />
+          )}
+
           {activeTab === 'commissions' && canManage && (            <div>
               <div className="flex justify-end mb-4">
                 <Button size="sm" onClick={() => setShowAddCommission(true)}>
@@ -1811,6 +1770,17 @@ export function TontineDetailPage() {
           </div>
         )}
       </Modal>
+      {/* Modification d'une cotisation (gestionnaire) */}
+      {id && (
+        <AdminEditCotisationModal
+          isOpen={!!editCot}
+          onClose={() => setEditCot(null)}
+          tontineId={id}
+          cotisationId={editCot?.cotisationId || ''}
+          membreNom={editCot?.membreNom || ''}
+          initialValues={editCot?.initialValues || { montant: 0, methodePaiement: 'CASH' }}
+        />
+      )}
     </AppLayout>
   )
 }

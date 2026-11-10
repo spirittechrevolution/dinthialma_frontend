@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { zPhone, zNom } from '@/lib/validation'
 import { toast } from 'sonner'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AppLayout } from '@/components/layout/AppLayout'
@@ -15,24 +16,24 @@ import { authService } from '@/services/authService'
 import { useAuth } from '@/hooks/useAuth'
 import {
   Mail, Phone, Lock, KeyRound, Shield, ChevronRight,
-  LogOut, User, CheckCircle,
+  LogOut, User, CheckCircle, Edit3,
 } from 'lucide-react'
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 const profileSchema = z.object({
-  firstName: z.string().min(2, 'Au moins 2 caractères'),
-  lastName:  z.string().min(2, 'Au moins 2 caractères'),
+  firstName: zNom(50),
+  lastName:  zNom(50),
   email:     z.string().email('Email invalide').optional().or(z.literal('')),
 })
 const passwordSchema = z.object({
-  phone:           z.string().min(8, 'Numéro requis'),
+  phone:           zPhone,
   code:            z.string().length(6, '6 chiffres').regex(/^\d{6}$/),
   newPassword:     z.string().min(8, 'Au moins 8 caractères'),
   confirmPassword: z.string(),
 }).refine((d) => d.newPassword === d.confirmPassword, {
   message: 'Les mots de passe ne correspondent pas', path: ['confirmPassword'],
 })
-const phoneSchema       = z.object({ newPhone: z.string().min(8, 'Invalide') })
+const phoneSchema       = z.object({ newPhone: zPhone })
 const phoneVerifySchema = z.object({ code: z.string().length(6, '6 chiffres').regex(/^\d{6}$/) })
 const pinSchema         = z.object({
   pin:        z.string().length(6, '6 chiffres').regex(/^\d{6}$/),
@@ -158,6 +159,7 @@ export function ProfilePage() {
 
   return (
     <AppLayout>
+      <div className="max-w-xl mx-auto">
       {/* ── Hero avatar ──────────────────────────────────────────── */}
       <div className="flex flex-col items-center pt-2 pb-6 mb-5">
         {/* Avatar */}
@@ -165,6 +167,13 @@ export function ProfilePage() {
           <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 text-white text-2xl font-extrabold flex items-center justify-center shadow-lg ring-4 ring-white">
             {initials}
           </div>
+          <button
+            onClick={() => setShowEdit(true)}
+            className="absolute -bottom-1 -right-1 w-9 h-9 rounded-full bg-white border-2 border-neutral-100 flex items-center justify-center shadow-sm hover:bg-neutral-50 transition-colors"
+            aria-label="Modifier le profil"
+          >
+            <Edit3 size={15} className="text-neutral-600" />
+          </button>
         </div>
         <p className="text-lg font-bold text-neutral-900">{fullName}</p>
         <div className="flex items-center gap-1.5 mt-1">
@@ -180,8 +189,11 @@ export function ProfilePage() {
 
       {/* ── Infos compte ─────────────────────────────────────────── */}
       <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm mb-3 overflow-hidden">
-        <div className="px-4 py-3 border-b border-neutral-50">
+        <div className="px-4 py-3 border-b border-neutral-50 flex items-center justify-between">
           <p className="text-xs font-semibold text-neutral-400 uppercase tracking-widest">Informations</p>
+          <button onClick={() => setShowEdit(true)} className="text-sm font-semibold text-primary-700 hover:underline">
+            Modifier
+          </button>
         </div>
         <div className="divide-y divide-neutral-50">
           <div className="flex items-center gap-3 px-4 py-3.5">
@@ -249,6 +261,7 @@ export function ProfilePage() {
       </button>
 
       <p className="text-center text-xs text-neutral-400 mb-4">© 2026 Dinthialma · v1.0.0</p>
+      </div>
 
       {/* ── Modal édition profil ─────────────────────────────────── */}
       <Modal
@@ -257,9 +270,9 @@ export function ProfilePage() {
         title="Modifier le profil"
         size="sm"
         footer={
-          <div className="flex gap-3 justify-end">
-            <Button variant="ghost" onClick={() => { setShowEdit(false); profileForm.reset() }}>Annuler</Button>
-            <Button form="profile-form" type="submit" loading={isUpdating}>Enregistrer</Button>
+          <div className="flex gap-3">
+            <Button variant="secondary" className="flex-1" onClick={() => { setShowEdit(false); profileForm.reset() }}>Annuler</Button>
+            <Button className="flex-1" form="profile-form" type="submit" loading={isUpdating}>Enregistrer</Button>
           </div>
         }
       >
@@ -280,9 +293,9 @@ export function ProfilePage() {
         title="Modifier le mot de passe"
         size="sm"
         footer={
-          <div className="flex gap-3 justify-end">
-            <Button variant="ghost" onClick={() => { setShowPasswordModal(false); setOtpSent(false); passwordForm.reset() }}>Annuler</Button>
-            <Button form="password-form" type="submit" loading={passwordForm.formState.isSubmitting}>
+          <div className="flex gap-3">
+            <Button variant="secondary" className="flex-1" onClick={() => { setShowPasswordModal(false); setOtpSent(false); passwordForm.reset() }}>Annuler</Button>
+            <Button className="flex-1" form="password-form" type="submit" loading={passwordForm.formState.isSubmitting}>
               {otpSent ? 'Réinitialiser' : 'Envoyer le code'}
             </Button>
           </div>
@@ -294,7 +307,7 @@ export function ProfilePage() {
             error={passwordForm.formState.errors.phone?.message} />
           {otpSent && (
             <>
-              <Input label="Code OTP reçu par SMS" type="text" placeholder="123456" maxLength={6}
+              <Input label="Code OTP reçu par SMS" type="text" placeholder="123456" maxLength={6} inputMode="numeric" autoComplete="one-time-code"
                 icon={<KeyRound size={16} />} error={passwordForm.formState.errors.code?.message}
                 {...passwordForm.register('code')} />
               <Input label="Nouveau mot de passe" type="password" placeholder="••••••••"
@@ -315,9 +328,9 @@ export function ProfilePage() {
         title="Changer de numéro"
         size="sm"
         footer={
-          <div className="flex gap-3 justify-end">
-            <Button variant="ghost" onClick={() => { setShowPhoneModal(false); setPhoneStep(1) }}>Annuler</Button>
-            <Button form={phoneStep === 1 ? 'phone-form' : 'phone-verify-form'} type="submit"
+          <div className="flex gap-3">
+            <Button variant="secondary" className="flex-1" onClick={() => { setShowPhoneModal(false); setPhoneStep(1) }}>Annuler</Button>
+            <Button className="flex-1" form={phoneStep === 1 ? 'phone-form' : 'phone-verify-form'} type="submit"
               loading={phoneForm.formState.isSubmitting || phoneVerifyForm.formState.isSubmitting}>
               {phoneStep === 1 ? 'Envoyer le code' : 'Confirmer'}
             </Button>
@@ -334,7 +347,7 @@ export function ProfilePage() {
         ) : (
           <form id="phone-verify-form" onSubmit={phoneVerifyForm.handleSubmit(onVerifyPhoneChange)} className="space-y-4">
             <p className="text-sm text-neutral-500">Code envoyé au <strong>{newPhoneValue}</strong></p>
-            <Input label="Code OTP" type="text" placeholder="123456" maxLength={6} icon={<KeyRound size={16} />}
+            <Input label="Code OTP" type="text" placeholder="123456" maxLength={6} inputMode="numeric" autoComplete="one-time-code" icon={<KeyRound size={16} />}
               error={phoneVerifyForm.formState.errors.code?.message} {...phoneVerifyForm.register('code')} />
           </form>
         )}
@@ -347,17 +360,17 @@ export function ProfilePage() {
         title={profile?.pinConfigured ? 'Modifier le PIN' : 'Configurer le PIN'}
         size="sm"
         footer={
-          <div className="flex gap-3 justify-end">
-            <Button variant="ghost" onClick={() => { setShowPinModal(false); pinForm.reset() }}>Annuler</Button>
-            <Button form="pin-form" type="submit" loading={pinForm.formState.isSubmitting}>Enregistrer</Button>
+          <div className="flex gap-3">
+            <Button variant="secondary" className="flex-1" onClick={() => { setShowPinModal(false); pinForm.reset() }}>Annuler</Button>
+            <Button className="flex-1" form="pin-form" type="submit" loading={pinForm.formState.isSubmitting}>Enregistrer</Button>
           </div>
         }
       >
         <form id="pin-form" onSubmit={pinForm.handleSubmit(onSetupPin)} className="space-y-4">
           <p className="text-sm text-neutral-500">Le PIN à 6 chiffres permet une connexion rapide sans mot de passe.</p>
-          <Input label="Code PIN" type="password" placeholder="••••••" maxLength={6} icon={<KeyRound size={16} />}
+          <Input label="Code PIN" type="password" placeholder="••••••" maxLength={6} inputMode="numeric" icon={<KeyRound size={16} />}
             error={pinForm.formState.errors.pin?.message} {...pinForm.register('pin')} />
-          <Input label="Confirmer le PIN" type="password" placeholder="••••••" maxLength={6}
+          <Input label="Confirmer le PIN" type="password" placeholder="••••••" maxLength={6} inputMode="numeric"
             error={pinForm.formState.errors.confirmPin?.message} {...pinForm.register('confirmPin')} />
         </form>
       </Modal>

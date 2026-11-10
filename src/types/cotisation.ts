@@ -53,37 +53,41 @@ export interface UpdateCotisationRequest {
   note?: string
 }
 
-// ─── Récapitulatif total par membre (tous cycles confondus) ──────────────────
-export interface MembreTotalCotisation {
+// ─── Récap d'un cycle : une ligne par membre (GET .../cotisations/recap/{cycleId}) ─
+export interface CycleRecapLigne {
   membreId: string
   userId: string
   firstName: string
   lastName: string
   phone: string
-  accountStatus: 'ACTIVE' | 'PRE_ENROLLED'
-  statutMembre: 'ACTIF' | 'SUSPENDU'
-  ordreJackpot: number | null
-  totalCotise: number
-  nombreCotisationsValidees: number
-}
-
-// ─── Item du récapitulatif cotisations par cycle/membre ──────────────────────
-export interface CotisationRecapItem {
-  membreId: string
-  userId: string
-  firstName: string
-  lastName: string
-  phone: string
-  accountStatus: AccountStatus
+  accountStatus?: AccountStatus
   statutMembre: MembreStatut
-  ordreJackpot: number
+  ordreJackpot: number | null
+  /** null = le membre n'a rien soumis pour ce cycle */
   cotisationId: string | null
   montant: number | null
   methodePaiement: string | null
-  referenceTransaction: string | null
-  note: string | null
+  referenceTransaction?: string | null
+  note?: string | null
   statutCotisation: CotisationStatut | null
   dateValidation: string | null
-  cotisationCreatedAt: string | null
-  enregistrePar: EnregistreParInfo | null
+  cotisationCreatedAt?: string | null
+  enregistrePar?: EnregistreParInfo | null
+}
+
+/** Alias utilisé par les composants récap issus de main (CycleRecapModal…) */
+export type CotisationRecapItem = CycleRecapLigne
+
+// ─── Total cotisé par membre (GET .../cotisations/recap-total) ─────────────────
+export interface MembreTotalCotisation {
+  membreId: string
+  userId?: string
+  firstName: string
+  lastName: string
+  phone: string
+  accountStatus?: AccountStatus
+  statutMembre: MembreStatut
+  ordreJackpot: number | null
+  totalCotise: number
+  nombreCotisationsValidees: number
 }

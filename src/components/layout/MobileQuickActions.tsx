@@ -177,7 +177,7 @@ export function MobileQuickActions() {
       <div
         ref={fabRef}
         className="md:hidden fixed z-40"
-        style={{ bottom: '8px', left: '50%', transform: 'translateX(-50%)' }}
+        style={{ bottom: 'calc(8px + env(safe-area-inset-bottom))', left: '50%', transform: 'translateX(-50%)' }}
       >
         {/* Speed-dial items */}
         {!singleAction && (

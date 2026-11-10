@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { Spinner } from '@/components/ui/Spinner'
-import { Trophy, CheckCircle, AlertTriangle, Calendar, CreditCard, Bell, BellRing, ChevronRight } from 'lucide-react'
+import { Trophy, CheckCircle, AlertTriangle, Calendar, CreditCard, Bell, ChevronRight } from 'lucide-react'
 import { useNotifications, useMarkAsRead, useMarkAllAsRead } from '@/hooks/useNotifications'
 import { NotificationItem, NotificationType } from '@/types/notification'
 import { useAuth } from '@/hooks/useAuth'
@@ -186,35 +186,26 @@ export function NotificationsPage() {
 
   return (
     <AppLayout>
+      <div className="max-w-2xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between gap-3 mb-5">
         <div>
-          <h1 className="text-2xl font-bold text-neutral-900">Notifications</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-neutral-900">Notifications</h1>
           {unread.length > 0 && (
             <p className="text-sm text-neutral-500 mt-1">
               <span className="font-semibold text-primary-600">{unread.length}</span> non lue{unread.length > 1 ? 's' : ''}
             </p>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          {unread.length > 0 && (
-            <button
-              onClick={handleMarkAll}
-              disabled={markingAll}
-              className="px-3 py-2 text-xs font-semibold text-primary-600 hover:text-primary-700 disabled:opacity-50 transition-colors rounded-xl hover:bg-primary-50"
-            >
-              Tout lire
-            </button>
-          )}
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center relative ${unread.length > 0 ? 'bg-primary-100 text-primary-600' : 'bg-neutral-100 text-neutral-400'}`}>
-            {unread.length > 0 ? <BellRing size={20} /> : <Bell size={20} />}
-            {unread.length > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
-                {unread.length > 9 ? '9+' : unread.length}
-              </span>
-            )}
-          </div>
-        </div>
+        {unread.length > 0 && (
+          <button
+            onClick={handleMarkAll}
+            disabled={markingAll}
+            className="h-9 px-4 rounded-full bg-primary-50 text-sm font-semibold text-primary-700 hover:bg-primary-100 disabled:opacity-50 transition-colors"
+          >
+            Tout marquer lu
+          </button>
+        )}
       </div>
 
       {/* Chargement initial */}
@@ -262,13 +253,14 @@ export function NotificationsPage() {
             <button
               onClick={() => setPage((p) => p + 1)}
               disabled={isLoading}
-              className="w-full mt-4 py-3 text-sm font-medium text-primary-600 hover:text-primary-700 disabled:opacity-50 transition-colors"
+              className="w-full mt-4 h-12 rounded-full border border-neutral-200 bg-white text-sm font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 transition-colors"
             >
-              {isLoading ? <Spinner /> : 'Charger plus'}
+              {isLoading ? 'Chargement…' : 'Charger plus'}
             </button>
           )}
         </>
       )}
+      </div>
     </AppLayout>
   )
 }

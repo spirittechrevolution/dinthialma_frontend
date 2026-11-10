@@ -1,14 +1,14 @@
 import api from './api'
 import { Tontine, CreateTontineRequest, UpdateTontineRequest, Commission, CreateCommissionRequest, UpdateCommissionRequest } from '@/types/tontine'
-import { PageResponse, CustomResponse } from '@/types/common'
+import { PageResponse, CustomResponse, RawPage, toPage } from '@/types/common'
 
 export const tontineService = {
   // ─── Lister les tontines (SUPER_ADMIN = toutes, autres = les siennes) ────────
   listTontines: async (page = 0, size = 20, sort = 'createdAt,desc'): Promise<PageResponse<Tontine>> => {
-    const response = await api.get<CustomResponse<PageResponse<Tontine>>>('/v1/tontines', {
+    const response = await api.get<CustomResponse<RawPage<Tontine>>>('/v1/tontines', {
       params: { page, size, sort },
     })
-    return response.data.data
+    return toPage(response.data.data)
   },
 
   // ─── Récupérer une tontine par ID ────────────────────────────────────────────
@@ -49,11 +49,11 @@ export const tontineService = {
   // ─── Commissions ─────────────────────────────────────────────────────────────
 
   listCommissions: async (tontineId: string, page = 0, size = 20): Promise<PageResponse<Commission>> => {
-    const response = await api.get<CustomResponse<PageResponse<Commission>>>(
+    const response = await api.get<CustomResponse<RawPage<Commission>>>(
       `/v1/tontines/${tontineId}/commissions`,
       { params: { page, size } }
     )
-    return response.data.data
+    return toPage(response.data.data)
   },
 
   createCommission: async (tontineId: string, request: CreateCommissionRequest): Promise<Commission> => {

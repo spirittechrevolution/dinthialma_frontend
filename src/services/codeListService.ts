@@ -1,5 +1,5 @@
 import api from './api'
-import { CustomResponse, CodeListItem, PageResponse } from '@/types/common'
+import { CustomResponse, CodeListItem, PageResponse, RawPage, toPage } from '@/types/common'
 
 export type CodeListType =
   | 'FREQUENCE_TONTINE'
@@ -38,11 +38,11 @@ export const codeListService = {
 
   // ─── Gestion des référentiels (SUPER_ADMIN) ───────────────────────────────────
   list: async (page = 0, size = 100): Promise<PageResponse<CodeListItem>> => {
-    const response = await api.get<CustomResponse<PageResponse<CodeListItem>>>(
+    const response = await api.get<CustomResponse<RawPage<CodeListItem>>>(
       '/v1/code-list',
       { params: { page, size, sort: 'type,asc' } }
     )
-    return response.data.data
+    return toPage(response.data.data)
   },
 
   create: async (request: CodeListRequest): Promise<CodeListItem> => {

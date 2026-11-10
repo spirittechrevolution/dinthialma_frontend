@@ -68,7 +68,7 @@ export function CycleRecapModal({ isOpen, onClose, tontineId, cycle, montantDefa
     membreNom: '',
   })
 
-  const sorted = [...(recapItems || [])].sort((a, b) => a.ordreJackpot - b.ordreJackpot)
+  const sorted = [...(recapItems || [])].sort((a, b) => (a.ordreJackpot ?? 999) - (b.ordreJackpot ?? 999))
   const cycleEnCours = cycle.statut === CycleStatut.EN_COURS
 
   const payeCount = sorted.filter((r) => r.statutCotisation !== null).length

@@ -14,8 +14,12 @@ import { useTontines } from '@/hooks/useTontines'
 import { useCycles, useOpenCycle, useCloturerCycle } from '@/hooks/useCycles'
 import { Cycle } from '@/types/cycle'
 import { CycleStatut } from '@/types/common'
-import { Plus, RefreshCw, Calendar, User, List } from 'lucide-react'
+import { Plus, RefreshCw, Calendar, Trophy, List } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { Pagination } from '@/components/ui/Pagination'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { formatMontant, formatDateCourte } from '@/lib/format'
+import { ChipRow } from '@/components/ui/ChipRow'
 
 const openCycleSchema = z.object({
   tontineId: z.string().min(1, 'Requis'),
@@ -39,17 +43,24 @@ const STATUT_COLORS: Record<CycleStatut, string> = {
 
 type CycleWithTontine = Cycle & { tontineNom?: string; tontineId?: string }
 
+const PAGE_SIZE = 12
+
 export function CyclesPage() {
   const navigate = useNavigate()
   const [isOpenModal, setIsOpenModal] = useState(false)
   const [cycleToClose, setCycleToClose] = useState<{ cycleId: string; tontineId: string } | null>(null)
   const [selectedTontineId, setSelectedTontineId] = useState('')
+  const [page, setPage] = useState(0)
 
   const { data: tontinesData, isLoading: loadingTontines } = useTontines(0, 50)
   const tontines = tontinesData?.content || []
 
   const activeTontineId = selectedTontineId || tontines[0]?.id || ''
-  const { data: cyclesData, isLoading: loadingCycles } = useCycles(activeTontineId, 0, 50)
+  const { data: cyclesData, isLoading: loadingCycles } = useCycles(activeTontineId, page, PAGE_SIZE)
+  // L'API ne filtre pas par statut : on charge la liste complète (≤ 100 cycles, une tontine
+  // ayant au plus 100 membres) uniquement pour épingler le cycle en cours en tête.
+  const { data: allCyclesData } = useCycles(activeTontineId, 0, 100)
+  const cycleEnCours = allCyclesData?.content.find((c: Cycle) => c.statut === CycleStatut.EN_COURS)
   const { mutate: openCycle, isPending: isOpening } = useOpenCycle()
   const { mutate: cloturerCycle, isPending: isClosing } = useCloturerCycle()
 
@@ -58,15 +69,18 @@ export function CyclesPage() {
     defaultValues: { tontineId: activeTontineId, numeroCycle: 1 },
   })
 
-  const CYCLE_ORDER: Record<CycleStatut, number> = { EN_COURS: 0, EN_ATTENTE: 1, TERMINE: 2 }
-
+  const tontineNom = tontines.find((t) => t.id === activeTontineId)?.nom
+  const withTontine = (c: Cycle): CycleWithTontine => ({ ...c, tontineNom, tontineId: activeTontineId })
+  // Le cycle en cours est affiché à part, en tête : on l'exclut de la grille paginée
   const cycles: CycleWithTontine[] = (cyclesData?.content || [])
-    .map((c: Cycle) => ({
-      ...c,
-      tontineNom: tontines.find((t) => t.id === activeTontineId)?.nom,
-      tontineId: activeTontineId,
-    }))
-    .sort((a, b) => (CYCLE_ORDER[a.statut] ?? 3) - (CYCLE_ORDER[b.statut] ?? 3))
+    .filter((c: Cycle) => c.id !== cycleEnCours?.id)
+    .map(withTontine)
+
+  const openModal = () => {
+    // La tontine affichée est réellement présélectionnée dans le formulaire
+    reset({ tontineId: activeTontineId, numeroCycle: (cyclesData?.totalElements ?? 0) + 1, dateDebut: '', dateFin: '' })
+    setIsOpenModal(true)
+  }
 
   const onOpenSubmit = (data: OpenCycleForm) => {
     openCycle(
@@ -95,145 +109,183 @@ export function CyclesPage() {
     )
   }
 
+  // ─── Carte d'un cycle (le cycle en cours est mis en évidence) ──────────────
+  const renderCycleCard = (cycle: CycleWithTontine) => {
+    const enCours = cycle.statut === CycleStatut.EN_COURS
+    return (
+      <div
+        key={cycle.id}
+        className={
+          enCours
+            ? 'relative rounded-2xl border-2 border-primary-500 ring-4 ring-primary-100 bg-gradient-to-b from-primary-50 to-white p-4 sm:p-5'
+            : 'bg-white rounded-2xl border border-neutral-100 p-4 sm:p-5'
+        }
+      >
+          {/* Header */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${enCours ? 'bg-primary-600 text-white' : 'bg-primary-50 text-primary-600'}`}>
+                <RefreshCw size={14} />
+              </div>
+              <div>
+                <p className="font-bold text-neutral-900 text-sm">Cycle #{cycle.numeroCycle}</p>
+                <p className="text-xs text-neutral-500">{cycle.tontineNom}</p>
+              </div>
+            </div>
+            {enCours ? (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-primary-600 text-white">
+                <span className="relative flex w-2 h-2">
+                  <span className="absolute inline-flex h-full w-full rounded-full bg-white opacity-75 animate-ping" />
+                  <span className="relative inline-flex w-2 h-2 rounded-full bg-white" />
+                </span>
+                En cours
+              </span>
+            ) : (
+              <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${STATUT_COLORS[cycle.statut]}`}>
+                {STATUT_LABELS[cycle.statut]}
+              </span>
+            )}
+          </div>
+
+          {/* Date */}
+          <div className="flex items-center gap-1.5 text-xs text-neutral-500 mb-4">
+            <Calendar size={12} />
+            <span>
+              {formatDateCourte(cycle.dateDebut)} → {formatDateCourte(cycle.dateFin)}
+            </span>
+          </div>
+
+          {/* Montants */}
+          <div className="grid grid-cols-3 gap-2 mb-4">
+            <div className="text-center">
+              <p className="text-[11px] text-neutral-400 mb-1">Jackpot</p>
+              <p className="font-bold text-neutral-900 text-sm">
+                {cycle.montantJackpot ? formatMontant(cycle.montantJackpot) : '—'}
+              </p>
+              {cycle.montantJackpot && <p className="text-xs text-neutral-400">FCFA</p>}
+            </div>
+            <div className="text-center">
+              <p className="text-[11px] text-neutral-400 mb-1">Commission</p>
+              <p className="font-bold text-neutral-900 text-sm">
+                {cycle.montantCommission ? formatMontant(cycle.montantCommission) : '—'}
+              </p>
+              {cycle.montantCommission && <p className="text-xs text-neutral-400">FCFA</p>}
+            </div>
+            <div className="text-center bg-primary-50 rounded-xl py-1">
+              <p className="text-[11px] text-primary-600 mb-1">Net</p>
+              <p className="font-bold text-primary-600 text-sm">
+                {cycle.montantNet ? formatMontant(cycle.montantNet) : '—'}
+              </p>
+              {cycle.montantNet && <p className="text-xs text-primary-400">FCFA</p>}
+            </div>
+          </div>
+
+          {/* Gagnants */}
+          {cycle.gagnants && cycle.gagnants.length > 0 && (
+            <div className="flex items-center gap-2 text-sm text-neutral-600 mb-4">
+              <Trophy size={14} className="text-amber-500 flex-shrink-0" />
+              <span className="truncate">
+                {cycle.gagnants.length === 1
+                  ? <>{cycle.gagnants[0].firstName} {cycle.gagnants[0].lastName}</>
+                  : <>{cycle.gagnants.map(g => g.firstName).join(', ')}</>
+                }
+              </span>
+            </div>
+          )}
+
+          {/* Actions */}
+          {cycle.statut !== CycleStatut.EN_ATTENTE && (
+            <button
+              onClick={() => navigate('/admin/cotisations', { state: { tontineId: cycle.tontineId, cycleId: cycle.id } })}
+              className="w-full h-9 mb-2 flex items-center justify-center gap-1.5 rounded-full text-sm font-semibold text-primary-700 border border-primary-200 bg-primary-50 hover:bg-primary-100 transition-colors"
+            >
+              <List size={15} /> Voir les cotisations
+            </button>
+          )}
+          {enCours && (
+            <Button
+              variant="secondary"
+              size="sm"
+              className="w-full"
+              onClick={() => setCycleToClose({ cycleId: cycle.id, tontineId: cycle.tontineId! })}
+            >
+              Clôturer ce cycle
+            </Button>
+          )}
+      </div>
+    )
+  }
+
   if (loadingTontines) return <AppLayout><div className="flex justify-center py-20"><Spinner /></div></AppLayout>
 
   return (
     <AppLayout>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-neutral-900">Cycles</h1>
-          <p className="text-sm text-neutral-500 mt-1">Ouvrez et clôturez les cycles de cotisation.</p>
-        </div>
-        <Button size="sm" onClick={() => setIsOpenModal(true)} className="self-start sm:self-auto">
-          <Plus size={16} className="mr-1" /> Nouveau cycle
-        </Button>
-      </div>
+      <PageHeader
+        title="Cycles"
+        description="Ouvrez et clôturez les cycles de cotisation."
+        action={
+          <Button onClick={openModal} disabled={!activeTontineId}>
+            <Plus size={18} /> <span className="hidden sm:inline">Nouveau cycle</span><span className="sm:hidden">Nouveau</span>
+          </Button>
+        }
+      />
 
-      {/* Filter par tontine */}
+      {/* Choix de la tontine */}
       {tontines.length > 1 && (
-        <div className="flex items-center gap-1 mb-5 overflow-x-auto pb-1">
+        <ChipRow className="mb-4">
           {tontines.map((t) => (
             <button
+              aria-pressed={activeTontineId === t.id}
               key={t.id}
-              onClick={() => setSelectedTontineId(t.id)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                activeTontineId === t.id ? 'bg-primary-600 text-white' : 'bg-white text-neutral-600 hover:bg-neutral-100 border border-neutral-200 shadow-sm'
+              onClick={() => { setSelectedTontineId(t.id); setPage(0) }}
+              className={`h-9 px-4 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                activeTontineId === t.id ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-100'
               }`}
             >
-              {t.nom}
+              {t.nom.length > 24 ? t.nom.slice(0, 24) + '…' : t.nom}
             </button>
           ))}
-        </div>
+        </ChipRow>
+      )}
+
+      {/* Cycle en cours — épinglé en tête, quelle que soit la page */}
+      {cycleEnCours && (
+        <section className="mb-6">
+          <h2 className="text-[15px] font-bold text-neutral-900 mb-2 px-1">Cycle en cours</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {renderCycleCard(withTontine(cycleEnCours))}
+          </div>
+        </section>
+      )}
+
+      {cycleEnCours && cycles.length > 0 && (
+        <h2 className="text-[15px] font-bold text-neutral-900 mb-2 px-1">Autres cycles</h2>
       )}
 
       {/* Cards */}
       {loadingCycles ? (
         <div className="flex justify-center py-20"><Spinner /></div>
-      ) : cycles.length === 0 ? (
-        <div className="text-center py-20 text-neutral-400">
-          <p>Aucun cycle pour cette tontine</p>
+      ) : cycles.length === 0 && cycleEnCours ? null : cycles.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-neutral-100 text-center py-16 px-6">
+          <div className="w-14 h-14 mx-auto rounded-full bg-primary-50 text-primary-600 flex items-center justify-center mb-3"><RefreshCw size={22} /></div>
+          <p className="font-semibold text-neutral-900">Aucun cycle pour cette tontine</p>
+          <p className="text-sm text-neutral-500 mt-1">Ouvrez le premier cycle pour commencer à collecter.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {cycles.map((cycle) => (
-            <div key={cycle.id} className={`bg-white rounded-2xl shadow-sm p-5 ${
-              cycle.statut === CycleStatut.EN_COURS
-                ? 'border-2 border-primary-400 ring-2 ring-primary-50'
-                : 'border border-neutral-100'
-            }`}>
-              {/* Bandeau cycle en cours */}
-              {cycle.statut === CycleStatut.EN_COURS && (
-                <div className="flex items-center gap-1.5 mb-3 px-2.5 py-1 bg-primary-50 rounded-lg w-fit">
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary-500 animate-pulse" />
-                  <span className="text-xs font-semibold text-primary-700">Cycle en cours</span>
-                </div>
-              )}
-              {/* Header */}
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-primary-50 flex items-center justify-center text-primary-600">
-                    <RefreshCw size={14} />
-                  </div>
-                  <div>
-                    <p className="font-bold text-neutral-900 text-sm">Cycle #{cycle.numeroCycle}</p>
-                    <p className="text-xs text-neutral-500">{cycle.tontineNom}</p>
-                  </div>
-                </div>
-                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${STATUT_COLORS[cycle.statut]}`}>
-                  {STATUT_LABELS[cycle.statut]}
-                </span>
-              </div>
-
-              {/* Date */}
-              <div className="flex items-center gap-1.5 text-xs text-neutral-500 mb-4">
-                <Calendar size={12} />
-                <span>
-                  {new Date(cycle.dateDebut).toLocaleDateString('fr-FR')} → {new Date(cycle.dateFin).toLocaleDateString('fr-FR')}
-                </span>
-              </div>
-
-              {/* Montants */}
-              <div className="grid grid-cols-3 gap-2 mb-4">
-                <div className="text-center">
-                  <p className="text-xs text-neutral-400 uppercase tracking-wide mb-1">Jackpot</p>
-                  <p className="font-bold text-neutral-900 text-sm">
-                    {cycle.montantJackpot ? cycle.montantJackpot.toLocaleString('fr-FR') : '—'}
-                  </p>
-                  {cycle.montantJackpot && <p className="text-xs text-neutral-400">FCFA</p>}
-                </div>
-                <div className="text-center">
-                  <p className="text-xs text-neutral-400 uppercase tracking-wide mb-1">Commission</p>
-                  <p className="font-bold text-neutral-900 text-sm">
-                    {cycle.montantCommission ? `${cycle.montantCommission.toLocaleString('fr-FR')}` : '—'}
-                  </p>
-                  {cycle.montantCommission && <p className="text-xs text-neutral-400">FCFA</p>}
-                </div>
-                <div className="text-center bg-primary-50 rounded-xl py-1">
-                  <p className="text-xs text-primary-500 uppercase tracking-wide mb-1">Net</p>
-                  <p className="font-bold text-primary-600 text-sm">
-                    {cycle.montantNet ? cycle.montantNet.toLocaleString('fr-FR') : '—'}
-                  </p>
-                  {cycle.montantNet && <p className="text-xs text-primary-400">FCFA</p>}
-                </div>
-              </div>
-
-              {/* Gagnants */}
-              {cycle.gagnants && cycle.gagnants.length > 0 && (
-                <div className="flex items-center gap-2 text-sm text-neutral-600 mb-4">
-                  <User size={14} className="text-neutral-400 flex-shrink-0" />
-                  <span className="truncate">
-                    {cycle.gagnants.length === 1
-                      ? <>{cycle.gagnants[0].firstName} {cycle.gagnants[0].lastName}</>
-                      : <>{cycle.gagnants.map(g => g.firstName).join(', ')}</>
-                    }
-                  </span>
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="flex flex-col gap-2">
-                {cycle.statut !== CycleStatut.EN_ATTENTE && (
-                  <button
-                    onClick={() => navigate('/admin/cotisations', { state: { tontineId: cycle.tontineId, cycleId: cycle.id } })}
-                    className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-xs font-semibold text-primary-700 border border-primary-200 bg-primary-50 hover:bg-primary-100 transition-colors"
-                  >
-                    <List size={12} /> Voir les cotisations
-                  </button>
-                )}
-                {cycle.statut === CycleStatut.EN_COURS && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => setCycleToClose({ cycleId: cycle.id, tontineId: cycle.tontineId! })}
-                  >
-                    Clôturer ce cycle
-                  </Button>
-                )}
-              </div>
-            </div>
-          ))}
+          {cycles.map(renderCycleCard)}
         </div>
+      )}
+
+      {!loadingCycles && (
+        <Pagination
+          className="mt-4 px-0"
+          page={page}
+          totalPages={cyclesData?.totalPages ?? 1}
+          totalElements={cyclesData?.totalElements}
+          pageSize={PAGE_SIZE}
+          onPageChange={setPage}
+        />
       )}
 
       {/* Modal nouveau cycle */}
@@ -243,9 +295,9 @@ export function CyclesPage() {
         title="Nouveau cycle"
         size="sm"
         footer={
-          <div className="flex gap-3 justify-end">
-            <Button variant="ghost" onClick={() => { reset(); setIsOpenModal(false) }} disabled={isOpening}>Annuler</Button>
-            <Button form="open-cycle-form" type="submit" loading={isOpening}>Ouvrir le cycle</Button>
+          <div className="flex gap-3">
+            <Button variant="secondary" className="flex-1" onClick={() => { reset(); setIsOpenModal(false) }} disabled={isOpening}>Annuler</Button>
+            <Button className="flex-1" form="open-cycle-form" type="submit" loading={isOpening}>Ouvrir le cycle</Button>
           </div>
         }
       >
