@@ -226,22 +226,25 @@ export function ProfilePage() {
         </div>
       </div>
 
-      {/* ── Sécurité ─────────────────────────────────────────────── */}
+      {/* ── Actions compte ───────────────────────────────────────── */}
       <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm mb-3 overflow-hidden">
-        <div className="px-4 py-3 border-b border-neutral-50">
-          <p className="text-xs font-semibold text-neutral-400 uppercase tracking-widest">Sécurité</p>
-        </div>
         <div className="divide-y divide-neutral-50">
           <SecurityRow
+            icon={<User size={17} />}
+            label="Modifier mes informations"
+            sub="Prénom, nom, email"
+            onPress={() => setShowEdit(true)}
+          />
+          <SecurityRow
             icon={<Lock size={17} />}
-            label="Mot de passe"
-            sub="Modifiez votre mot de passe"
+            label="Changer mot de passe"
+            sub="Sécurisez votre compte"
             onPress={() => setShowPasswordModal(true)}
           />
           <SecurityRow
             icon={<KeyRound size={17} />}
             label="Code PIN"
-            sub={profile?.pinConfigured ? 'Modifier le PIN 6 chiffres' : 'Configurer pour connexion rapide'}
+            sub="Configurer ou changer votre code PIN"
             badge={profile?.pinConfigured ? 'Actif' : undefined}
             onPress={() => setShowPinModal(true)}
           />

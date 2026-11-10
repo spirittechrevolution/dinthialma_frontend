@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useTontines } from '@/hooks/useTontines'
 import { useCotisations } from '@/hooks/useCotisations'
 import { useCycles } from '@/hooks/useCycles'
+import { useMembres } from '@/hooks/useMembres'
 import { Tontine } from '@/types/tontine'
 import { TontineStatut, CotisationStatut, CycleStatut } from '@/types/common'
 import { Cotisation } from '@/types/cotisation'
@@ -24,13 +25,25 @@ const COTI_STATUT: Record<CotisationStatut, { icon: React.ReactNode; tone: strin
 }
 
 export function MemberDashboard() {
-  const { user } = useAuth()
+  const { user, isAdmin, isSuperAdmin } = useAuth()
   const [createOpen, setCreateOpen] = useState(false)
   const { data: tontinesData, isLoading } = useTontines(0, 20)
   const tontines = tontinesData?.content || []
 
   const activeTontine = tontines.find((t: Tontine) => t.statut === TontineStatut.ACTIVE)
-  const { data: cotisationsData } = useCotisations(activeTontine?.id || '', undefined, 0, 50)
+  // Un ADMIN/SUPER_ADMIN reçoit toutes les cotisations de la tontine : on ne garde que les siennes
+  // via ?membreId= (son membre est retrouvé par téléphone ; Keycloak "221…" vs API "7…").
+  const isAdminUser = isAdmin() || isSuperAdmin()
+  const normalizePhone = (p: string) => p.replace(/\D/g, '').replace(/^221/, '')
+  const { data: membresData } = useMembres(isAdminUser ? activeTontine?.id || '' : '', 0, 100)
+  const myMembreId = membresData?.content.find(
+    (m) => normalizePhone(m.user.phone) === normalizePhone(user?.phone || '')
+  )?.id
+  const { data: cotisationsData } = useCotisations(
+    activeTontine?.id || '', undefined, 0, 50,
+    isAdminUser ? myMembreId : undefined,
+    !isAdminUser || !!myMembreId
+  )
   const { data: cyclesData } = useCycles(activeTontine?.id || '', 0, 10)
   const cotisations = cotisationsData?.content || []
   const cycles = cyclesData?.content || []
@@ -45,6 +58,11 @@ export function MemberDashboard() {
   const totalMembres = activeTontine?.nombreMembres || 0
   const cyclePct = totalMembres > 0 ? Math.round((cotiseesCount / totalMembres) * 100) : 0
   const jackpotEstime = activeTontine ? activeTontine.montant * activeTontine.nombreMembres : 0
+  // Jackpot réel du dernier cycle clôturé (montantNet API) ; sinon estimation, signalée comme telle
+  const dernierCycleTermine = [...cycles]
+    .filter((c: Cycle) => c.statut === CycleStatut.TERMINE && c.montantNet != null)
+    .sort((a: Cycle, b: Cycle) => b.numeroCycle - a.numeroCycle)[0]
+  const jackpotReel = dernierCycleTermine?.montantNet ?? null
   const prochaineCotisation = activeTontine?.montant || 0
   const recentes = [...cotisations]
     .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
@@ -120,7 +138,7 @@ export function MemberDashboard() {
                 {formatDateCourte(cycleEnCours.dateDebut)} → {formatDateCourte(cycleEnCours.dateFin)}
               </span>
               <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-50 rounded-full px-2.5 py-1">
-                <Trophy size={13} /> Jackpot {formatMontant(jackpotEstime)} F
+                <Trophy size={13} /> {jackpotReel != null ? 'Dernier jackpot' : 'Jackpot estimé'} {formatMontant(jackpotReel ?? jackpotEstime)} F
               </span>
             </div>
           </div>

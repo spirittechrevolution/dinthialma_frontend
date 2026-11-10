@@ -4,6 +4,7 @@ import { createContext, useContext } from 'react'
 import { AuthProvider } from '@/hooks/useAuth'
 import { Router } from '@/router'
 import { queryClient } from '@/lib/queryClient'
+import { ChunkErrorBoundary } from '@/components/shared/ChunkErrorBoundary'
 import { useTheme } from '@/hooks/useTheme'
 import './App.css'
 
@@ -28,7 +29,9 @@ function App() {
     <ThemeContext.Provider value={theme}>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <Router />
+          <ChunkErrorBoundary>
+            <Router />
+          </ChunkErrorBoundary>
           <Toaster richColors position="top-right" />
         </AuthProvider>
       </QueryClientProvider>

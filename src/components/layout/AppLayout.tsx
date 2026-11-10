@@ -2,6 +2,7 @@ import { ReactNode } from 'react'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 import { BottomNav } from './BottomNav'
+import { MobileQuickActions } from './MobileQuickActions'
 import { PWABanner } from '@/components/shared/PWABanner'
 import { useAuth } from '@/hooks/useAuth'
 import { UserRole } from '@/types/common'
@@ -87,6 +88,9 @@ export function AppLayout({ children }: AppLayoutProps) {
 
       {/* Bottom nav — mobile seulement */}
       <BottomNav links={links.filter((l) => l.mobile).slice(0, 4)} />
+
+      {/* FAB Quick Actions — mobile, Admin + Membre */}
+      <MobileQuickActions />
 
       {/* Bannière PWA */}
       <PWABanner />

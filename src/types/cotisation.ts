@@ -45,6 +45,14 @@ export interface AdminRecordCotisationRequest {
   note?: string
 }
 
+// ─── Requête modification cotisation (PATCH — seuls les champs envoyés sont mis à jour) ──
+export interface UpdateCotisationRequest {
+  montant?: number
+  methodePaiement?: string
+  referenceTransaction?: string
+  note?: string
+}
+
 // ─── Récap d'un cycle : une ligne par membre (GET .../cotisations/recap/{cycleId}) ─
 export interface CycleRecapLigne {
   membreId: string
@@ -66,6 +74,9 @@ export interface CycleRecapLigne {
   cotisationCreatedAt?: string | null
   enregistrePar?: EnregistreParInfo | null
 }
+
+/** Alias utilisé par les composants récap issus de main (CycleRecapModal…) */
+export type CotisationRecapItem = CycleRecapLigne
 
 // ─── Total cotisé par membre (GET .../cotisations/recap-total) ─────────────────
 export interface MembreTotalCotisation {

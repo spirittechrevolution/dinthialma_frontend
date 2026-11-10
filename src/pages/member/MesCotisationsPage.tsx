@@ -13,6 +13,8 @@ import { Modal } from '@/components/ui/Modal'
 import { Pagination } from '@/components/ui/Pagination'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { formatMontant, formatDateHeure } from '@/lib/format'
+import { useAuth } from '@/hooks/useAuth'
+import { useMembres } from '@/hooks/useMembres'
 import { useCotisations, useRecordCotisation } from '@/hooks/useCotisations'
 import { useTontines } from '@/hooks/useTontines'
 import { useCycles } from '@/hooks/useCycles'
@@ -57,12 +59,28 @@ export function MesCotisationsPage() {
 
   const [listTontineId, setListTontineId] = useState('')
 
+  const { user, isAdmin, isSuperAdmin } = useAuth()
   const { data: tontinesData } = useTontines(0, 50)
   const tontines    = (tontinesData?.content || []).filter((t) => t.statut === TontineStatut.ACTIVE)
   const historyTontineId = listTontineId || tontines[0]?.id || ''
   const historyTontine = tontines.find((t) => t.id === historyTontineId)
 
-  const { data: cotisationsData, isLoading } = useCotisations(historyTontineId, undefined, page, 20)
+  const isAdminUser = isAdmin() || isSuperAdmin()
+  // Un ADMIN/SUPER_ADMIN reçoit toutes les cotisations de la tontine : on restreint aux siennes
+  // avec le filtre serveur ?membreId= (pagination exacte). Son membreId est retrouvé par
+  // téléphone — Keycloak stocke "221XXXXXXXX", l'API "7XXXXXXXX" → on retire l'indicatif.
+  const normalizePhone = (p: string) => p.replace(/\D/g, '').replace(/^221/, '')
+  const { data: membresData, isLoading: membresLoading } = useMembres(isAdminUser ? historyTontineId : '', 0, 100)
+  const myMembreId = membresData?.content.find(
+    (m) => normalizePhone(m.user.phone) === normalizePhone(user?.phone || '')
+  )?.id
+  // Admin non membre de cette tontine → requête désactivée → liste vide (jamais celles des autres)
+  const { data: cotisationsData, isLoading: cotLoading } = useCotisations(
+    historyTontineId, undefined, page, 20,
+    isAdminUser ? myMembreId : undefined,
+    !isAdminUser || !!myMembreId
+  )
+  const isLoading = cotLoading || (isAdminUser && membresLoading)
   const { data: cyclesData }   = useCycles(selectedTontineId, 0, 50)
   const { mutate: recordCotisation, isPending } = useRecordCotisation()
 

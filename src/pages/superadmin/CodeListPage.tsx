@@ -123,8 +123,21 @@ export function CodeListPage() {
       {/* ── Contenu ─────────────────────────────────────────────────────────── */}
       <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-hidden">
 
-        {/* Tabs */}
-        <div className="px-5 pt-4 pb-0 flex items-center gap-1 overflow-x-auto border-b border-neutral-100">
+        {/* Tabs — mobile select */}
+        <div className="sm:hidden px-5 py-3 border-b border-neutral-100">
+          <select
+            value={activeType}
+            onChange={(e) => setActiveType(e.target.value as CodeListTypeEnum | 'TOUS')}
+            className="w-full text-sm font-medium text-neutral-700 bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary-400"
+          >
+            <option value="TOUS">Tous ({allItems.length})</option>
+            {ALL_TYPES.map((type) => (
+              <option key={type} value={type}>{TYPE_LABELS[type]} ({countByType(type)})</option>
+            ))}
+          </select>
+        </div>
+        {/* Tabs — desktop buttons */}
+        <div className="hidden sm:flex px-5 pt-4 pb-0 items-center gap-1 overflow-x-auto border-b border-neutral-100">
           <button
             onClick={() => setActiveType('TOUS')}
             className={`px-3 py-2 text-sm font-medium whitespace-nowrap rounded-t-lg transition-colors ${
@@ -150,8 +163,44 @@ export function CodeListPage() {
           ))}
         </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto">
+        {/* Cards — mobile */}
+        <div className="sm:hidden divide-y divide-neutral-50">
+          {isLoading ? (
+            <div className="flex justify-center py-10"><Spinner /></div>
+          ) : displayed.length === 0 ? (
+            <div className="text-center py-10 text-neutral-400">
+              <Database size={32} className="mx-auto mb-2 opacity-30" />
+              <p className="text-sm">Aucune entrée dans ce référentiel</p>
+            </div>
+          ) : (
+            displayed.map((item) => (
+              <div key={item.id} className="px-4 py-3 flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span className="px-2 py-0.5 bg-neutral-100 text-neutral-600 text-[10px] font-mono rounded">{item.type}</span>
+                    {item.systemAssign && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 text-blue-700 text-[10px] font-medium rounded-full">
+                        <Lock size={9} /> Système
+                      </span>
+                    )}
+                  </div>
+                  <p className="font-mono font-semibold text-neutral-800 text-sm">{item.value}</p>
+                  <p className="text-xs text-neutral-500 mt-0.5">{item.description}</p>
+                </div>
+                <button
+                  onClick={() => openEdit(item)}
+                  title="Modifier"
+                  className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-700 transition-colors flex-shrink-0"
+                >
+                  <Edit2 size={15} />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Table — desktop */}
+        <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-neutral-100">

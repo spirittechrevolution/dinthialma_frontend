@@ -10,6 +10,8 @@ import { Spinner } from '@/components/ui/Spinner'
 import { Table, Column } from '@/components/ui/Table'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { AdminEnregistrerPaiementModal } from '@/components/shared/AdminEnregistrerPaiementModal'
+import { AdminEditCotisationModal, EditCotisationInitialValues } from '@/components/shared/AdminEditCotisationModal'
+import { CycleRecapModal } from '@/components/shared/CycleRecapModal'
 import { useTontine, useActiverTontine, useSuspendreTontine, useCommissions, useDeleteCommission } from '@/hooks/useTontines'
 import { useMembres, useRemoveMembre, useUpdateMembreStatut } from '@/hooks/useMembres'
 import { useCycles, useCloturerCycle } from '@/hooks/useCycles'
@@ -18,7 +20,8 @@ import { Membre } from '@/types/membre'
 import { Cycle } from '@/types/cycle'
 import { Cotisation } from '@/types/cotisation'
 import { TontineStatut, CycleStatut, CotisationStatut, MembreStatut, AccountStatus } from '@/types/common'
-import { ArrowLeft, Play, Pause, Trash2, CheckCircle, UserMinus, AlertTriangle, CreditCard } from 'lucide-react'
+import { ArrowLeft, Play, Pause, Trash2, CheckCircle, UserMinus, AlertTriangle, CreditCard, Edit2, BarChart2, ChevronDown, ChevronUp, LayoutList, Users2 } from 'lucide-react'
+import { CotisationsRecapTotal } from '@/components/shared/CotisationsRecapTotal'
 
 type Tab = 'infos' | 'membres' | 'cycles' | 'cotisations' | 'commissions'
 
@@ -37,17 +40,35 @@ interface PaiementModalState {
   cycleId: string
 }
 
+interface EditCotisationState {
+  isOpen: boolean
+  cotisationId: string
+  membreNom: string
+  initialValues: EditCotisationInitialValues
+}
+
 export function TontineDetailPage() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
   const [activeTab, setActiveTab] = useState<Tab>('infos')
   const [confirm, setConfirm] = useState<{ action: string; label: string; danger?: boolean } | null>(null)
+  const [selectedCycleId, setSelectedCycleId] = useState<string | undefined>(undefined)
+  const [selectedMembreId, setSelectedMembreId] = useState<string | undefined>(undefined)
   const [paiementModal, setPaiementModal] = useState<PaiementModalState>({
     isOpen: false,
     membreId: '',
     membreNom: '',
     cycleId: '',
   })
+  const [editCotisationState, setEditCotisationState] = useState<EditCotisationState>({
+    isOpen: false,
+    cotisationId: '',
+    membreNom: '',
+    initialValues: { montant: 0, methodePaiement: 'CASH' },
+  })
+  const [recapCycle, setRecapCycle] = useState<Cycle | null>(null)
+  const [showMembresSansCot, setShowMembresSansCot] = useState(false)
+  const [cotisationView, setCotisationView] = useState<'par-cycle' | 'recap-total'>('par-cycle')
 
   const { data: tontine, isLoading } = useTontine(id || '')
   const { mutate: activer, isPending: isActivating } = useActiverTontine()
@@ -62,8 +83,12 @@ export function TontineDetailPage() {
   const { data: cyclesData, isLoading: cyclesLoading } = useCycles(id || '', 0, 50)
   const { mutate: cloturerCycle } = useCloturerCycle()
 
-  // Cotisations
-  const { data: cotisationsData, isLoading: cotisationsLoading } = useCotisations(id || '', undefined, 0, 20)
+  // Cotisations — filtre sur le cycle choisi ou le cycle EN_COURS par défaut
+  // quand un membre est sélectionné → pas de filtre cycle (toutes ses cotisations)
+  const cycleEnCours = (cyclesData?.content || []).find((c) => c.statut === CycleStatut.EN_COURS)
+  const baseCycleFilter = selectedCycleId !== undefined ? selectedCycleId : cycleEnCours?.id
+  const effectiveCycleFilter = selectedMembreId ? undefined : baseCycleFilter
+  const { data: cotisationsData, isLoading: cotisationsLoading } = useCotisations(id || '', effectiveCycleFilter, 0, selectedMembreId ? 200 : 50, selectedMembreId)
   const { mutate: validerCotisation } = useValiderCotisation()
 
   // Commissions
@@ -75,18 +100,21 @@ export function TontineDetailPage() {
 
   // ─── Cycle en cours + membres pre-enrolled sans cotisation ────────────────
   const cycles = cyclesData?.content || []
-  const cycleEnCours = cycles.find((c) => c.statut === CycleStatut.EN_COURS)
   const membres = membresData?.content || []
   const cotisations = cotisationsData?.content || []
 
-  const membresPreEnrolledSansCotisation = cycleEnCours
-    ? membres.filter((m) => {
-        const isPreEnrolled = m.user.accountStatus === AccountStatus.PRE_ENROLLED
-        const aCotise = cotisations.some(
-          (c) => c.membre.membreId === m.id && c.cycleId === cycleEnCours.id
-        )
-        return isPreEnrolled && !aCotise
-      })
+  const paidMembreIds = new Set(
+    cotisations
+      .filter((c) => cycleEnCours && c.cycleId === cycleEnCours.id)
+      .map((c) => c.membre.membreId)
+  )
+  const membresSansCotisation = cycleEnCours
+    ? membres.filter(
+        (m) =>
+          m.statut !== MembreStatut.SORTI &&
+          m.statut !== MembreStatut.SUSPENDU &&
+          !paidMembreIds.has(m.id)
+      )
     : []
 
   const handleConfirm = () => {
@@ -191,15 +219,41 @@ export function TontineDetailPage() {
     {
       key: 'id',
       header: 'Actions',
-      render: (row) => row.statut === CycleStatut.EN_COURS ? (
-        <Button variant="secondary" size="sm"
-          onClick={() => cloturerCycle(
-            { tontineId: id!, cycleId: row.id },
-            { onSuccess: () => toast.success('Cycle clôturé'), onError: () => toast.error('Erreur') }
-          )}>
-          Clôturer
-        </Button>
-      ) : null,
+      render: (row) => (
+        <div className="flex gap-2">
+          {row.statut !== CycleStatut.EN_ATTENTE && (
+            <Button
+              variant="secondary"
+              size="sm"
+              title="Voir les cotisations de ce cycle"
+              onClick={() => { setSelectedCycleId(row.id); setActiveTab('cotisations') }}
+            >
+              Cotisations
+            </Button>
+          )}
+          <Button
+            variant="secondary"
+            size="sm"
+            title="Récapitulatif des cotisations"
+            onClick={() => setRecapCycle(row)}
+          >
+            <BarChart2 size={16} />
+            Récap
+          </Button>
+          {row.statut === CycleStatut.EN_COURS && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => cloturerCycle(
+                { tontineId: id!, cycleId: row.id },
+                { onSuccess: () => toast.success('Cycle clôturé'), onError: () => toast.error('Erreur') }
+              )}
+            >
+              Clôturer
+            </Button>
+          )}
+        </div>
+      ),
     },
   ]
 
@@ -226,15 +280,51 @@ export function TontineDetailPage() {
     {
       key: 'id',
       header: 'Actions',
-      render: (row) => row.statut === CotisationStatut.EN_ATTENTE ? (
-        <Button variant="secondary" size="sm"
-          onClick={() => validerCotisation(
-            { tontineId: id!, cotisationId: row.id },
-            { onSuccess: () => toast.success('Cotisation validée'), onError: () => toast.error('Erreur') }
-          )}>
-          <CheckCircle size={16} />
-        </Button>
-      ) : null,
+      render: (row) => {
+        const cycleOfCotisation = cycles.find((c) => c.id === row.cycleId)
+        const cycleIsEnCours = cycleOfCotisation?.statut === CycleStatut.EN_COURS
+        const showEdit =
+          row.statut === CotisationStatut.EN_ATTENTE ||
+          (row.statut === CotisationStatut.VALIDE && cycleIsEnCours)
+
+        return (
+          <div className="flex gap-2">
+            {row.statut === CotisationStatut.EN_ATTENTE && (
+              <Button
+                variant="secondary"
+                size="sm"
+                title="Valider"
+                onClick={() => validerCotisation(
+                  { tontineId: id!, cotisationId: row.id },
+                  { onSuccess: () => toast.success('Cotisation validée'), onError: () => toast.error('Erreur') }
+                )}
+              >
+                <CheckCircle size={16} />
+              </Button>
+            )}
+            {showEdit && (
+              <Button
+                variant="secondary"
+                size="sm"
+                title="Modifier"
+                onClick={() => setEditCotisationState({
+                  isOpen: true,
+                  cotisationId: row.id,
+                  membreNom: `${row.membre.firstName} ${row.membre.lastName}`,
+                  initialValues: {
+                    montant: row.montant,
+                    methodePaiement: row.methodePaiement,
+                    referenceTransaction: row.referenceTransaction,
+                    note: row.note,
+                  },
+                })}
+              >
+                <Edit2 size={16} />
+              </Button>
+            )}
+          </div>
+        )
+      },
     },
   ]
 
@@ -298,12 +388,25 @@ export function TontineDetailPage() {
 
           {/* Onglets */}
           <Card noPadding className="shadow-md rounded-3xl">
-            <div className="border-b border-neutral-200 flex overflow-x-auto bg-white rounded-t-3xl">
+            {/* Mobile — select dropdown */}
+            <div className="sm:hidden px-4 py-3 border-b border-neutral-100 bg-white rounded-t-3xl">
+              <select
+                value={activeTab}
+                onChange={(e) => setActiveTab(e.target.value as Tab)}
+                className="w-full text-sm font-medium text-neutral-700 bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary-400"
+              >
+                {tabs.map((tab) => (
+                  <option key={tab.id} value={tab.id}>{tab.label}</option>
+                ))}
+              </select>
+            </div>
+            {/* Desktop — tab buttons */}
+            <div className="hidden sm:flex overflow-x-auto bg-white rounded-t-3xl border-b border-neutral-200">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`px-6 py-3 font-medium whitespace-nowrap transition-colors focus:outline-none ${
+                  className={`px-6 py-3 text-sm font-medium whitespace-nowrap transition-colors focus:outline-none ${
                     activeTab === tab.id
                       ? 'bg-primary-50 border-b-2 border-primary-500 text-primary-600 rounded-t-2xl shadow-sm'
                       : 'text-neutral-600 hover:text-neutral-900'
@@ -323,94 +426,398 @@ export function TontineDetailPage() {
                 </div>
               )}
               {activeTab === 'membres' && (
-                <Table columns={membreColumns} data={membresData?.content || []} isLoading={membresLoading} emptyMessage="Aucun membre" />
+                <>
+                  {/* Desktop */}
+                  <div className="hidden sm:block">
+                    <Table columns={membreColumns} data={membresData?.content || []} isLoading={membresLoading} emptyMessage="Aucun membre" />
+                  </div>
+                  {/* Mobile — cards */}
+                  <div className="sm:hidden py-2 space-y-2">
+                    {membresLoading ? (
+                      <div className="flex justify-center py-10"><Spinner /></div>
+                    ) : membres.length === 0 ? (
+                      <p className="text-center py-10 text-neutral-400 text-sm">Aucun membre</p>
+                    ) : membres.map((m: Membre) => {
+                      const initials = `${m.user.firstName[0]}${m.user.lastName[0]}`.toUpperCase()
+                      const statutColor: Record<MembreStatut, string> = {
+                        ACTIF: 'bg-primary-100 text-primary-700',
+                        SUSPENDU: 'bg-orange-100 text-orange-700',
+                        SORTI: 'bg-red-100 text-red-700',
+                      }
+                      const compteLabel = m.user.accountStatus === AccountStatus.PRE_ENROLLED ? 'Non inscrit' : m.user.accountStatus === AccountStatus.ACTIVE ? 'Compte actif' : null
+                      const compteColor = m.user.accountStatus === AccountStatus.PRE_ENROLLED ? 'bg-orange-100 text-orange-600' : 'bg-primary-100 text-primary-700'
+                      return (
+                        <div key={m.id} className="flex items-center gap-3 px-3 py-3 rounded-xl border border-neutral-100 bg-white shadow-sm">
+                          <div className="w-10 h-10 rounded-full bg-primary-600 flex items-center justify-center text-white text-sm font-bold shrink-0">
+                            {initials}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 mb-0.5">
+                              <span className="text-[10px] font-bold text-neutral-400">#{m.ordreJackpot}</span>
+                              <p className="text-sm font-semibold text-neutral-900 truncate">{m.user.firstName} {m.user.lastName}</p>
+                            </div>
+                            <p className="text-xs text-neutral-400 mb-1">{m.user.phone}</p>
+                            <div className="flex flex-wrap gap-1">
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${statutColor[m.statut]}`}>{m.statut}</span>
+                              {compteLabel && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${compteColor}`}>{compteLabel}</span>}
+                            </div>
+                          </div>
+                          <div className="flex flex-col gap-1 shrink-0">
+                            {m.statut === MembreStatut.ACTIF && (
+                              <button
+                                title="Suspendre"
+                                onClick={() => updateStatut(
+                                  { tontineId: id!, membreId: m.id, request: { statut: MembreStatut.SUSPENDU } },
+                                  { onSuccess: () => toast.success('Membre suspendu'), onError: () => toast.error('Erreur') }
+                                )}
+                                className="w-8 h-8 rounded-lg bg-neutral-100 flex items-center justify-center text-neutral-600 hover:bg-orange-100 hover:text-orange-600 transition-colors"
+                              >
+                                <UserMinus size={14} />
+                              </button>
+                            )}
+                            <button
+                              title="Retirer"
+                              onClick={() => removeMembre(
+                                { tontineId: id!, membreId: m.id },
+                                { onSuccess: () => toast.success('Membre retiré'), onError: () => toast.error('Erreur') }
+                              )}
+                              className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center text-red-500 hover:bg-red-100 transition-colors"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </>
               )}
               {activeTab === 'cycles' && (
-                <Table columns={cycleColumns} data={cyclesData?.content || []} isLoading={cyclesLoading} emptyMessage="Aucun cycle" />
+                <>
+                  {/* Desktop */}
+                  <div className="hidden sm:block">
+                    <Table
+                      columns={cycleColumns}
+                      data={[...(cyclesData?.content || [])].sort((a, b) =>
+                        a.statut === CycleStatut.EN_COURS ? -1 : b.statut === CycleStatut.EN_COURS ? 1 : 0
+                      )}
+                      isLoading={cyclesLoading}
+                      emptyMessage="Aucun cycle"
+                    />
+                  </div>
+                  {/* Mobile — cards */}
+                  <div className="sm:hidden py-2 space-y-2">
+                    {cyclesLoading ? (
+                      <div className="flex justify-center py-10"><Spinner /></div>
+                    ) : cycles.length === 0 ? (
+                      <p className="text-center py-10 text-neutral-400 text-sm">Aucun cycle</p>
+                    ) : [...cycles].sort((a, b) =>
+                        a.statut === CycleStatut.EN_COURS ? -1 : b.statut === CycleStatut.EN_COURS ? 1 : 0
+                      ).map((cy: Cycle) => {
+                      const cycleStatutColor: Record<CycleStatut, string> = {
+                        EN_ATTENTE: 'bg-orange-100 text-orange-700',
+                        EN_COURS: 'bg-blue-100 text-blue-700',
+                        TERMINE: 'bg-primary-100 text-primary-700',
+                      }
+                      const cycleStatutLabel: Record<CycleStatut, string> = {
+                        EN_ATTENTE: 'Ouvert', EN_COURS: 'En cours', TERMINE: 'Terminé',
+                      }
+                      return (
+                        <div key={cy.id} className="px-3 py-3 rounded-xl border border-neutral-100 bg-white shadow-sm space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-neutral-900 text-sm">Cycle #{cy.numeroCycle}</span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cycleStatutColor[cy.statut]}`}>{cycleStatutLabel[cy.statut]}</span>
+                          </div>
+                          <p className="text-xs text-neutral-400">
+                            {new Date(cy.dateDebut).toLocaleDateString('fr-FR')} → {new Date(cy.dateFin).toLocaleDateString('fr-FR')}
+                          </p>
+                          {cy.montantNet && (
+                            <p className="text-xs font-semibold text-primary-600">Jackpot net : {cy.montantNet.toLocaleString('fr-FR')} FCFA</p>
+                          )}
+                          {cy.gagnants && cy.gagnants.length > 0 && (
+                            <p className="text-xs text-neutral-500">Bénéficiaire : {cy.gagnants.map(g => `${g.firstName} ${g.lastName}`).join(', ')}</p>
+                          )}
+                          <div className="flex gap-2 pt-1">
+                            {cy.statut !== CycleStatut.EN_ATTENTE && (
+                              <button
+                                onClick={() => { setSelectedCycleId(cy.id); setActiveTab('cotisations') }}
+                                className="flex-1 py-1.5 rounded-lg bg-primary-50 text-primary-700 text-xs font-semibold hover:bg-primary-100 transition-colors"
+                              >
+                                Cotisations
+                              </button>
+                            )}
+                            <button
+                              onClick={() => setRecapCycle(cy)}
+                              className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg bg-neutral-100 text-neutral-700 text-xs font-semibold hover:bg-neutral-200 transition-colors"
+                            >
+                              <BarChart2 size={13} /> Récap
+                            </button>
+                            {cy.statut === CycleStatut.EN_COURS && (
+                              <button
+                                onClick={() => cloturerCycle(
+                                  { tontineId: id!, cycleId: cy.id },
+                                  { onSuccess: () => toast.success('Cycle clôturé'), onError: () => toast.error('Erreur') }
+                                )}
+                                className="flex-1 py-1.5 rounded-lg bg-orange-100 text-orange-700 text-xs font-semibold hover:bg-orange-200 transition-colors"
+                              >
+                                Clôturer
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </>
               )}
               {activeTab === 'cotisations' && (
                 <div>
-                  {/* ── Section Action requise : membres pre-enrolled sans cotisation ── */}
-                  {membresPreEnrolledSansCotisation.length > 0 && (
-                    <div className="mb-6 rounded-2xl border-l-4 border-orange-400 bg-orange-50 overflow-hidden">
-                      {/* Header */}
-                      <div className="flex items-center gap-2 px-5 pt-4 pb-3">
-                        <AlertTriangle size={16} className="text-orange-500 shrink-0" />
-                        <span className="text-sm font-bold text-orange-700 uppercase tracking-wide">
-                          Action requise —{' '}
-                          {membresPreEnrolledSansCotisation.length}{' '}
-                          {membresPreEnrolledSansCotisation.length > 1
-                            ? 'membres sans cotisation'
-                            : 'membre sans cotisation'}
+                  {/* Toggle vue */}
+                  <div className="flex gap-1 p-1 bg-neutral-100 rounded-xl mb-4 w-fit">
+                    <button
+                      onClick={() => setCotisationView('par-cycle')}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                        cotisationView === 'par-cycle'
+                          ? 'bg-white text-neutral-900 shadow-sm'
+                          : 'text-neutral-500 hover:text-neutral-700'
+                      }`}
+                    >
+                      <LayoutList size={13} /> Par cycle
+                    </button>
+                    <button
+                      onClick={() => setCotisationView('recap-total')}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                        cotisationView === 'recap-total'
+                          ? 'bg-white text-neutral-900 shadow-sm'
+                          : 'text-neutral-500 hover:text-neutral-700'
+                      }`}
+                    >
+                      <Users2 size={13} /> Vue d'ensemble
+                    </button>
+                  </div>
+
+                  {/* Vue d'ensemble : recap total par membre */}
+                  {cotisationView === 'recap-total' && id && (
+                    <CotisationsRecapTotal tontineId={id} />
+                  )}
+
+                  {/* Vue par cycle */}
+                  {cotisationView === 'par-cycle' && (
+                  <>{/* Sélecteur membre */}
+                  <div className="flex flex-wrap items-center gap-3 mb-4">
+                    <select
+                      value={selectedMembreId || ''}
+                      onChange={(e) => { setSelectedMembreId(e.target.value || undefined); setSelectedCycleId(undefined) }}
+                      className="w-full sm:w-72 text-sm text-neutral-700 bg-neutral-50 border border-neutral-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-300"
+                    >
+                      <option value="">Tous les membres</option>
+                      {membres.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.user.firstName} {m.user.lastName}
+                        </option>
+                      ))}
+                    </select>
+
+                    {/* Indicateur cycle (masqué quand un membre est sélectionné) */}
+                    {!selectedMembreId && effectiveCycleFilter && (
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100">
+                          {cycles.find((c) => c.id === effectiveCycleFilter)
+                            ? `Cycle #${cycles.find((c) => c.id === effectiveCycleFilter)!.numeroCycle}`
+                            : 'Cycle'} — cotisations
                         </span>
-                        {cycleEnCours && (
-                          <span className="ml-auto text-xs text-orange-500 font-medium">
-                            Cycle #{cycleEnCours.numeroCycle} en cours
-                          </span>
-                        )}
+                        <button
+                          onClick={() => setSelectedCycleId(undefined)}
+                          className="text-xs text-neutral-400 hover:text-neutral-600 underline"
+                        >
+                          Voir tout
+                        </button>
                       </div>
+                    )}
+                  </div>
 
-                      {/* Cards membres */}
-                      <div className="px-4 pb-4 space-y-2">
-                        {membresPreEnrolledSansCotisation.map((m) => {
-                          const initials = `${m.user.firstName[0]}${m.user.lastName[0]}`.toUpperCase()
-                          const nomComplet = `${m.user.firstName} ${m.user.lastName}`
-                          return (
-                            <div
-                              key={m.id}
-                              className="flex items-center gap-3 bg-white rounded-xl border border-orange-200 px-4 py-3 shadow-sm"
-                            >
-                              {/* Avatar */}
-                              <div className="w-10 h-10 rounded-full bg-primary-500 flex items-center justify-center text-white text-sm font-bold shrink-0">
-                                {initials}
-                              </div>
-
-                              {/* Nom + badges */}
-                              <div className="flex-1 min-w-0">
-                                <p className="font-semibold text-neutral-900 text-sm truncate">{nomComplet}</p>
-                                <div className="flex items-center gap-2 mt-0.5">
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 text-xs font-semibold">
-                                    Sans compte
-                                  </span>
-                                  <span className="text-xs text-neutral-400">{m.user.phone}</span>
-                                  {tontine && (
-                                    <span className="text-xs text-neutral-500 font-medium">
-                                      · {tontine.montant.toLocaleString('fr-FR')} FCFA attendus
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* CTA */}
-                              <Button
-                                size="sm"
-                                onClick={() =>
-                                  setPaiementModal({
-                                    isOpen: true,
-                                    membreId: m.id,
-                                    membreNom: nomComplet,
-                                    cycleId: cycleEnCours!.id,
-                                  })
-                                }
-                                className="shrink-0 gap-1.5"
-                              >
-                                <CreditCard size={14} />
-                                Déclarer le paiement
-                              </Button>
+                  {/* Fiche résumé membre sélectionné */}
+                  {selectedMembreId && (() => {
+                    const membreInfo = membres.find((m) => m.id === selectedMembreId)
+                    const cots = cotisationsData?.content || []
+                    const totalValide = cots.filter((c) => c.statut === CotisationStatut.VALIDE).reduce((s, c) => s + c.montant, 0)
+                    const nbEnAttente = cots.filter((c) => c.statut === CotisationStatut.EN_ATTENTE).length
+                    const nbEnRetard = cots.filter((c) => c.statut === CotisationStatut.EN_RETARD).length
+                    return (
+                      <div className="mb-4 bg-primary-50 border border-primary-100 rounded-xl p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-9 h-9 rounded-full bg-primary-500 text-white text-sm font-bold flex items-center justify-center shrink-0">
+                              {membreInfo ? `${membreInfo.user.firstName[0]}${membreInfo.user.lastName[0]}`.toUpperCase() : '?'}
                             </div>
-                          )
-                        })}
+                            <div>
+                              <p className="text-sm font-bold text-primary-900">
+                                {membreInfo ? `${membreInfo.user.firstName} ${membreInfo.user.lastName}` : '—'}
+                              </p>
+                              <p className="text-xs text-primary-500">Toutes les cotisations sur cette tontine</p>
+                            </div>
+                          </div>
+                          <button onClick={() => setSelectedMembreId(undefined)} className="text-xs text-neutral-400 hover:text-neutral-600 underline">
+                            Voir tous les membres
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 mb-3">
+                          <div className="bg-white rounded-xl p-2.5 text-center">
+                            <p className="text-xs text-neutral-400 mb-0.5">Validées</p>
+                            <p className="font-bold text-primary-600">{cots.filter((c) => c.statut === CotisationStatut.VALIDE).length}</p>
+                          </div>
+                          <div className="bg-white rounded-xl p-2.5 text-center">
+                            <p className="text-xs text-neutral-400 mb-0.5">En attente</p>
+                            <p className="font-bold text-orange-500">{nbEnAttente}</p>
+                          </div>
+                          <div className="bg-white rounded-xl p-2.5 text-center">
+                            <p className="text-xs text-neutral-400 mb-0.5">En retard</p>
+                            <p className="font-bold text-red-500">{nbEnRetard}</p>
+                          </div>
+                        </div>
+                        <div className="pt-2 border-t border-primary-100 flex items-center justify-between">
+                          <p className="text-xs text-primary-600">Total versé (validé)</p>
+                          <p className="text-sm font-extrabold text-primary-700">{totalValide.toLocaleString('fr-FR')} FCFA</p>
+                        </div>
                       </div>
+                    )
+                  })()}
+
+                  {/* ── Section membres sans cotisation sur le cycle EN_COURS ── */}
+                  {membresSansCotisation.length > 0 && effectiveCycleFilter === cycleEnCours?.id && !selectedMembreId && (
+                    <div className="mb-6 rounded-xl border border-orange-100 bg-orange-50 overflow-hidden">
+                      <button
+                        onClick={() => setShowMembresSansCot((v) => !v)}
+                        className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-orange-100 transition-colors"
+                      >
+                        <AlertTriangle size={14} className="text-orange-500 shrink-0" />
+                        <span className="text-xs font-bold text-orange-700 uppercase tracking-wide flex-1">
+                          {membresSansCotisation.length}{' '}
+                          {membresSansCotisation.length > 1 ? 'membres sans cotisation' : 'membre sans cotisation'}
+                          {cycleEnCours ? ` — Cycle #${cycleEnCours.numeroCycle}` : ''}
+                        </span>
+                        {showMembresSansCot
+                          ? <ChevronUp size={15} className="text-orange-400 shrink-0" />
+                          : <ChevronDown size={15} className="text-orange-400 shrink-0" />
+                        }
+                      </button>
+                      {showMembresSansCot && (
+                        <div className="px-3 pb-3 space-y-2">
+                          {membresSansCotisation.map((m) => {
+                            const initials = `${m.user.firstName[0]}${m.user.lastName[0]}`.toUpperCase()
+                            const nomComplet = `${m.user.firstName} ${m.user.lastName}`
+                            const isPreEnrolled = m.user.accountStatus === AccountStatus.PRE_ENROLLED
+                            return (
+                              <div
+                                key={m.id}
+                                className="flex items-center gap-3 bg-white rounded-xl border border-orange-200 px-4 py-3 shadow-sm"
+                              >
+                                <div className="w-9 h-9 rounded-full bg-primary-500 flex items-center justify-center text-white text-sm font-bold shrink-0">
+                                  {initials}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-semibold text-neutral-900 text-sm truncate">{nomComplet}</p>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    {isPreEnrolled && (
+                                      <span className="px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700 text-xs font-semibold">
+                                        Sans compte
+                                      </span>
+                                    )}
+                                    <span className="text-xs text-neutral-400">{m.user.phone}</span>
+                                  </div>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  onClick={() =>
+                                    setPaiementModal({
+                                      isOpen: true,
+                                      membreId: m.id,
+                                      membreNom: nomComplet,
+                                      cycleId: cycleEnCours!.id,
+                                    })
+                                  }
+                                  className="shrink-0 gap-1.5"
+                                >
+                                  <CreditCard size={14} />
+                                  + Paiement
+                                </Button>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
                     </div>
                   )}
 
-                  {/* ── Tableau cotisations ── */}
-                  <Table
-                    columns={cotisationColumns}
-                    data={cotisationsData?.content || []}
-                    isLoading={cotisationsLoading}
-                    emptyMessage="Aucune cotisation"
-                  />
+                  {/* ── Cotisations Desktop ── */}
+                  <div className="hidden sm:block">
+                    <Table
+                      columns={cotisationColumns}
+                      data={cotisationsData?.content || []}
+                      isLoading={cotisationsLoading}
+                      emptyMessage="Aucune cotisation"
+                    />
+                  </div>
+                  {/* ── Cotisations Mobile — cards ── */}
+                  <div className="sm:hidden py-2 space-y-2">
+                    {cotisationsLoading ? (
+                      <div className="flex justify-center py-10"><Spinner /></div>
+                    ) : cotisations.length === 0 ? (
+                      <p className="text-center py-10 text-neutral-400 text-sm">Aucune cotisation</p>
+                    ) : cotisations.map((c: Cotisation) => {
+                      const cotStatutColor: Record<CotisationStatut, string> = {
+                        VALIDE: 'bg-primary-100 text-primary-700',
+                        EN_ATTENTE: 'bg-orange-100 text-orange-700',
+                        EN_RETARD: 'bg-red-100 text-red-700',
+                      }
+                      const cycleOfCot = cycles.find((cy) => cy.id === c.cycleId)
+                      const cycleIsEnCours = cycleOfCot?.statut === CycleStatut.EN_COURS
+                      const showEdit = c.statut === CotisationStatut.EN_ATTENTE || (c.statut === CotisationStatut.VALIDE && cycleIsEnCours)
+                      return (
+                        <div key={c.id} className="px-3 py-3 rounded-xl border border-neutral-100 bg-white shadow-sm">
+                          <div className="flex items-start justify-between mb-1.5">
+                            <div>
+                              <p className="text-sm font-semibold text-neutral-900">{c.membre.firstName} {c.membre.lastName}</p>
+                              <p className="text-xs text-neutral-400">{c.methodePaiement}{c.referenceTransaction ? ` · ${c.referenceTransaction}` : ''}</p>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className="text-sm font-bold text-neutral-800">{c.montant.toLocaleString('fr-FR')} FCFA</span>
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${cotStatutColor[c.statut]}`}>{c.statut}</span>
+                            </div>
+                          </div>
+                          {(c.statut === CotisationStatut.EN_ATTENTE || showEdit) && (
+                            <div className="flex gap-2 pt-1 border-t border-neutral-50">
+                              {c.statut === CotisationStatut.EN_ATTENTE && (
+                                <button
+                                  onClick={() => validerCotisation(
+                                    { tontineId: id!, cotisationId: c.id },
+                                    { onSuccess: () => toast.success('Cotisation validée'), onError: () => toast.error('Erreur') }
+                                  )}
+                                  className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg bg-primary-50 text-primary-700 text-xs font-semibold hover:bg-primary-100 transition-colors"
+                                >
+                                  <CheckCircle size={13} /> Valider
+                                </button>
+                              )}
+                              {showEdit && (
+                                <button
+                                  onClick={() => setEditCotisationState({
+                                    isOpen: true,
+                                    cotisationId: c.id,
+                                    membreNom: `${c.membre.firstName} ${c.membre.lastName}`,
+                                    initialValues: { montant: c.montant, methodePaiement: c.methodePaiement, referenceTransaction: c.referenceTransaction, note: c.note },
+                                  })}
+                                  className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg bg-neutral-100 text-neutral-700 text-xs font-semibold hover:bg-neutral-200 transition-colors"
+                                >
+                                  <Edit2 size={13} /> Modifier
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                  </>)}
                 </div>
               )}
               {activeTab === 'commissions' && (
@@ -469,6 +876,29 @@ export function TontineDetailPage() {
               cycleId={paiementModal.cycleId}
               membreId={paiementModal.membreId}
               membreNom={paiementModal.membreNom}
+              montantDefaut={tontine.montant}
+            />
+          )}
+
+          {/* Modal modification cotisation */}
+          {id && (
+            <AdminEditCotisationModal
+              isOpen={editCotisationState.isOpen}
+              onClose={() => setEditCotisationState((s) => ({ ...s, isOpen: false }))}
+              tontineId={id}
+              cotisationId={editCotisationState.cotisationId}
+              membreNom={editCotisationState.membreNom}
+              initialValues={editCotisationState.initialValues}
+            />
+          )}
+
+          {/* Modal récapitulatif cotisations d'un cycle */}
+          {id && recapCycle && (
+            <CycleRecapModal
+              isOpen={!!recapCycle}
+              onClose={() => setRecapCycle(null)}
+              tontineId={id}
+              cycle={recapCycle}
               montantDefaut={tontine.montant}
             />
           )}

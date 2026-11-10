@@ -26,6 +26,8 @@ COPY . .
 ARG VITE_API_URL=http://localhost:8081
 ENV VITE_API_URL=${VITE_API_URL}
 
+# BUILD_DATE varie à chaque run CI → invalide le cache Docker pour npm run build
+ARG BUILD_DATE
 RUN npm run build
 
 
@@ -41,6 +43,6 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 EXPOSE 80
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD wget -qO- http://localhost/health || exit 1
+    CMD wget -qO- http://127.0.0.1/health || exit 1
 
 CMD ["nginx", "-g", "daemon off;"]

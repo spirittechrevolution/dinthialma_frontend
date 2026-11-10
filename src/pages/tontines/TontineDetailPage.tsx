@@ -18,6 +18,7 @@ import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { AddMembreModal } from '@/components/shared/AddMembreModal'
 import { AdminEnregistrerPaiementModal } from '@/components/shared/AdminEnregistrerPaiementModal'
 import { RecapCotisationsPanel } from '@/components/shared/RecapCotisationsPanel'
+import { AdminEditCotisationModal, EditCotisationInitialValues } from '@/components/shared/AdminEditCotisationModal'
 import { useAuth } from '@/hooks/useAuth'
 import {
   useTontine,
@@ -55,7 +56,6 @@ import {
   CheckCircle,
   UserMinus,
   UserCheck,
-  Lock,
   Clock,
   Star,
   Shuffle,
@@ -67,6 +67,9 @@ import {
   Download,
   Send,
   Users,
+  AlertTriangle,
+  Lock,
+  Edit2,
 } from 'lucide-react'
 import { ChipRow } from '@/components/ui/ChipRow'
 
@@ -207,19 +210,56 @@ export function TontineDetailPage() {
   const [distributionFinale, setDistributionFinale] = useState<MembreDistributionInfo[] | null>(null)
   const [membresPage, setMembresPage] = useState(0)
   const [cotPage, setCotPage] = useState(0)
+  // Filtres de l'onglet Paiements (repris de main)
+  // undefined = cycle en cours par défaut, '' = tous les cycles, 'id' = cycle choisi
+  const [cotisationCycleFilter, setCotisationCycleFilter] = useState<string | undefined>(undefined)
+  const [selectedMembreId, setSelectedMembreId] = useState<string | undefined>(undefined)
+  const [showMembresSansCot, setShowMembresSansCot] = useState(false)
+  const [editCot, setEditCot] = useState<{ cotisationId: string; membreNom: string; initialValues: EditCotisationInitialValues } | null>(null)
 
   // ─── Data ─────────────────────────────────────────────────────────────────
   const { data: tontine, isLoading } = useTontine(id || '')
-  const { data: membresData } = useMembres(id || '', 0, 50)
-  const { data: cyclesData } = useCycles(id || '', 0, 50)
-  const { data: cotisationsData } = useCotisations(id || '', undefined, 0, 50)
+  const { data: membresData } = useMembres(id || '', 0, 100)
+  const { data: cyclesData } = useCycles(id || '', 0, 100)
   const { data: commissionsData } = useCommissions(id || '', 0, 20)
   const { data: historiqueBeneficiaires, isLoading: isLoadingHistorique } = useBeneficiairesHistorique(id || '', 0, 50)
-  // Listes affichées (paginées). Les requêtes « 50 » ci-dessus servent aux calculs
-  // (membres sans cotisation, éligibles jackpot…), inchangés.
+
+  // ─── Permissions (nécessaires aux filtres ci-dessous) ─────────────────────
+  const isSuperAdmin = hasRole(UserRole.SUPER_ADMIN)
+  const isAdminRole = hasRole(UserRole.ADMIN)
+  const isCreator = tontine && user && tontine.creePar.phone === user.phone
+  const canManage = isCreator && isAdminRole
+  const voitTout = !!(canManage || isSuperAdmin)
+
+  const cycleEnCoursId = (cyclesData?.content || []).find((c: Cycle) => c.statut === CycleStatut.EN_COURS)?.id
+
+  // Confidentialité : hors gestionnaire / super-admin, on ne demande que SES cotisations
+  // (filtre serveur ?membreId= → pagination exacte). Membre retrouvé par téléphone
+  // (Keycloak stocke "221…", l'API "7…" → on retire l'indicatif).
+  const normalizePhone = (p: string) => p.replace(/\D/g, '').replace(/^221/, '')
+  const myMembreId = (membresData?.content || []).find(
+    (m: Membre) => normalizePhone(m.user.phone) === normalizePhone(user?.phone || '')
+  )?.id
+  const membreFilter = voitTout ? selectedMembreId : myMembreId
+  const cotisationsAutorisees = voitTout || !!myMembreId
+
+  // undefined = cycle en cours ; '' = tous ; 'id' = cycle choisi. Fiche membre → tous cycles.
+  const baseCycleFilter = cotisationCycleFilter === undefined ? cycleEnCoursId : (cotisationCycleFilter || undefined)
+  const effectiveCycleFilter = selectedMembreId ? undefined : baseCycleFilter
+
+  // 1) Cycle en cours, complet : bouton « Valider N », badge, membres sans cotisation
+  const { data: currentCycleCotData } = useCotisations(id || '', cycleEnCoursId, 0, 200, undefined, voitTout && !!cycleEnCoursId)
+  // 2) Vue filtrée, complète : mini-stats et fiche membre
+  const { data: viewCotData } = useCotisations(id || '', effectiveCycleFilter, 0, 200, membreFilter, cotisationsAutorisees)
+  // 3) Liste affichée, paginée (même requête que 2 quand un membre est sélectionné)
   const LIST_SIZE = 20
+  const { data: listCotData, isLoading: listCotLoading } = useCotisations(
+    id || '', effectiveCycleFilter,
+    selectedMembreId ? 0 : cotPage, selectedMembreId ? 200 : LIST_SIZE,
+    membreFilter, cotisationsAutorisees
+  )
+  const listLoading = listCotLoading && cotisationsAutorisees
   const { data: membresPageData, isLoading: membresPageLoading } = useMembres(id || '', membresPage, LIST_SIZE)
-  const { data: cotPageData, isLoading: cotPageLoading } = useCotisations(id || '', undefined, cotPage, LIST_SIZE)
 
   // ─── Mutations ────────────────────────────────────────────────────────────
   const { mutate: activer, isPending: isActivating } = useActiverTontine()
@@ -240,15 +280,8 @@ export function TontineDetailPage() {
   })
   const commissionForm = useForm<CommissionForm>({ resolver: zodResolver(commissionSchema) })
 
-  // ─── Permissions ──────────────────────────────────────────────────────────
-  const isSuperAdmin = hasRole(UserRole.SUPER_ADMIN)
-  const isAdminRole = hasRole(UserRole.ADMIN)
-  const isCreator = tontine && user && tontine.creePar.phone === user.phone
-  const canManage = isCreator && isAdminRole
-
   const membres = membresData?.content || []
   const cycles = cyclesData?.content || []
-  const cotisations = cotisationsData?.content || []
   const commissions = commissionsData?.content || []
 
   const isEvenementielle = tontine?.tontineType === TontineType.EVENEMENTIELLE
@@ -257,13 +290,18 @@ export function TontineDetailPage() {
     ? Math.round((tontine.nombreMembresActuels / tontine.nombreMembres) * 100)
     : 0
 
-  const cotValidees = cotisations.filter((c) => c.statut === CotisationStatut.VALIDE).length
-  const cotEnAttente = cotisations.filter((c) => c.statut === CotisationStatut.EN_ATTENTE).length
-  const cotEnRetard = cotisations.filter((c) => c.statut === CotisationStatut.EN_RETARD).length
+  // Liste affichée et statistiques de la vue filtrée
+  const cotisationsToShow = listCotData?.content || []
+  const viewCotisations = viewCotData?.content || []
+  const cotValidees = viewCotisations.filter((c) => c.statut === CotisationStatut.VALIDE).length
+  const cotEnRetard = viewCotisations.filter((c) => c.statut === CotisationStatut.EN_RETARD).length
+  // Le bouton « Valider N paiements » et le badge portent toujours sur le cycle en cours
+  const currentCycleCotisations = currentCycleCotData?.content || []
+  const cotEnAttente = currentCycleCotisations.filter((c) => c.statut === CotisationStatut.EN_ATTENTE).length
+  const cotEnAttenteVue = viewCotisations.filter((c) => c.statut === CotisationStatut.EN_ATTENTE).length
 
   const currentCycle = cycles.find((c: Cycle) => c.statut === CycleStatut.EN_COURS)
-  const cotisationsCurrentCycle = cotisations.filter((c: Cotisation) => currentCycle && c.cycleId === currentCycle.id)
-  const paidMembreIds = new Set(cotisationsCurrentCycle.map((c: Cotisation) => c.membre.membreId))
+  const paidMembreIds = new Set(currentCycleCotisations.map((c: Cotisation) => c.membre.membreId))
   // Inclut ACTIF et PRE_ENROLLED — seul moyen pour un PRE_ENROLLED de déclarer
   const membresWithoutCotisation = membres.filter(
     (m: Membre) =>
@@ -394,15 +432,18 @@ export function TontineDetailPage() {
     )
   }
 
-  const tabs: { id: Tab; label: string; show: boolean }[] = [
-    { id: 'infos',        label: 'Infos',               show: true },
-    { id: 'membres',      label: 'Membres',             show: true },
+  // Compteurs affichés sur les onglets
+  const membresActifs = membres.filter((m: Membre) => m.statut === MembreStatut.ACTIF).length
+
+  const tabs: { id: Tab; label: string; show: boolean; badge?: number; badgeAlert?: boolean }[] = [
+    { id: 'infos',        label: 'Infos',       show: true },
+    { id: 'membres',      label: 'Membres',     show: true, badge: membresActifs || undefined },
     { id: 'cycles',       label: isEvenementielle ? 'Périodes' : 'Cycles', show: true },
-    { id: 'cotisations',  label: 'Paiements',           show: true },
+    { id: 'cotisations',  label: 'Paiements',   show: true, badge: (canManage && cotEnAttente) || undefined, badgeAlert: true },
     // Récap : mêmes droits que l'API (créateur de la tontine + SUPER_ADMIN)
-    { id: 'recap',        label: 'Récap',               show: !!(isCreator || isSuperAdmin) },
-    { id: 'historique',   label: 'Jackpots',            show: !isEvenementielle },
-    { id: 'commissions',  label: 'Commissions',         show: !!canManage },
+    { id: 'recap',        label: 'Récap',       show: !!(isCreator || isSuperAdmin) },
+    { id: 'historique',   label: 'Jackpots',    show: !isEvenementielle },
+    { id: 'commissions',  label: 'Commissions', show: !!canManage },
   ]
 
   if (isLoading || !tontine) {
@@ -549,27 +590,30 @@ export function TontineDetailPage() {
         )
       })()}
 
-      {/* ── Onglets (pastilles défilables) ───────────────────────────────── */}
+      {/* ── Onglets (pastilles défilables, avec compteurs) ───────────────── */}
       <ChipRow className="mb-3">
-        {tabs.filter((t) => t.show).map((tab) => (
-          <button
-            aria-pressed={activeTab === tab.id}
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`h-9 px-4 rounded-full text-sm font-medium whitespace-nowrap transition-colors inline-flex items-center ${
-              activeTab === tab.id
-                ? 'bg-neutral-900 text-white'
-                : 'bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-100'
-            }`}
-          >
-            {tab.label}
-            {tab.id === 'cotisations' && canManage && cotEnAttente > 0 && (
-              <span className={`ml-1.5 inline-flex min-w-5 h-5 px-1 rounded-full text-[11px] font-bold items-center justify-center ${activeTab === tab.id ? 'bg-white text-neutral-900' : 'bg-red-500 text-white'}`}>
-                {cotEnAttente}
-              </span>
-            )}
-          </button>
-        ))}
+        {tabs.filter((t) => t.show).map((tab) => {
+          const active = activeTab === tab.id
+          return (
+            <button
+              aria-pressed={active}
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`h-9 px-4 rounded-full text-sm font-medium whitespace-nowrap transition-colors inline-flex items-center ${
+                active ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-100'
+              }`}
+            >
+              {tab.label}
+              {tab.badge != null && tab.badge > 0 && (
+                <span className={`ml-1.5 inline-flex min-w-5 h-5 px-1 rounded-full text-[11px] font-bold items-center justify-center ${
+                  active ? 'bg-white text-neutral-900' : tab.badgeAlert ? 'bg-red-500 text-white' : 'bg-neutral-100 text-neutral-600'
+                }`}>
+                  {tab.badge}
+                </span>
+              )}
+            </button>
+          )
+        })}
       </ChipRow>
 
       <div className="bg-white rounded-2xl border border-neutral-100 overflow-hidden">
@@ -898,6 +942,14 @@ export function TontineDetailPage() {
                           </div>
                         )
                       )}
+                      {cycle.statut !== CycleStatut.EN_ATTENTE && (
+                        <button
+                          onClick={() => { setCotisationCycleFilter(cycle.id); setActiveTab('cotisations') }}
+                          className="w-full text-xs font-semibold text-primary-700 border border-primary-200 bg-primary-50 rounded-lg py-1.5 hover:bg-primary-100 transition-colors"
+                        >
+                          Voir les cotisations
+                        </button>
+                      )}
                       {canManage && cycle.statut === CycleStatut.EN_COURS && (
                         <button
                           onClick={() => setCycleToClose(cycle.id)}
@@ -917,7 +969,98 @@ export function TontineDetailPage() {
           {/* ── Cotisations ──────────────────────────────────────────────── */}
           {activeTab === 'cotisations' && (
             <div>
-              {/* Mini stats */}
+              {/* Choix du cycle (cycle en cours par défaut) */}
+              {cycles.length > 0 && !selectedMembreId && (
+                <ChipRow className="mb-4">
+                  {(() => {
+                    const actif = cotisationCycleFilter === undefined ? cycleEnCoursId ?? '' : cotisationCycleFilter
+                    const cls = (on: boolean) => `h-9 px-4 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                      on ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                    }`
+                    return (
+                      <>
+                        <button aria-pressed={actif === ''} onClick={() => { setCotisationCycleFilter(''); setCotPage(0) }} className={cls(actif === '')}>
+                          Tous
+                        </button>
+                        {[...cycles].sort((a: Cycle, b: Cycle) => b.numeroCycle - a.numeroCycle).map((cy: Cycle) => (
+                          <button key={cy.id} aria-pressed={actif === cy.id} onClick={() => { setCotisationCycleFilter(cy.id); setCotPage(0) }} className={cls(actif === cy.id)}>
+                            {isEvenementielle ? 'Période' : 'Cycle'} {cy.numeroCycle}
+                            {cy.statut === CycleStatut.EN_COURS && (
+                              <span className={`ml-1.5 inline-block w-2 h-2 rounded-full ${actif === cy.id ? 'bg-lime-300' : 'bg-primary-500'}`} title="En cours" />
+                            )}
+                          </button>
+                        ))}
+                      </>
+                    )
+                  })()}
+                </ChipRow>
+              )}
+
+              {/* Sélecteur membre (gestionnaire uniquement) */}
+              {canManage && membres.length > 0 && (
+                <div className="mb-4 sm:w-72">
+                  <Select
+                    aria-label="Filtrer par membre"
+                    value={selectedMembreId || ''}
+                    onChange={(e) => { setSelectedMembreId(e.target.value || undefined); setCotPage(0) }}
+                    options={[
+                      { value: '', label: 'Tous les membres' },
+                      ...membres.filter((m: Membre) => m.statut !== MembreStatut.SORTI)
+                        .map((m: Membre) => ({ value: m.id, label: `${m.user.firstName} ${m.user.lastName}` })),
+                    ]}
+                  />
+                </div>
+              )}
+
+              {/* Fiche membre sélectionné */}
+              {selectedMembreId && (() => {
+                const membreInfo = membres.find((m: Membre) => m.id === selectedMembreId)
+                const totalValide = viewCotisations.filter((c: Cotisation) => c.statut === CotisationStatut.VALIDE).reduce((s: number, c: Cotisation) => s + c.montant, 0)
+                const nbEnAttente = viewCotisations.filter((c: Cotisation) => c.statut === CotisationStatut.EN_ATTENTE).length
+                const nbEnRetard = viewCotisations.filter((c: Cotisation) => c.statut === CotisationStatut.EN_RETARD).length
+                return (
+                  <div className="mb-4 bg-primary-50 border border-primary-100 rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        {membreInfo && <MiniAvatar name={`${membreInfo.user.firstName} ${membreInfo.user.lastName}`} />}
+                        <div>
+                          <p className="text-sm font-bold text-primary-900">
+                            {membreInfo ? `${membreInfo.user.firstName} ${membreInfo.user.lastName}` : '—'}
+                          </p>
+                          <p className="text-xs text-primary-500">Toutes les cotisations sur cette tontine</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => { setSelectedMembreId(undefined); setCotPage(0) }}
+                        className="text-sm font-semibold text-primary-700 hover:underline"
+                      >
+                        Voir tous
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 mb-3">
+                      <div className="bg-white rounded-xl p-2.5 text-center">
+                        <p className="text-xs text-neutral-400 mb-0.5">Validées</p>
+                        <p className="font-bold text-primary-600">{viewCotisations.filter((c: Cotisation) => c.statut === CotisationStatut.VALIDE).length}</p>
+                      </div>
+                      <div className="bg-white rounded-xl p-2.5 text-center">
+                        <p className="text-xs text-neutral-400 mb-0.5">En attente</p>
+                        <p className="font-bold text-orange-500">{nbEnAttente}</p>
+                      </div>
+                      <div className="bg-white rounded-xl p-2.5 text-center">
+                        <p className="text-xs text-neutral-400 mb-0.5">En retard</p>
+                        <p className="font-bold text-red-500">{nbEnRetard}</p>
+                      </div>
+                    </div>
+                    <div className="pt-2 border-t border-primary-100 flex items-center justify-between">
+                      <p className="text-xs text-primary-600">Total versé (validé)</p>
+                      <p className="text-sm font-extrabold text-primary-700">{totalValide.toLocaleString('fr-FR')} FCFA</p>
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* Mini stats (masquées quand un membre est sélectionné — la fiche les remplace) */}
+              {!selectedMembreId && (
               <div className="grid grid-cols-3 gap-3 mb-4">
                 <div className="bg-primary-50 rounded-xl p-3 text-center">
                   <p className="text-xs text-primary-500 mb-0.5">Validées</p>
@@ -925,60 +1068,72 @@ export function TontineDetailPage() {
                 </div>
                 <div className="bg-orange-50 rounded-xl p-3 text-center">
                   <p className="text-xs text-orange-500 mb-0.5">En attente</p>
-                  <p className="font-bold text-orange-700 text-lg">{cotEnAttente}</p>
+                  <p className="font-bold text-orange-700 text-lg">{cotEnAttenteVue}</p>
                 </div>
                 <div className="bg-red-50 rounded-xl p-3 text-center">
                   <p className="text-xs text-red-500 mb-0.5">En retard</p>
                   <p className="font-bold text-red-700 text-lg">{cotEnRetard}</p>
                 </div>
               </div>
+              )}
 
-              {/* Membres sans cotisation (cycle EN_COURS) */}
-              {canManage && currentCycle && membresWithoutCotisation.length > 0 && (
-                <div className="mb-4 p-4 bg-orange-50 border border-orange-100 rounded-xl">
-                  <p className="text-xs font-semibold text-orange-700 mb-3 uppercase tracking-wide">
-                    Membres sans cotisation — Cycle #{currentCycle.numeroCycle} en cours
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {membresWithoutCotisation.map((m: Membre) => {
-                      const nom = `${m.user.firstName} ${m.user.lastName}`
-                      return (
-                        <div
-                          key={m.id}
-                          className="flex items-center gap-2 bg-white border border-orange-200 rounded-lg px-3 py-1.5"
-                        >
-                          <MiniAvatar name={nom} />
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-sm font-medium text-neutral-800">{nom}</span>
-                            {m.user.accountStatus === AccountStatus.PRE_ENROLLED && (
-                              <span
-                                title="Ce membre n'a pas encore de compte Dinthialma. Seul l'admin peut enregistrer ses paiements."
-                                className="px-1.5 py-0.5 rounded-full text-xs font-semibold bg-neutral-200 text-neutral-600 cursor-help"
-                              >
-                                Sans compte
-                              </span>
-                            )}
-                          </div>
-                          <button
-                            onClick={() => setAdminPayModal({ membreId: m.id, membreNom: nom })}
-                            className="ml-auto flex items-center gap-1 px-2 py-0.5 bg-primary-600 text-white text-xs rounded-lg hover:bg-primary-700 transition-colors"
+              {/* Membres sans cotisation — seulement quand on est sur le cycle EN_COURS */}
+              {canManage && currentCycle && effectiveCycleFilter === currentCycle.id && !selectedMembreId && membresWithoutCotisation.length > 0 && (
+                <div className="mb-4 rounded-xl border border-orange-100 bg-orange-50 overflow-hidden">
+                  <button
+                    onClick={() => setShowMembresSansCot((v) => !v)}
+                    className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-orange-100 transition-colors"
+                  >
+                    <AlertTriangle size={14} className="text-orange-500 shrink-0" />
+                    <span className="text-xs font-bold text-orange-700 uppercase tracking-wide flex-1">
+                      {membresWithoutCotisation.length}{' '}
+                      {membresWithoutCotisation.length > 1 ? 'membres sans cotisation' : 'membre sans cotisation'}
+                      {' '}— Cycle #{currentCycle.numeroCycle}
+                    </span>
+                    {showMembresSansCot
+                      ? <ChevronUp size={15} className="text-orange-400 shrink-0" />
+                      : <ChevronDown size={15} className="text-orange-400 shrink-0" />
+                    }
+                  </button>
+                  {showMembresSansCot && (
+                    <div className="px-3 pb-3 space-y-2">
+                      {membresWithoutCotisation.map((m: Membre) => {
+                        const nom = `${m.user.firstName} ${m.user.lastName}`
+                        return (
+                          <div
+                            key={m.id}
+                            className="flex items-center gap-2 bg-white border border-orange-200 rounded-lg px-3 py-2"
                           >
-                            <Plus size={11} /> Paiement
-                          </button>
-                        </div>
-                      )
-                    })}
-                  </div>
+                            <MiniAvatar name={nom} />
+                            <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                              <span className="text-sm font-medium text-neutral-800 truncate">{nom}</span>
+                              {m.user.accountStatus === AccountStatus.PRE_ENROLLED && (
+                                <span className="px-1.5 py-0.5 rounded-full text-xs font-semibold bg-neutral-200 text-neutral-600 shrink-0">
+                                  Sans compte
+                                </span>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => setAdminPayModal({ membreId: m.id, membreNom: nom })}
+                              className="shrink-0 flex items-center gap-1 px-2.5 py-1 bg-primary-600 text-white text-xs rounded-lg hover:bg-primary-700 transition-colors"
+                            >
+                              <Plus size={11} /> Paiement
+                            </button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
 
-              {cotPageLoading ? (
+              {listLoading ? (
                 <div className="flex justify-center py-10"><Spinner /></div>
-              ) : (cotPageData?.content || []).length === 0 ? (
+              ) : cotisationsToShow.length === 0 ? (
                 <p className="text-center py-10 text-sm text-neutral-500">Aucune cotisation</p>
               ) : (
                 <ul className="-mx-4 sm:-mx-5 divide-y divide-neutral-100 border-y border-neutral-100">
-                  {(cotPageData?.content || []).map((c: Cotisation) => {
+                  {cotisationsToShow.map((c: Cotisation) => {
                     const nom = `${c.membre.firstName} ${c.membre.lastName}`
                     return (
                       <li key={c.id} className="flex items-center gap-3 px-4 sm:px-5 py-3">
@@ -997,6 +1152,19 @@ export function TontineDetailPage() {
                         </div>
                         <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                           <span className="text-sm font-bold text-neutral-900 tabular">{formatMontant(c.montant)} F</span>
+                          {canManage && (c.statut === CotisationStatut.EN_ATTENTE ||
+                            (c.statut === CotisationStatut.VALIDE && cycles.find((cy: Cycle) => cy.id === c.cycleId)?.statut === CycleStatut.EN_COURS)) && (
+                            <button
+                              onClick={() => setEditCot({
+                                cotisationId: c.id,
+                                membreNom: nom,
+                                initialValues: { montant: c.montant, methodePaiement: c.methodePaiement, referenceTransaction: c.referenceTransaction, note: c.note },
+                              })}
+                              className="h-8 px-3 rounded-full bg-neutral-100 text-neutral-700 text-xs font-semibold inline-flex items-center gap-1 hover:bg-neutral-200 active:scale-95 transition"
+                            >
+                              <Edit2 size={14} /> Modifier
+                            </button>
+                          )}
                           {canManage && c.statut === CotisationStatut.EN_ATTENTE && (
                             <button
                               onClick={() => setCotisationToValidate(c.id)}
@@ -1014,8 +1182,8 @@ export function TontineDetailPage() {
               <Pagination
                 className="px-0 pt-4 pb-0"
                 page={cotPage}
-                totalPages={cotPageData?.totalPages ?? 1}
-                totalElements={cotPageData?.totalElements}
+                totalPages={selectedMembreId ? 1 : listCotData?.totalPages ?? 1}
+                totalElements={listCotData?.totalElements}
                 pageSize={LIST_SIZE}
                 onPageChange={setCotPage}
               />
@@ -1602,6 +1770,17 @@ export function TontineDetailPage() {
           </div>
         )}
       </Modal>
+      {/* Modification d'une cotisation (gestionnaire) */}
+      {id && (
+        <AdminEditCotisationModal
+          isOpen={!!editCot}
+          onClose={() => setEditCot(null)}
+          tontineId={id}
+          cotisationId={editCot?.cotisationId || ''}
+          membreNom={editCot?.membreNom || ''}
+          initialValues={editCot?.initialValues || { montant: 0, methodePaiement: 'CASH' }}
+        />
+      )}
     </AppLayout>
   )
 }

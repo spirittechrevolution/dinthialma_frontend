@@ -14,7 +14,8 @@ import { useTontines } from '@/hooks/useTontines'
 import { useCycles, useOpenCycle, useCloturerCycle } from '@/hooks/useCycles'
 import { Cycle } from '@/types/cycle'
 import { CycleStatut } from '@/types/common'
-import { Plus, RefreshCw, Calendar, Trophy } from 'lucide-react'
+import { Plus, RefreshCw, Calendar, Trophy, List } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { Pagination } from '@/components/ui/Pagination'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { formatMontant, formatDateCourte } from '@/lib/format'
@@ -45,6 +46,7 @@ type CycleWithTontine = Cycle & { tontineNom?: string; tontineId?: string }
 const PAGE_SIZE = 12
 
 export function CyclesPage() {
+  const navigate = useNavigate()
   const [isOpenModal, setIsOpenModal] = useState(false)
   const [cycleToClose, setCycleToClose] = useState<{ cycleId: string; tontineId: string } | null>(null)
   const [selectedTontineId, setSelectedTontineId] = useState('')
@@ -191,7 +193,15 @@ export function CyclesPage() {
             </div>
           )}
 
-          {/* Action */}
+          {/* Actions */}
+          {cycle.statut !== CycleStatut.EN_ATTENTE && (
+            <button
+              onClick={() => navigate('/admin/cotisations', { state: { tontineId: cycle.tontineId, cycleId: cycle.id } })}
+              className="w-full h-9 mb-2 flex items-center justify-center gap-1.5 rounded-full text-sm font-semibold text-primary-700 border border-primary-200 bg-primary-50 hover:bg-primary-100 transition-colors"
+            >
+              <List size={15} /> Voir les cotisations
+            </button>
+          )}
           {enCours && (
             <Button
               variant="secondary"

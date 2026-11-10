@@ -64,8 +64,9 @@ jobs:
           # VITE_API_URL est compilé dans le bundle au moment du build
           build-args: |
             VITE_API_URL=${{ secrets.VITE_API_URL }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            BUILD_DATE=${{ github.run_id }}
+          cache-from: type=gha,scope=buildkit-${{ github.ref_name }}
+          cache-to: type=gha,mode=min,scope=buildkit-${{ github.ref_name }}
 
   # ═══════════════════════════════════════════════════════════════
   # STAGE 2 – Deploy to VPS
