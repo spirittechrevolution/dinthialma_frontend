@@ -1,16 +1,16 @@
 import api from './api'
 import { Cycle, OpenCycleRequest, DesignerGagnantsRequest } from '@/types/cycle'
 import { BeneficiaireHistoriqueItem } from '@/types/beneficiaire'
-import { PageResponse, CustomResponse } from '@/types/common'
+import { PageResponse, CustomResponse, RawPage, toPage } from '@/types/common'
 
 export const cycleService = {
   // ─── Lister les cycles d'une tontine ─────────────────────────────────────────
   listCycles: async (tontineId: string, page = 0, size = 20): Promise<PageResponse<Cycle>> => {
-    const response = await api.get<CustomResponse<PageResponse<Cycle>>>(
+    const response = await api.get<CustomResponse<RawPage<Cycle>>>(
       `/v1/tontines/${tontineId}/cycles`,
       { params: { page, size, sort: 'numeroCycle,asc' } }
     )
-    return response.data.data
+    return toPage(response.data.data)
   },
 
   // ─── Récupérer un cycle ───────────────────────────────────────────────────────
@@ -59,10 +59,10 @@ export const cycleService = {
     page = 0,
     size = 20
   ): Promise<PageResponse<BeneficiaireHistoriqueItem>> => {
-    const response = await api.get<CustomResponse<PageResponse<BeneficiaireHistoriqueItem>>>(
+    const response = await api.get<CustomResponse<RawPage<BeneficiaireHistoriqueItem>>>(
       `/v1/tontines/${tontineId}/cycles/beneficiaires`,
       { params: { page, size, sort: 'numeroCycle,asc' } }
     )
-    return response.data.data
+    return toPage(response.data.data)
   },
 }

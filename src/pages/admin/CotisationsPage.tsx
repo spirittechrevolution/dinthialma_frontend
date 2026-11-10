@@ -8,7 +8,12 @@ import { useTontines } from '@/hooks/useTontines'
 import { useCotisations, useValiderCotisation } from '@/hooks/useCotisations'
 import { Cotisation, EnregistreParInfo } from '@/types/cotisation'
 import { CotisationStatut } from '@/types/common'
-import { Search, Download, CheckCircle, XCircle } from 'lucide-react'
+import { Search, CheckCircle, Clock } from 'lucide-react'
+import { Pagination } from '@/components/ui/Pagination'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { InitialsAvatar } from '@/components/ui/Section'
+import { formatMontant, formatFCFA } from '@/lib/format'
+import { ChipRow } from '@/components/ui/ChipRow'
 
 const STATUT_TABS = [
   { label: 'Toutes', value: '' },
@@ -50,6 +55,7 @@ export function CotisationsPage() {
   const { data: tontinesData } = useTontines(0, 50)
   const tontines = tontinesData?.content || []
   const activeTontineId = selectedTontineId || tontines[0]?.id || ''
+  const activeTontine = tontines.find((t) => t.id === activeTontineId)
 
   const { data: cotisationsData, isLoading } = useCotisations(activeTontineId, undefined, page, 50)
   const { mutate: valider, isPending: isValidating } = useValiderCotisation()
@@ -66,10 +72,8 @@ export function CotisationsPage() {
     return matchSearch && matchStatut
   })
 
-  const valideCount = allCotisations.filter((c: Cotisation) => c.statut === CotisationStatut.VALIDE)
-  const enAttenteCount = allCotisations.filter((c: Cotisation) => c.statut === CotisationStatut.EN_ATTENTE).length
-  const enRetardCount = allCotisations.filter((c: Cotisation) => c.statut === CotisationStatut.EN_RETARD).length
-  const montantValide = valideCount.reduce((s: number, c: Cotisation) => s + c.montant, 0)
+  // Rappel limité à la page affichée (aucun total global calculé côté front)
+  const enAttenteSurPage = allCotisations.filter((c: Cotisation) => c.statut === CotisationStatut.EN_ATTENTE).length
 
   const handleValider = () => {
     if (!cotisationToValidate || !activeTontineId) return
@@ -84,83 +88,70 @@ export function CotisationsPage() {
 
   return (
     <AppLayout>
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-neutral-900">Cotisations</h1>
-          <p className="text-sm text-neutral-500 mt-1">Validez les paiements reçus.</p>
-        </div>
-        <button className="self-start sm:self-auto flex items-center gap-2 px-4 py-2 text-sm font-medium text-neutral-700 border border-neutral-200 rounded-xl hover:bg-neutral-50 transition-colors shadow-sm">
-          <Download size={15} /> Exporter
+      <PageHeader
+        title="Cotisations"
+        description={activeTontine ? `${activeTontine.nom} · ${cotisationsData?.totalElements ?? 0} paiement${(cotisationsData?.totalElements ?? 0) > 1 ? 's' : ''}` : 'Validez les paiements reçus.'}
+      />
+
+      {/* Choix de la tontine */}
+      {tontines.length > 1 && (
+        <ChipRow className="mb-3">
+          {tontines.map((t) => (
+            <button
+              aria-pressed={activeTontineId === t.id}
+              key={t.id}
+              onClick={() => { setSelectedTontineId(t.id); setPage(0); setSearch('') }}
+              className={`h-9 px-4 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                activeTontineId === t.id ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-100'
+              }`}
+            >
+              {t.nom.length > 24 ? t.nom.slice(0, 24) + '…' : t.nom}
+            </button>
+          ))}
+        </ChipRow>
+      )}
+
+      {/* Rappel à valider */}
+      {enAttenteSurPage > 0 && statutTab !== CotisationStatut.EN_ATTENTE && (
+        <button
+          onClick={() => setStatutTab(CotisationStatut.EN_ATTENTE)}
+          className="w-full flex items-center gap-3 bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3 mb-3 text-left active:scale-[0.99] transition"
+        >
+          <span className="w-9 h-9 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center flex-shrink-0"><Clock size={17} /></span>
+          <span className="flex-1 text-sm font-semibold text-amber-800">
+            {enAttenteSurPage} paiement{enAttenteSurPage > 1 ? 's' : ''} à valider sur cette page
+          </span>
+          <span className="text-sm font-semibold text-amber-700">Voir</span>
         </button>
-      </div>
+      )}
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 mb-6">
-        <div className="bg-white rounded-xl border border-neutral-100 shadow-sm p-4">
-          <p className="text-xs text-neutral-500 mb-1">Validé ce mois</p>
-          <p className="text-xl font-bold text-primary-600">{montantValide.toLocaleString('fr-FR')} FCFA</p>
-        </div>
-        <div className="bg-white rounded-xl border border-neutral-100 shadow-sm p-4">
-          <p className="text-xs text-neutral-500 mb-1">À valider</p>
-          <p className="text-xl font-bold text-neutral-900">{enAttenteCount}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-neutral-100 shadow-sm p-4">
-          <p className="text-xs text-neutral-500 mb-1">En retard</p>
-          <p className="text-xl font-bold text-neutral-900">{enRetardCount}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-neutral-100 shadow-sm p-4">
-          <p className="text-xs text-neutral-500 mb-1">Refusées</p>
-          <p className="text-xl font-bold text-neutral-900">0</p>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-hidden">
-        {/* Filters */}
-        <div className="px-5 pt-4 pb-0 flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="relative flex-1 max-w-sm">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
+      <div className="bg-white rounded-2xl border border-neutral-100 overflow-hidden">
+        {/* Recherche + statut */}
+        <div className="px-4 sm:px-5 pt-4 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="relative flex-1 sm:max-w-sm">
+            <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher un membre ou une référence..."
-              className="w-full pl-9 pr-4 py-2 text-sm border border-neutral-200 rounded-xl bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-primary-300"
+              placeholder="Membre ou référence…"
+              className="w-full h-11 pl-11 pr-4 text-[15px] border border-neutral-200 rounded-full bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:bg-white"
             />
           </div>
-          <div className="flex items-center gap-1 flex-wrap">
+          <ChipRow bleed={false}>
             {STATUT_TABS.map((tab) => (
               <button
+                aria-pressed={statutTab === tab.value}
                 key={tab.value}
                 onClick={() => setStatutTab(tab.value)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                  statutTab === tab.value
-                    ? 'bg-primary-600 text-white'
-                    : 'text-neutral-600 hover:bg-neutral-100'
+                className={`h-9 px-4 rounded-full text-sm font-medium transition-colors whitespace-nowrap ${
+                  statutTab === tab.value ? 'bg-primary-600 text-white' : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
                 }`}
               >
                 {tab.label}
               </button>
             ))}
-          </div>
+          </ChipRow>
         </div>
-
-        {/* Filter tontine */}
-        {tontines.length > 1 && (
-          <div className="px-5 pt-3 flex items-center gap-1 overflow-x-auto pb-1">
-            {tontines.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setSelectedTontineId(t.id)}
-                className={`px-3 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
-                  activeTontineId === t.id
-                    ? 'bg-neutral-800 text-white'
-                    : 'text-neutral-500 hover:bg-neutral-100 border border-neutral-200'
-                }`}
-              >
-                {t.nom}
-              </button>
-            ))}
-          </div>
-        )}
 
         {/* Cards — mobile */}
         <div className="md:hidden divide-y divide-neutral-50 mt-3">
@@ -170,27 +161,28 @@ export function CotisationsPage() {
             <p className="text-center py-10 text-neutral-400 text-sm">Aucune cotisation</p>
           ) : (
             filtered.map((c: Cotisation) => {
-              const tontine = tontines.find((t) => t.id === activeTontineId)
+              const nom = `${c.membre.firstName} ${c.membre.lastName}`
               return (
-                <div key={c.id} className="px-4 py-3">
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <p className="font-semibold text-sm text-neutral-900">{c.membre.firstName} {c.membre.lastName}</p>
-                    <Badge variant={STATUT_BADGE[c.statut] || 'default'}>{STATUT_LABEL[c.statut] || c.statut}</Badge>
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-xs text-neutral-400">
-                      {tontine?.nom} · {METHODE_LABELS[c.methodePaiement || ''] || c.methodePaiement || '—'}
+                <div key={c.id} className="px-4 py-3 flex items-center gap-3">
+                  <InitialsAvatar name={nom} />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm text-neutral-900 truncate">{nom}</p>
+                    <p className="text-xs text-neutral-500 truncate">
+                      {METHODE_LABELS[c.methodePaiement || ''] || c.methodePaiement || '—'}
+                      {c.referenceTransaction ? ` · ${c.referenceTransaction}` : ''}
                     </p>
-                    <div className="flex items-center gap-2">
-                      <p className="font-bold text-sm text-neutral-900">{c.montant.toLocaleString('fr-FR')} FCFA</p>
-                      {c.statut === CotisationStatut.EN_ATTENTE && (
-                        <button onClick={() => setCotisationToValidate(c.id)}
-                          className="w-7 h-7 rounded-full bg-primary-50 text-primary-600 flex items-center justify-center hover:bg-primary-100"
-                          title="Valider">
-                          <CheckCircle size={14} />
-                        </button>
-                      )}
-                    </div>
+                    <div className="mt-1"><Badge variant={STATUT_BADGE[c.statut] || 'default'}>{STATUT_LABEL[c.statut] || c.statut}</Badge></div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                    <p className="font-bold text-sm text-neutral-900 tabular">{formatMontant(c.montant)} F</p>
+                    {c.statut === CotisationStatut.EN_ATTENTE && (
+                      <button
+                        onClick={() => setCotisationToValidate(c.id)}
+                        className="h-8 px-3 rounded-full bg-primary-600 text-white text-xs font-semibold inline-flex items-center gap-1 active:scale-95 transition"
+                      >
+                        <CheckCircle size={14} /> Valider
+                      </button>
+                    )}
                   </div>
                 </div>
               )
@@ -222,7 +214,7 @@ export function CotisationsPage() {
                     <tr key={c.id} className="border-b border-neutral-50 hover:bg-neutral-50 transition-colors">
                       <td className="px-5 py-4 font-semibold text-neutral-900">{c.membre.firstName} {c.membre.lastName}</td>
                       <td className="px-5 py-4 text-neutral-600">{tontine?.nom || '—'}</td>
-                      <td className="px-5 py-4 font-semibold text-neutral-900">{c.montant.toLocaleString('fr-FR')} FCFA</td>
+                      <td className="px-5 py-4 font-semibold text-neutral-900 tabular whitespace-nowrap">{formatFCFA(c.montant)}</td>
                       <td className="px-5 py-4 text-neutral-600">{METHODE_LABELS[c.methodePaiement || ''] || c.methodePaiement || '—'}</td>
                       <td className="px-5 py-4 text-neutral-500 text-xs font-mono">{c.referenceTransaction || '—'}</td>
                       <td className="px-5 py-4 text-neutral-500 text-xs">{c.dateValidation ? new Date(c.dateValidation).toLocaleDateString('fr-FR') : '—'}</td>
@@ -237,8 +229,7 @@ export function CotisationsPage() {
                       <td className="px-5 py-4">
                         {c.statut === CotisationStatut.EN_ATTENTE && (
                           <div className="flex gap-2">
-                            <button onClick={() => setCotisationToValidate(c.id)} className="w-7 h-7 rounded-full bg-primary-50 text-primary-600 flex items-center justify-center hover:bg-primary-100" title="Valider"><CheckCircle size={14} /></button>
-                            <button className="w-7 h-7 rounded-full bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100" title="Refuser"><XCircle size={14} /></button>
+                            <button onClick={() => setCotisationToValidate(c.id)} className="h-8 px-3 rounded-full bg-primary-600 text-white text-xs font-semibold inline-flex items-center gap-1 hover:bg-primary-700"><CheckCircle size={14} /> Valider</button>
                           </div>
                         )}
                       </td>
@@ -251,16 +242,14 @@ export function CotisationsPage() {
         </div>
 
         {totalPages > 1 && (
-          <div className="flex justify-center gap-2 py-4 border-t border-neutral-100">
-            {Array.from({ length: totalPages }, (_, i) => (
-              <button
-                key={i}
-                onClick={() => setPage(i)}
-                className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${page === i ? 'bg-primary-600 text-white' : 'text-neutral-600 hover:bg-neutral-100'}`}
-              >
-                {i + 1}
-              </button>
-            ))}
+          <div className="border-t border-neutral-100">
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              totalElements={cotisationsData?.totalElements}
+              pageSize={50}
+              onPageChange={setPage}
+            />
           </div>
         )}
       </div>

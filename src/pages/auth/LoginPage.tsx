@@ -2,64 +2,17 @@ import { useState } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { isAxiosError } from 'axios'
-import { Phone, Lock, AlertCircle, ArrowRight } from 'lucide-react'
-import { LogoIcon } from '@/components/ui/LogoIcon'
+import { Phone, Lock, AlertCircle, ArrowRight, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { UserRole } from '@/types/common'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { PhoneInput } from '@/components/ui/PhoneInput'
+import { AuthShell, AuthAlert } from '@/components/auth/AuthShell'
 
 interface LoginFormData {
   username: string
   password: string
-}
-
-// ─── Panneau gauche desktop ────────────────────────────────────────────────────
-function LeftPanel() {
-  return (
-    <div className="hidden lg:flex w-1/2 bg-[#0d1f0f] flex-col justify-between px-12 py-10 flex-shrink-0">
-      <div className="flex items-center gap-3">
-        <LogoIcon size={36} />
-        <div>
-          <h1 className="text-white text-lg font-bold leading-none">Dinthialma</h1>
-          <p className="text-neutral-400 text-xs">Gestion de tontines</p>
-        </div>
-      </div>
-      <div>
-        <h2 className="text-white text-4xl font-bold leading-tight mb-4">Gérez vos tontines</h2>
-        <h2 className="text-primary-400 text-4xl font-bold leading-tight mb-6">en toute sérénité.</h2>
-        <p className="text-neutral-400 text-base leading-relaxed">
-          Suivez les cotisations, validez les paiements,<br />distribuez les jackpots — tout est centralisé.
-        </p>
-      </div>
-      <p className="text-neutral-600 text-sm">© 2026 Dinthialma</p>
-    </div>
-  )
-}
-
-// ─── Header mobile ────────────────────────────────────────────────────────────
-function MobileHeader({ title, subtitle }: { title: string; subtitle: string }) {
-  return (
-    <div className="lg:hidden relative bg-gradient-to-br from-[#0d1f0f] via-primary-800 to-primary-600 pt-14 pb-20 px-6 text-center flex-shrink-0">
-      <div className="flex flex-col items-center gap-3 mb-5">
-        <div className="w-16 h-16 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center ring-2 ring-white/20">
-          <LogoIcon size={36} />
-        </div>
-        <div>
-          <p className="text-white text-xl font-extrabold leading-none tracking-tight">Dinthialma</p>
-          <p className="text-white/60 text-xs mt-0.5">Gestion de tontines</p>
-        </div>
-      </div>
-      <h1 className="text-white text-2xl font-bold">{title}</h1>
-      <p className="text-white/70 text-sm mt-1">{subtitle}</p>
-      <div className="absolute -bottom-px left-0 right-0">
-        <svg viewBox="0 0 390 32" preserveAspectRatio="none" className="w-full h-8 fill-neutral-50">
-          <path d="M0 32 C97.5 0 292.5 0 390 32 L390 32 L0 32 Z"/>
-        </svg>
-      </div>
-    </div>
-  )
 }
 
 export function LoginPage() {
@@ -68,6 +21,7 @@ export function LoginPage() {
   const location = useLocation()
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [preEnrolledPhone, setPreEnrolledPhone] = useState<string | null>(null)
+  const [showPassword, setShowPassword] = useState(false)
 
   const state = location.state as { registered?: boolean; passwordReset?: boolean } | null
   const successMsg = state?.registered
@@ -117,103 +71,90 @@ export function LoginPage() {
   // ─── Cas PRE_ENROLLED ─────────────────────────────────────────────────────
   if (preEnrolledPhone) {
     return (
-      <div className="min-h-screen flex flex-col lg:flex-row bg-neutral-50">
-        <LeftPanel />
-        <MobileHeader title="Compte non activé" subtitle="Finalisez votre inscription" />
-        <div className="flex-1 flex items-center justify-center px-5 lg:px-8 py-6 lg:py-0">
-          <div className="w-full max-w-md">
-            <div className="w-14 h-14 rounded-2xl bg-orange-100 flex items-center justify-center mb-4">
-              <AlertCircle size={26} className="text-orange-500" />
-            </div>
-            <h2 className="text-xl font-bold text-neutral-900 mb-2">Compte non activé</h2>
-            <p className="text-neutral-500 text-sm mb-4">
-              Le numéro <strong className="text-neutral-700">{preEnrolledPhone}</strong> existe déjà sur la plateforme.
-            </p>
-            <div className="p-4 bg-orange-50 border border-orange-200 rounded-xl mb-5 text-sm text-orange-800 leading-relaxed">
-              Votre compte a été créé par votre gestionnaire. Inscrivez-vous pour accéder à vos tontines.
-            </div>
-            <Button className="w-full" size="lg" onClick={() => navigate('/register', { state: { phone: preEnrolledPhone } })}>
-              S'inscrire maintenant <ArrowRight size={16} />
-            </Button>
-            <button
-              onClick={() => { setPreEnrolledPhone(null); setErrorMsg(null) }}
-              className="w-full text-sm text-neutral-400 hover:text-neutral-600 mt-4 text-center"
-            >
-              ← Retour à la connexion
-            </button>
-          </div>
+      <AuthShell title="Compte non activé" subtitle="Finalisez votre inscription">
+        <div className="w-14 h-14 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center mb-4">
+          <AlertCircle size={26} />
         </div>
-      </div>
+        <p className="text-[15px] text-neutral-600 mb-4">
+          Le numéro <strong className="text-neutral-900">{preEnrolledPhone}</strong> existe déjà sur la plateforme.
+        </p>
+        <div className="mb-6">
+          <AuthAlert tone="info">
+            Votre compte a été créé par votre gestionnaire. Inscrivez-vous pour accéder à vos tontines.
+          </AuthAlert>
+        </div>
+        <Button className="w-full" size="lg" onClick={() => navigate('/register', { state: { phone: preEnrolledPhone } })}>
+          S'inscrire maintenant <ArrowRight size={18} />
+        </Button>
+        <button
+          onClick={() => { setPreEnrolledPhone(null); setErrorMsg(null) }}
+          className="w-full h-11 mt-3 text-sm font-medium text-neutral-500 hover:text-neutral-800"
+        >
+          Retour à la connexion
+        </button>
+      </AuthShell>
     )
   }
 
   // ─── Formulaire login ─────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row bg-neutral-50">
-      <LeftPanel />
-      <MobileHeader title="Bon retour 👋" subtitle="Connectez-vous à votre espace" />
+    <AuthShell
+      title="Bon retour 👋"
+      subtitle="Connectez-vous à votre espace."
+      footer={
+        <p className="text-center text-[15px] text-neutral-500">
+          Pas encore de compte ?{' '}
+          <Link to="/register" className="text-primary-700 font-bold hover:underline">S'inscrire</Link>
+        </p>
+      }
+    >
+      {successMsg && <div className="mb-4"><AuthAlert tone="success">{successMsg}</AuthAlert></div>}
 
-      {/* Zone formulaire — UNE SEULE instance */}
-      <div className="flex-1 flex items-center justify-center px-5 lg:px-8 py-6 lg:py-0">
-        <div className="w-full max-w-md">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <PhoneInput
+          name="username"
+          control={control}
+          label="Téléphone"
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
+          placeholder="77 000 00 00"
+          icon={<Phone size={18} />}
+          error={undefined}
+        />
 
-          <div className="hidden lg:block mb-8">
-            <h2 className="text-2xl font-bold text-neutral-900">Bon retour 👋</h2>
-            <p className="text-neutral-500 mt-1">Connectez-vous à votre espace.</p>
-          </div>
-
-          {successMsg && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-xl text-sm text-green-700">
-              {successMsg}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <PhoneInput
-              name="username"
-              control={control}
-              label="Téléphone"
-              type="tel"
-              placeholder="77 000 00 00"
-              icon={<Phone size={16} />}
-              error={undefined}
-            />
-            <Input
-              label="Mot de passe"
-              type="password"
-              placeholder="••••••••"
-              icon={<Lock size={16} />}
-              {...register('password', { required: true })}
-            />
-            <div className="flex justify-end">
-              <Link to="/forgot-password" className="text-sm text-primary-600 font-medium hover:underline">
-                Mot de passe oublié ?
-              </Link>
-            </div>
-
-            {errorMsg && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
-                {errorMsg}
-              </div>
-            )}
-
-            <Button type="submit" className="w-full" size="lg" loading={isSubmitting}>
-              Se connecter
-            </Button>
-          </form>
-
-          <p className="text-center text-sm text-neutral-500 mt-5">
-            Pas encore de compte ?{' '}
-            <Link to="/register" className="text-primary-600 font-bold hover:underline">
-              S'inscrire
-            </Link>
-          </p>
-
-          <p className="lg:hidden text-center text-xs text-neutral-400 pt-4 pb-2">
-            © 2026 Dinthialma
-          </p>
+        <div className="relative">
+          <Input
+            label="Mot de passe"
+            type={showPassword ? 'text' : 'password'}
+            autoComplete="current-password"
+            placeholder="••••••••"
+            icon={<Lock size={18} />}
+            className="pr-12"
+            {...register('password', { required: true })}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            className="absolute right-1 bottom-1 w-10 h-10 rounded-full flex items-center justify-center text-neutral-500 hover:bg-neutral-100"
+            aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+          >
+            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
         </div>
-      </div>
-    </div>
+
+        <div className="flex justify-end -mt-1">
+          <Link to="/forgot-password" className="text-sm text-primary-700 font-semibold hover:underline py-1">
+            Mot de passe oublié ?
+          </Link>
+        </div>
+
+        {errorMsg && <AuthAlert>{errorMsg}</AuthAlert>}
+
+        <Button type="submit" className="w-full" size="lg" loading={isSubmitting}>
+          Se connecter
+        </Button>
+      </form>
+    </AuthShell>
   )
 }

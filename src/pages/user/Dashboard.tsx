@@ -18,16 +18,17 @@ export function UserDashboard() {
 
   return (
     <AppLayout>
+      <div className="max-w-2xl mx-auto">
       {/* ── Header ──────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <p className="text-xs text-neutral-500">Bienvenue</p>
-          <h1 className="text-lg font-extrabold text-neutral-900">{prenom} 👋</h1>
+          <p className="text-sm text-neutral-500">Bienvenue,</p>
+          <h1 className="text-2xl font-bold text-neutral-900">{prenom} 👋</h1>
         </div>
       </div>
 
       {/* ── Hero card ────────────────────────────────────────────────── */}
-      <div className="bg-gradient-to-br from-[#0d1f0f] via-primary-800 to-primary-600 rounded-3xl p-5 mb-4 shadow-lg relative overflow-hidden">
+      <div className="bg-gradient-to-br from-primary-700 via-primary-600 to-emerald-500 rounded-3xl p-5 sm:p-6 mb-5 relative overflow-hidden">
         <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-white/5" />
         <div className="absolute -bottom-6 -left-6 w-24 h-24 rounded-full bg-white/5" />
 
@@ -121,6 +122,8 @@ export function UserDashboard() {
             </div>
           ))}
         </div>
+      </div>
+
       </div>
 
       {/* ── Modal : Créer une tontine ─────────────────────────────────── */}

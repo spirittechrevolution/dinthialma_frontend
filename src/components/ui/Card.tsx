@@ -9,7 +9,7 @@ interface CardProps {
 
 export function Card({ children, className, noPadding = false }: CardProps) {
   return (
-    <div className={clsx('bg-white rounded-3xl shadow-md border border-neutral-100 hover:shadow-lg transition-shadow', !noPadding && 'p-8', className)}>
+    <div className={clsx('bg-white rounded-2xl border border-neutral-100', !noPadding && 'p-4 sm:p-5', className)}>
       {children}
     </div>
   )
@@ -21,7 +21,7 @@ interface CardHeaderProps {
 }
 
 export function CardHeader({ children, className }: CardHeaderProps) {
-  return <div className={clsx('mb-6', className)}>{children}</div>
+  return <div className={clsx('mb-4', className)}>{children}</div>
 }
 
 interface CardTitleProps {
@@ -30,7 +30,7 @@ interface CardTitleProps {
 }
 
 export function CardTitle({ children, className }: CardTitleProps) {
-  return <h2 className={clsx('text-2xl font-bold text-neutral-900', className)}>{children}</h2>
+  return <h2 className={clsx('text-base font-bold text-neutral-900', className)}>{children}</h2>
 }
 
 interface CardBodyProps {
@@ -48,5 +48,5 @@ interface CardFooterProps {
 }
 
 export function CardFooter({ children, className }: CardFooterProps) {
-  return <div className={clsx('mt-6 flex items-center justify-between', className)}>{children}</div>
+  return <div className={clsx('mt-4 flex items-center justify-between', className)}>{children}</div>
 }

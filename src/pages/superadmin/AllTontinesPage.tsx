@@ -1,20 +1,25 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { Badge } from '@/components/ui/Badge'
-import { Spinner } from '@/components/ui/Spinner'
-import { Button } from '@/components/ui/Button'
-import { useTontines } from '@/hooks/useTontines'
+import { Table, Column } from '@/components/ui/Table'
+import { QueryError } from '@/components/shared/QueryError'
+import { useAllTontinesAdmin } from '@/hooks/useDashboard'
 import { Tontine } from '@/types/tontine'
 import { TontineStatut } from '@/types/common'
-import { useNavigate } from 'react-router-dom'
-import { Search, Plus, ExternalLink } from 'lucide-react'
+import { formatFCFA, formatDateCourte } from '@/lib/format'
+import { ChevronRight } from 'lucide-react'
+import { ChipRow } from '@/components/ui/ChipRow'
 
-const STATUT_TABS = [
+const PAGE_SIZE = 20
+
+const STATUT_TABS: { label: string; value: TontineStatut | '' }[] = [
   { label: 'Toutes', value: '' },
-  { label: 'Active', value: TontineStatut.ACTIVE },
-  { label: 'Brouillon', value: TontineStatut.BROUILLON },
-  { label: 'Suspendue', value: TontineStatut.SUSPENDUE },
-  { label: 'Terminée', value: TontineStatut.TERMINEE },
+  { label: 'Actives', value: TontineStatut.ACTIVE },
+  { label: 'Brouillons', value: TontineStatut.BROUILLON },
+  { label: 'Suspendues', value: TontineStatut.SUSPENDUE },
+  { label: 'Terminées', value: TontineStatut.TERMINEE },
 ]
 
 const statutVariants: Record<TontineStatut, 'success' | 'warning' | 'info' | 'default'> = {
@@ -27,146 +32,106 @@ const statutVariants: Record<TontineStatut, 'success' | 'warning' | 'info' | 'de
 const FREQ_LABELS: Record<string, string> = {
   JOURNALIERE: 'Journalière',
   HEBDOMADAIRE: 'Hebdomadaire',
-  BIMENSUEL: 'Bimensuel',
+  BIMENSUEL: 'Bimensuelle',
   MENSUEL: 'Mensuelle',
-  TRIMESTRIEL: 'Trimestriel',
+  TRIMESTRIEL: 'Trimestrielle',
 }
 
+/** SUPER_ADMIN — GET /v1/admin/dashboard/tontines (paginé, filtre statut côté serveur) */
 export function AllTontinesPage() {
   const navigate = useNavigate()
   const [page, setPage] = useState(0)
-  const [search, setSearch] = useState('')
-  const [statutTab, setStatutTab] = useState('')
+  const [statut, setStatut] = useState<TontineStatut | ''>('')
 
-  const { data: tontinesData, isLoading } = useTontines(page, 20)
-  const tontines = tontinesData?.content || []
-  const totalPages = tontinesData?.totalPages || 1
+  const { data, isLoading, isError, error, refetch, isFetching } = useAllTontinesAdmin(page, PAGE_SIZE, statut)
+  const tontines = data?.content || []
 
-  const filtered = tontines.filter((t: Tontine) => {
-    const q = search.toLowerCase()
-    const matchSearch = !q || t.nom.toLowerCase().includes(q) ||
-      `${t.creePar.firstName} ${t.creePar.lastName}`.toLowerCase().includes(q)
-    const matchStatut = !statutTab || t.statut === statutTab
-    return matchSearch && matchStatut
-  })
+  const changeStatut = (value: TontineStatut | '') => {
+    setStatut(value)
+    setPage(0) // un changement de filtre ramène à la première page
+  }
+
+  const columns: Column<Tontine>[] = [
+    {
+      key: 'nom',
+      header: 'Tontine',
+      render: (t) => (
+        <div className="min-w-0">
+          <p className="font-semibold text-neutral-900 truncate">{t.nom}</p>
+          <p className="text-xs text-neutral-500 mt-0.5 truncate">
+            {t.tontineType === 'EVENEMENTIELLE' ? 'Événementielle' : 'Rotative'}
+          </p>
+        </div>
+      ),
+    },
+    { key: 'creePar', header: 'Créateur', render: (t) => `${t.creePar.firstName} ${t.creePar.lastName}` },
+    { key: 'montant', header: 'Montant', render: (t) => <span className="tabular font-medium">{formatFCFA(t.montant)}</span> },
+    { key: 'frequence', header: 'Fréquence', render: (t) => FREQ_LABELS[t.frequence] || t.frequence, hideOnMobile: true },
+    {
+      key: 'nombreMembresActuels',
+      header: 'Membres',
+      render: (t) => (t.nombreMembres ? `${t.nombreMembresActuels}/${t.nombreMembres}` : t.nombreMembresActuels),
+    },
+    { key: 'dateDebut', header: 'Début', render: (t) => formatDateCourte(t.dateDebut), hideOnMobile: true },
+    {
+      key: 'statut',
+      header: 'Statut',
+      render: (t) => (
+        <Badge variant={statutVariants[t.statut]}>{t.statut.charAt(0) + t.statut.slice(1).toLowerCase()}</Badge>
+      ),
+    },
+    {
+      key: 'actions',
+      header: '',
+      hideOnMobile: true,
+      className: 'w-10',
+      render: () => <ChevronRight size={18} className="text-neutral-300" />,
+    },
+  ]
 
   return (
     <AppLayout>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-neutral-900">Toutes les tontines</h1>
-          <p className="text-sm text-neutral-500 mt-1">Vue globale des tontines de la plateforme.</p>
-        </div>
-        <Button size="sm">
-          <Plus size={16} className="mr-1" /> Nouvelle
-        </Button>
-      </div>
+      <PageHeader
+        title="Toutes les tontines"
+        description={data ? `${data.totalElements} tontine${data.totalElements > 1 ? 's' : ''} sur la plateforme` : 'Vue globale de la plateforme'}
+      />
 
-      <div className="bg-white rounded-2xl border border-neutral-100 shadow-sm overflow-hidden">
-        {/* Filters */}
-        <div className="px-5 pt-4 pb-0 flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="relative flex-1 max-w-sm">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher une tontine ou un créateur..."
-              className="w-full pl-9 pr-4 py-2 text-sm border border-neutral-200 rounded-xl bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-primary-300 focus:border-transparent"
-            />
-          </div>
-          <div className="flex items-center gap-1 flex-wrap">
-            {STATUT_TABS.map((tab) => (
-              <button
-                key={tab.value}
-                onClick={() => setStatutTab(tab.value)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                  statutTab === tab.value
-                    ? 'bg-primary-600 text-white'
-                    : 'text-neutral-600 hover:bg-neutral-100'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
+      {/* Filtre statut (côté serveur) */}
+      <ChipRow className="mb-4">
+        {STATUT_TABS.map((tab) => (
+          <button
+            aria-pressed={statut === tab.value}
+            key={tab.value || 'all'}
+            onClick={() => changeStatut(tab.value)}
+            className={`h-9 px-4 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+              statut === tab.value ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-100'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </ChipRow>
 
-        {/* Table */}
-        <div className="overflow-x-auto mt-3">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-neutral-100">
-                {['Tontine', 'Créateur', 'Fréquence', 'Montant', 'Membres', 'Début', 'Statut'].map((h) => (
-                  <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading ? (
-                <tr><td colSpan={7} className="text-center py-10"><Spinner /></td></tr>
-              ) : filtered.length === 0 ? (
-                <tr><td colSpan={7} className="text-center py-10 text-neutral-400">Aucune tontine trouvée</td></tr>
-              ) : (
-                filtered.map((t: Tontine) => (
-                  <tr key={t.id} className="border-b border-neutral-50 hover:bg-neutral-50 transition-colors">
-                    <td className="px-5 py-4">
-                      <p className="font-semibold text-neutral-900">{t.nom}</p>
-                      {t.description && (
-                        <p className="text-xs text-neutral-400 mt-0.5 line-clamp-1 max-w-xs">{t.description}</p>
-                      )}
-                    </td>
-                    <td className="px-5 py-4 font-medium text-neutral-700">
-                      {t.creePar.firstName} {t.creePar.lastName}
-                    </td>
-                    <td className="px-5 py-4 text-neutral-600">
-                      {FREQ_LABELS[t.frequence] || t.frequence}
-                    </td>
-                    <td className="px-5 py-4 font-medium">
-                      {t.montant.toLocaleString('fr-FR')} FCFA
-                    </td>
-                    <td className="px-5 py-4 text-neutral-600">
-                      {t.nombreMembresActuels}/{t.nombreMembres}
-                    </td>
-                    <td className="px-5 py-4 text-neutral-500">
-                      {new Date(t.dateDebut).toLocaleDateString('fr-FR')}
-                    </td>
-                    <td className="px-5 py-4">
-                      <Badge variant={statutVariants[t.statut]}>
-                        {t.statut.charAt(0) + t.statut.slice(1).toLowerCase()}
-                      </Badge>
-                    </td>
-                    <td className="px-5 py-4">
-                      <button
-                        onClick={() => navigate(`/superadmin/tontines/${t.id}`)}
-                        className="w-7 h-7 rounded-lg bg-neutral-100 text-neutral-500 flex items-center justify-center hover:bg-primary-50 hover:text-primary-600 transition-colors"
-                        title="Voir le détail"
-                      >
-                        <ExternalLink size={13} />
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+      {isError ? (
+        <div className="bg-white rounded-2xl border border-neutral-100">
+          <QueryError error={error} onRetry={() => refetch()} />
         </div>
-
-        {totalPages > 1 && (
-          <div className="flex justify-center gap-2 py-4 border-t border-neutral-100">
-            {Array.from({ length: totalPages }, (_, i) => (
-              <button
-                key={i}
-                onClick={() => setPage(i)}
-                className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${page === i ? 'bg-primary-600 text-white' : 'text-neutral-600 hover:bg-neutral-100'}`}
-              >
-                {i + 1}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+      ) : (
+        <div className={isFetching && !isLoading ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
+          <Table
+            columns={columns}
+            data={tontines}
+            isLoading={isLoading}
+            emptyMessage={statut ? 'Aucune tontine avec ce statut' : 'Aucune tontine sur la plateforme'}
+            onRowClick={(t) => navigate(`/superadmin/tontines/${t.id}`)}
+            page={page}
+            totalPages={data?.totalPages}
+            totalElements={data?.totalElements}
+            pageSize={PAGE_SIZE}
+            onPageChange={setPage}
+          />
+        </div>
+      )}
     </AppLayout>
   )
 }

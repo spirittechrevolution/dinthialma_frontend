@@ -7,48 +7,49 @@ interface BottomNavProps {
   links: NavLink[]
 }
 
+/** Barre de navigation mobile : 4 onglets max + Profil, gros boutons tactiles. */
 export function BottomNav({ links }: BottomNavProps) {
   const location = useLocation()
-
-  // On affiche au max 4 items + profil dans la bottom nav
-  const visibleLinks = links.slice(0, 4)
 
   const isActive = (path: string) =>
     location.pathname === path || location.pathname.startsWith(path + '/')
 
+  const items = [
+    ...links,
+    { label: 'Profil', path: '/profile', icon: <UserCircle size={22} /> } as NavLink,
+  ]
+
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-neutral-200 safe-bottom">
-      <div className="flex items-stretch h-16">
-        {visibleLinks.map((link) => {
+    <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur border-t border-neutral-100 safe-bottom">
+      <div className="flex items-stretch h-16 max-w-md mx-auto">
+        {items.map((link) => {
           const active = isActive(link.path)
           return (
             <Link
               key={link.path}
               to={link.path}
-              className={clsx(
-                'flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors min-w-0',
-                active ? 'text-primary-600' : 'text-neutral-400'
-              )}
+              aria-current={active ? 'page' : undefined}
+              className="flex-1 flex flex-col items-center justify-center gap-1 min-w-0"
             >
-              <span className={clsx('transition-transform', active && 'scale-110')}>
+              <span
+                className={clsx(
+                  'flex items-center justify-center h-8 w-14 rounded-full transition-colors',
+                  active ? 'bg-primary-100 text-primary-700' : 'text-neutral-400'
+                )}
+              >
                 {link.icon}
               </span>
-              <span className="truncate w-full text-center px-1">{link.label}</span>
+              <span
+                className={clsx(
+                  'text-[11px] truncate w-full text-center px-1',
+                  active ? 'font-semibold text-primary-700' : 'font-medium text-neutral-500'
+                )}
+              >
+                {link.shortLabel || link.label}
+              </span>
             </Link>
           )
         })}
-
-        {/* Profil toujours présent */}
-        <Link
-          to="/profile"
-          className={clsx(
-            'flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors min-w-0',
-            location.pathname === '/profile' ? 'text-primary-600' : 'text-neutral-400'
-          )}
-        >
-          <UserCircle size={20} />
-          <span>Profil</span>
-        </Link>
       </div>
     </nav>
   )
