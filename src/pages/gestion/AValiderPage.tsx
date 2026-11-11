@@ -3,7 +3,8 @@
  *
  * « Valider » en 1 tap, sans fenêtre : la ligne disparaît, un toast propose « Annuler » pendant 5 s,
  * puis la validation est envoyée. Balayer une ligne vers la droite valide aussi.
- * « Tout valider » demande une confirmation. Refuser : en attente de l'API (B18).
+ * « Tout valider » demande une confirmation (validation groupée, bilan par paiement).
+ * « Refuser » demande un motif (le membre peut déclarer à nouveau).
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -12,11 +13,13 @@ import { CheckCircle2, PartyPopper, RotateCw, WifiOff } from 'lucide-react'
 import { ScreenHeader } from '@/components/layout/ScreenHeader'
 import { InitialsAvatar } from '@/components/ui/Section'
 import { Modal } from '@/components/ui/Modal'
+import { RefusSheet } from '@/components/pay/RefusSheet'
 import { useCotisationsAValider } from '@/hooks/useMe'
 import { useOnline } from '@/hooks/useOnline'
 import { validationService } from '@/services/validationService'
 import { formatF, formatDateHeure } from '@/lib/format'
 import { paymentMethodLabel } from '@/lib/paymentMethods'
+import { messageErreur } from '@/lib/apiError'
 import type { CotisationAValider } from '@/types/me'
 
 const UNDO_MS = 5000
@@ -32,7 +35,9 @@ export function AValiderPage() {
   const [masquees, setMasquees] = useState<Set<string>>(new Set())
   const timers = useRef(new Map<string, { timer: ReturnType<typeof setTimeout>; cot: CotisationAValider }>())
   const [confirmAll, setConfirmAll] = useState(false)
-  const [bulk, setBulk] = useState<{ running: boolean; done: number | null; echecs: number }>({ running: false, done: null, echecs: 0 })
+  const [bulk, setBulk] = useState<{ running: boolean; done: number | null; echecs: number; dejaTraites: number }>({ running: false, done: null, echecs: 0, dejaTraites: 0 })
+  const [aRefuser, setARefuser] = useState<CotisationAValider | null>(null)
+  const [refusEnCours, setRefusEnCours] = useState(false)
 
   const visibles = useMemo(() => (data ?? []).filter((c) => !masquees.has(c.id)), [data, masquees])
   const total = visibles.reduce((s, c) => s + c.montant, 0)
@@ -91,11 +96,39 @@ export function AValiderPage() {
   const toutValider = async () => {
     setConfirmAll(false)
     const cibles = visibles.map((c) => ({ tontineId: c.tontineId, cotisationId: c.id }))
-    setBulk({ running: true, done: null, echecs: 0 })
+    setBulk({ running: true, done: null, echecs: 0, dejaTraites: 0 })
     setMasquees((s) => new Set([...s, ...cibles.map((c) => c.cotisationId)]))
-    const { ok, echecs } = await validationService.validerPlusieurs(cibles)
-    echecs.forEach(restaurer)
-    setBulk({ running: false, done: ok.length, echecs: echecs.length })
+    try {
+      const bilan = await validationService.validerPlusieurs(cibles)
+      const echecs = bilan.resultats.filter((r) => !r.succes)
+      // Un paiement « déjà traité » disparaît de la file au rafraîchissement ; les autres échecs restent
+      echecs.filter((r) => r.code !== 'COTISATION_NOT_PENDING').forEach((r) => restaurer(r.cotisationId))
+      setBulk({
+        running: false,
+        done: bilan.validees,
+        echecs: echecs.filter((r) => r.code !== 'COTISATION_NOT_PENDING').length,
+        dejaTraites: echecs.filter((r) => r.code === 'COTISATION_NOT_PENDING').length,
+      })
+    } catch (err) {
+      cibles.forEach((c) => restaurer(c.cotisationId))
+      setBulk({ running: false, done: null, echecs: 0, dejaTraites: 0 })
+      toast.error(messageErreur(err, 'La validation groupée a échoué. Réessayez.'))
+    }
+  }
+
+  const refuser = async (motif: string) => {
+    if (!aRefuser) return
+    setRefusEnCours(true)
+    try {
+      await validationService.refuser({ tontineId: aRefuser.tontineId, cotisationId: aRefuser.id }, motif)
+      setMasquees((s) => new Set(s).add(aRefuser.id))
+      toast.success(`Paiement de ${aRefuser.membre.firstName} refusé`)
+      setARefuser(null)
+    } catch (err) {
+      toast.error(messageErreur(err, 'Le refus a échoué. Réessayez.'))
+    } finally {
+      setRefusEnCours(false)
+    }
   }
 
   // ─── Rendu ───────────────────────────────────────────────────────────────
@@ -109,11 +142,14 @@ export function AValiderPage() {
           <p className="mt-3 text-xl font-bold text-neutral-900">
             {bulk.done} paiement{bulk.done > 1 ? 's' : ''} validé{bulk.done > 1 ? 's' : ''}
           </p>
+          {bulk.dejaTraites > 0 && (
+            <p className="mt-1 text-sm text-neutral-600">{bulk.dejaTraites} déjà traité{bulk.dejaTraites > 1 ? 's' : ''} entre-temps.</p>
+          )}
           {bulk.echecs > 0 && (
             <p className="mt-1 text-sm text-red-700">{bulk.echecs} n'ont pas pu être validés. Ils restent dans la liste.</p>
           )}
           <button
-            onClick={() => (bulk.echecs > 0 ? setBulk({ running: false, done: null, echecs: 0 }) : navigate('/accueil'))}
+            onClick={() => (bulk.echecs > 0 ? setBulk({ running: false, done: null, echecs: 0, dejaTraites: 0 }) : navigate('/accueil'))}
             className="mt-6 w-full h-14 rounded-full bg-primary-700 text-white text-[17px] font-bold"
           >
             {bulk.echecs > 0 ? 'Revoir la liste' : 'Terminé'}
@@ -160,7 +196,7 @@ export function AValiderPage() {
               {groupes.length > 1 && <h2 className="px-4 pt-3 text-sm font-semibold text-neutral-500">{g.nom}</h2>}
               <ul className="divide-y divide-neutral-100">
                 {g.items.map((c) => (
-                  <Ligne key={c.id} cot={c} disabled={!online || bulk.running} onValider={() => valider(c)} onOpen={() => navigate(`/recu/${c.tontineId}/${c.id}`)} />
+                  <Ligne key={c.id} cot={c} disabled={!online || bulk.running} onValider={() => valider(c)} onRefuser={() => setARefuser(c)} onOpen={() => navigate(`/recu/${c.tontineId}/${c.id}`)} />
                 ))}
               </ul>
             </section>
@@ -182,6 +218,17 @@ export function AValiderPage() {
         </div>
       )}
 
+      {aRefuser && (
+        <RefusSheet
+          isOpen
+          onClose={() => setARefuser(null)}
+          membreNom={aRefuser.membre.firstName}
+          montant={formatF(aRefuser.montant)}
+          enCours={refusEnCours}
+          onConfirmer={refuser}
+        />
+      )}
+
       <Modal isOpen={confirmAll} onClose={() => setConfirmAll(false)} title={`Valider ${visibles.length} paiements ?`} size="sm">
         <p className="text-neutral-600">
           {formatF(total)} seront marqués comme reçus et les membres seront prévenus.
@@ -196,7 +243,7 @@ export function AValiderPage() {
 }
 
 /** Ligne de la file ; balayage vers la droite (> 96 px) = valider */
-function Ligne({ cot, disabled, onValider, onOpen }: { cot: CotisationAValider; disabled: boolean; onValider: () => void; onOpen: () => void }) {
+function Ligne({ cot, disabled, onValider, onRefuser, onOpen }: { cot: CotisationAValider; disabled: boolean; onValider: () => void; onRefuser: () => void; onOpen: () => void }) {
   const startX = useRef<number | null>(null)
   const [dx, setDx] = useState(0)
   const nom = [cot.membre.firstName, cot.membre.lastName].filter(Boolean).join(' ')
@@ -226,13 +273,18 @@ function Ligne({ cot, disabled, onValider, onOpen }: { cot: CotisationAValider; 
             <span className="block text-xs text-neutral-400">{formatDateHeure(cot.createdAt)}</span>
           </span>
         </button>
-        <button
-          onClick={onValider}
-          disabled={disabled}
-          className="h-12 px-5 rounded-full bg-primary-700 text-white font-bold flex-shrink-0 active:scale-[0.97] transition disabled:opacity-50"
-        >
-          Valider
-        </button>
+        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+          <button
+            onClick={onValider}
+            disabled={disabled}
+            className="h-11 px-5 rounded-full bg-primary-700 text-white font-bold active:scale-[0.97] transition disabled:opacity-50"
+          >
+            Valider
+          </button>
+          <button onClick={onRefuser} disabled={disabled} className="h-8 px-3 rounded-full text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50">
+            Refuser
+          </button>
+        </div>
       </div>
     </li>
   )

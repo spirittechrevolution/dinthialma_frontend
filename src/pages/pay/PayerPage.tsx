@@ -189,6 +189,11 @@ function DeclarerPaiement({ ligne }: { ligne: CotisantTontineSummary }) {
   return (
     <Shell>
       <div className="space-y-4 pb-28">
+        {due.motifDernierRefus && (
+          <p role="status" className="rounded-3xl bg-red-50 px-4 py-3 text-sm text-red-800">
+            <b>Votre paiement a été refusé :</b> {due.motifDernierRefus}. Vous pouvez le déclarer à nouveau.
+          </p>
+        )}
         <section className="bg-white rounded-3xl shadow-sm p-5 text-center">
           <p className="text-sm font-medium text-neutral-500">{ligne.nom} · Tour {due.numeroCycle}</p>
           <div className="mt-3">

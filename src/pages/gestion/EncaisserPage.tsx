@@ -104,7 +104,8 @@ function EncaisserTontine({ tontineId }: { tontineId: string }) {
   const lignes = (recap.data?.content ?? []).filter((l) => l.statutMembre === MembreStatut.ACTIF)
   const membre = membreId ? lignes.find((l) => l.membreId === membreId) : undefined
 
-  if (membreId && membre && !membre.cotisationId) {
+  const actif = (l: CycleRecapLigne) => (l.statutCotisation === CotisationStatut.EN_ATTENTE || l.statutCotisation === CotisationStatut.VALIDE)
+  if (membreId && membre && !actif(membre)) {
     return (
       <Montant
         tontineId={tontineId}
@@ -142,9 +143,10 @@ function DeQui({ tontineId, titre, numeroCycle, lignes, onChoisir }: {
     const s = q.trim().toLowerCase()
     return !s || `${l.firstName} ${l.lastName}`.toLowerCase().includes(s) || (l.phone ?? '').includes(s.replace(/\s/g, ''))
   }
-  const nonPayes = lignes.filter((l) => !l.cotisationId && filtre(l))
-  const payes = lignes.filter((l) => l.cotisationId && filtre(l))
-  const toutPaye = lignes.length > 0 && lignes.every((l) => l.cotisationId)
+  const actif = (l: CycleRecapLigne) => (l.statutCotisation === CotisationStatut.EN_ATTENTE || l.statutCotisation === CotisationStatut.VALIDE)
+  const nonPayes = lignes.filter((l) => !actif(l) && filtre(l))
+  const payes = lignes.filter((l) => actif(l) && filtre(l))
+  const toutPaye = lignes.length > 0 && lignes.every(actif)
 
   return (
     <Shell title={`Encaisser · ${titre}`}>

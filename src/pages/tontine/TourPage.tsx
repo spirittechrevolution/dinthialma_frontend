@@ -54,8 +54,10 @@ export function TourPage() {
   const isEvent = t?.tontineType === TontineType.EVENEMENTIELLE
   const mot = isEvent ? 'Période' : 'Tour'
   const lignes = (recap.data?.content ?? []).filter((l) => l.statutMembre !== MembreStatut.SORTI)
-  const nonPayes = lignes.filter((l) => !l.cotisationId && l.statutMembre === MembreStatut.ACTIF)
-  const payes = lignes.filter((l) => l.cotisationId)
+  const actif = (l: (typeof lignes)[number]) => (l.statutCotisation === CotisationStatut.EN_ATTENTE || l.statutCotisation === CotisationStatut.VALIDE)
+  const nonPayes = lignes.filter((l) => !actif(l) && l.statutMembre === MembreStatut.ACTIF)
+  const payes = lignes.filter(actif)
+  const enAttente = lignes.filter((l) => l.statutCotisation === CotisationStatut.EN_ATTENTE).length
   const valides = lignes.filter((l) => l.statutCotisation === CotisationStatut.VALIDE)
   const collecte = valides.reduce((s, l) => s + (l.montant ?? 0), 0)
   const actifs = lignes.filter((l) => l.statutMembre === MembreStatut.ACTIF).length
@@ -134,6 +136,7 @@ export function TourPage() {
                 <p className="text-sm text-neutral-500">Ont payé</p>
                 <p className="text-2xl font-extrabold tabular-nums text-neutral-900">{formatF(collecte)}</p>
                 {attendu ? <p className="text-sm text-neutral-500">sur {formatF(attendu)} prévus</p> : null}
+                {enAttente > 0 && <p className="text-sm font-medium text-amber-800">+ {enAttente} en attente de validation</p>}
               </div>
             </div>
           ) : (

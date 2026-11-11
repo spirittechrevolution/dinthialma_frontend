@@ -35,6 +35,7 @@ const FILTRES: { id: string; label: string; statuts: CotisationStatut[] }[] = [
   { id: 'attente', label: 'En attente', statuts: [CotisationStatut.EN_ATTENTE] },
   { id: 'valides', label: 'Validés', statuts: [CotisationStatut.VALIDE] },
   { id: 'retard', label: 'En retard', statuts: [CotisationStatut.EN_RETARD] },
+  { id: 'refuses', label: 'Refusés', statuts: [CotisationStatut.REFUSE] },
 ]
 
 const STATUT_PILL: Record<CotisationStatut, { label: string; cls: string; icon: JSX.Element }> = {
@@ -129,7 +130,7 @@ export function FicheTontinePage() {
   }
   const etat = [
     cycleEnCours ? `Tour ${cycleEnCours.numeroCycle}` : null,
-    gerant && cycleEnCours ? `${ontPaye}/${actifsRecap || actifs.length} ont payé` : null,
+    gerant && cycleEnCours ? `${ontPaye}/${actifsRecap || actifs.length} payés${enAttente ? ` + ${enAttente} en attente` : ''}` : null,
     cycleEnCours ? `fin le ${formatDateCourte(cycleEnCours.dateFin)}` : null,
     isEvent ? compteARebours(t.dateEcheance) : null,
   ].filter(Boolean).join(' · ')

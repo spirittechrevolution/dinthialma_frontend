@@ -9,6 +9,9 @@ import { clsx } from 'clsx'
 import { Clock, CheckCircle2, AlertTriangle, Share2, Pencil, RotateCw, XCircle } from 'lucide-react'
 import { ScreenHeader } from '@/components/layout/ScreenHeader'
 import { AdminEditCotisationModal } from '@/components/shared/AdminEditCotisationModal'
+import { RefusSheet } from '@/components/pay/RefusSheet'
+import { validationService } from '@/services/validationService'
+import { messageErreur } from '@/lib/apiError'
 import { useCotisation, useValiderCotisation } from '@/hooks/useCotisations'
 import { useTontine } from '@/hooks/useTontines'
 import { useCycle } from '@/hooks/useCycles'
@@ -41,6 +44,8 @@ export function RecuPage() {
   const gere = !!maTontine && jeGere(maTontine)
   const { mutate: valider, isPending: validating } = useValiderCotisation()
   const [editOpen, setEditOpen] = useState(false)
+  const [refusOpen, setRefusOpen] = useState(false)
+  const [refusEnCours, setRefusEnCours] = useState(false)
 
   const terminer = () => (justCreated ? navigate('/accueil', { replace: true }) : navigate(-1))
 
@@ -155,13 +160,18 @@ export function RecuPage() {
       <div className="fixed inset-x-0 bottom-0 z-20 bg-[#f2f3f5]/95 backdrop-blur px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <div className="max-w-lg mx-auto">
           {peutValider ? (
-            <button
-              onClick={onValider}
-              disabled={!online || validating}
-              className="w-full h-14 rounded-full bg-primary-700 text-white text-[17px] font-bold active:scale-[0.98] transition disabled:opacity-50"
-            >
-              {validating ? 'Validation…' : !online ? 'Connexion requise' : 'Valider ce paiement'}
-            </button>
+            <div className="space-y-2">
+              <button
+                onClick={onValider}
+                disabled={!online || validating}
+                className="w-full h-14 rounded-full bg-primary-700 text-white text-[17px] font-bold active:scale-[0.98] transition disabled:opacity-50"
+              >
+                {validating ? 'Validation…' : !online ? 'Connexion requise' : 'Valider ce paiement'}
+              </button>
+              <button onClick={() => setRefusOpen(true)} disabled={!online} className="w-full h-11 rounded-full text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50">
+                Refuser ce paiement
+              </button>
+            </div>
           ) : (
             <button onClick={terminer} className="w-full h-14 rounded-full bg-primary-700 text-white text-[17px] font-bold active:scale-[0.98] transition">
               Terminé
@@ -169,6 +179,28 @@ export function RecuPage() {
           )}
         </div>
       </div>
+
+      {peutValider && (
+        <RefusSheet
+          isOpen={refusOpen}
+          onClose={() => setRefusOpen(false)}
+          membreNom={cot.membre?.firstName ?? 'ce membre'}
+          montant={formatFcfaRecu(cot.montant)}
+          enCours={refusEnCours}
+          onConfirmer={async (motif) => {
+            setRefusEnCours(true)
+            try {
+              await validationService.refuser({ tontineId, cotisationId }, motif)
+              toast.success('Paiement refusé')
+              setRefusOpen(false)
+            } catch (err) {
+              toast.error(messageErreur(err, 'Le refus a échoué. Réessayez.'))
+            } finally {
+              setRefusEnCours(false)
+            }
+          }}
+        />
+      )}
 
       {peutModifier && (
         <AdminEditCotisationModal
