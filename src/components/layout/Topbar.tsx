@@ -81,7 +81,7 @@ export function Topbar() {
                     <p className="text-xs text-neutral-500">{roleLabel}</p>
                   </div>
                   <button
-                    onClick={() => { setShowMenu(false); navigate('/profile') }}
+                    onClick={() => { setShowMenu(false); navigate('/parametres') }}
                     className="w-full flex items-center gap-3 px-4 h-11 text-sm text-neutral-700 hover:bg-neutral-50"
                   >
                     <User size={17} /> Mon profil

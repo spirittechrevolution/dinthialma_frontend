@@ -78,7 +78,7 @@ const PinResetPage = lazy(() => import('@/pages/auth/PinResetPage').then(m => ({
 const OnboardingPage = lazy(() => import('@/pages/OnboardingPage').then(m => ({ default: m.OnboardingPage })))
 
 // Protégées
-const ProfilePage = lazy(() => import('@/pages/profile/ProfilePage').then(m => ({ default: m.ProfilePage })))
+const ParametresPage = lazy(() => import('@/pages/parametres/ParametresPage').then(m => ({ default: m.ParametresPage })))
 
 // Super Admin
 const SuperAdminDashboard = lazy(() => import('@/pages/superadmin/Dashboard').then(m => ({ default: m.SuperAdminDashboard })))
@@ -287,9 +287,11 @@ const router = createBrowserRouter([
 
   // Profil
   {
-    path: '/profile',
-    element: <ProtectedRoute><S><ProfilePage /></S></ProtectedRoute>,
+    path: '/parametres',
+    element: <ProtectedRoute><S><ParametresPage /></S></ProtectedRoute>,
   },
+  // Ancienne page profil → Paramètres
+  { path: '/profile', element: <Navigate to="/parametres" replace /> },
 
   // Notifications (toutes les rôles)
   {

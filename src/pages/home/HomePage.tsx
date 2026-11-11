@@ -234,7 +234,7 @@ export function HomePage() {
           { key: 'historique', label: 'Mes paiements', icon: <History size={22} />, to: '/member/cotisations' },
         ]
       : [{ key: 'alertes', label: 'Alertes', icon: <Bell size={22} />, to: '/notifications' }]),
-    { key: 'profil', label: 'Mon profil', icon: <UserCircle size={22} />, to: '/profile' },
+    { key: 'profil', label: 'Paramètres', icon: <UserCircle size={22} />, to: '/parametres' },
     ...(canInstall ? [{ key: 'installer', label: 'Installer', icon: <Download size={22} />, onClick: triggerInstall }] : []),
   ]
 

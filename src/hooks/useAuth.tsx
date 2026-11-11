@@ -6,7 +6,7 @@ import {
   storeSession, clearAccessToken,
   getAuthUser, isTokenExpired,
   setPinConfigured, detectClientType,
-  getRefreshToken, setTokens,
+  getRefreshToken, setTokens, getClientType, clearAll,
 } from '@/lib/tokenStorage'
 import api from '@/services/api'
 
@@ -18,6 +18,8 @@ interface ExtendedAuthContextType extends AuthContextType {
    * tontine — B12). Renvoie false si le renouvellement échoue ; la session en cours reste valable.
    */
   refreshSession: () => Promise<boolean>
+  /** Déconnexion complète : ferme la session côté serveur et oublie l'appareil (téléphone, PIN) */
+  logoutComplet: () => Promise<void>
 }
 
 const AuthContext = createContext<ExtendedAuthContextType | undefined>(undefined)
@@ -107,6 +109,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  // ─── Logout complet (« Oublier cet appareil ») ──────────────────────────────
+  const logoutComplet = useCallback(async (): Promise<void> => {
+    const refreshToken = getRefreshToken()
+    try {
+      if (refreshToken) await api.post('/v1/auth/logout', { refreshToken, clientType: getClientType() })
+    } catch { /* non bloquant */ }
+    clearAll()
+    setUser(null)
+    window.location.href = '/login'
+  }, [])
+
   // ─── Logout (soft) ────────────────────────────────────────────────────────
   // Ne termine pas la session Keycloak côté backend : refresh token + phone +
   // isPinConfigured restent en localStorage.
@@ -131,6 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loginWithPin,
       setupPin,
       refreshSession,
+      logoutComplet,
       logout,
       hasRole,
       isSuperAdmin: () => hasRole(UserRole.SUPER_ADMIN),

@@ -35,7 +35,7 @@ export function HomeHeader(p: HomeHeaderProps) {
   return (
     <header className="bg-primary-700 text-white px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-16 md:rounded-3xl md:pb-14">
       <div className="flex items-center justify-between">
-        <Link to="/profile" className={iconBtn} aria-label="Paramètres">
+        <Link to="/parametres" className={iconBtn} aria-label="Paramètres">
           <Settings size={24} />
         </Link>
         <Link
