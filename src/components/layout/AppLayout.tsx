@@ -13,7 +13,6 @@ import {
   CreditCard,
   RefreshCw,
   List,
-  UserCheck,
 } from 'lucide-react'
 
 interface AppLayoutProps {
@@ -46,25 +45,24 @@ export function AppLayout({ children }: AppLayoutProps) {
 
     if (hasRole(UserRole.ADMIN)) {
       return [
-        { label: 'Accueil', path: '/admin/dashboard', icon: <Home size={22} />, mobile: true },
+        { label: 'Accueil', path: '/accueil', icon: <Home size={22} />, mobile: true },
         { label: 'Mes tontines', shortLabel: 'Tontines', path: '/admin/tontines', icon: <Wallet size={22} />, mobile: true },
         { label: 'Cotisations', shortLabel: 'Paiements', path: '/admin/cotisations', icon: <CreditCard size={22} />, mobile: true },
         { label: 'Membres', path: '/admin/membres', icon: <Users size={22} />, mobile: true },
         { label: 'Cycles', path: '/admin/cycles', icon: <RefreshCw size={22} /> },
-        { label: 'Mes participations', path: '/member/dashboard', icon: <UserCheck size={22} /> },
       ]
     }
 
     if (hasRole(UserRole.MEMBER)) {
       return [
-        { label: 'Accueil', path: '/member/dashboard', icon: <Home size={22} />, mobile: true },
+        { label: 'Accueil', path: '/accueil', icon: <Home size={22} />, mobile: true },
         { label: 'Mes tontines', shortLabel: 'Tontines', path: '/member/tontines', icon: <Wallet size={22} />, mobile: true },
         { label: 'Mes cotisations', shortLabel: 'Paiements', path: '/member/cotisations', icon: <CreditCard size={22} />, mobile: true },
       ]
     }
 
     return [
-      { label: 'Accueil', path: '/user/dashboard', icon: <Home size={22} />, mobile: true },
+      { label: 'Accueil', path: '/accueil', icon: <Home size={22} />, mobile: true },
     ]
   }
 

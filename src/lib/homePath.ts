@@ -7,7 +7,6 @@ import { UserRole } from '@/types/common'
 export function getHomePath(roles: readonly UserRole[] | undefined | null): string {
   const r = roles ?? []
   if (r.includes(UserRole.SUPER_ADMIN)) return '/superadmin/dashboard'
-  if (r.includes(UserRole.ADMIN)) return '/admin/dashboard'
-  if (r.includes(UserRole.MEMBER)) return '/member/dashboard'
-  return '/user/dashboard'
+  // Membres, gestionnaires et nouveaux inscrits partagent l'accueil-hub (bascule Je cotise / Je gère)
+  return '/accueil'
 }

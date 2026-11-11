@@ -8,6 +8,15 @@ export function formatFCFA(value: number | null | undefined): string {
   return `${formatMontant(value)} FCFA`
 }
 
+/**
+ * Format « Wave » pour l'interface : 85000 → « 85.000F ».
+ * Les reçus utilisent formatFCFA (« 85 000 FCFA »).
+ */
+export function formatF(value: number | null | undefined): string {
+  const n = Math.round(value ?? 0)
+  return `${Math.abs(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.')}F`
+}
+
 /** ISO → « 12 nov. » (ou « 12 nov. 2025 » si autre année) */
 export function formatDateCourte(iso: string | null | undefined): string {
   if (!iso) return '—'

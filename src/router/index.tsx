@@ -84,19 +84,20 @@ const CodeListPage = lazy(() => import('@/pages/superadmin/CodeListPage').then(m
 // Page détail tontine unifiée (SuperAdmin + Admin + Membre)
 const TontineDetailPage = lazy(() => import('@/pages/tontines/TontineDetailPage').then(m => ({ default: m.TontineDetailPage })))
 
+// Accueil-hub (brief v2)
+const HomePage = lazy(() => import('@/pages/home/HomePage').then(m => ({ default: m.HomePage })))
+const MesJackpotsPage = lazy(() => import('@/pages/home/MesJackpotsPage').then(m => ({ default: m.MesJackpotsPage })))
+
 // Admin
-const AdminDashboard = lazy(() => import('@/pages/admin/Dashboard').then(m => ({ default: m.AdminDashboard })))
 const TontinesPage = lazy(() => import('@/pages/admin/TontinesPage').then(m => ({ default: m.TontinesPage })))
 const MembresPage = lazy(() => import('@/pages/admin/MembresPage').then(m => ({ default: m.MembresPage })))
 const CyclesPage = lazy(() => import('@/pages/admin/CyclesPage').then(m => ({ default: m.CyclesPage })))
 const CotisationsPage = lazy(() => import('@/pages/admin/CotisationsPage').then(m => ({ default: m.CotisationsPage })))
 
 // Member
-const MemberDashboard = lazy(() => import('@/pages/member/Dashboard').then(m => ({ default: m.MemberDashboard })))
 const MesTontinesPage = lazy(() => import('@/pages/member/MesTontinesPage').then(m => ({ default: m.MesTontinesPage })))
 const MesCotisationsPage = lazy(() => import('@/pages/member/MesCotisationsPage').then(m => ({ default: m.MesCotisationsPage })))
 const NotificationsPage = lazy(() => import('@/pages/NotificationsPage').then(m => ({ default: m.NotificationsPage })))
-const UserDashboard = lazy(() => import('@/pages/user/Dashboard').then(m => ({ default: m.UserDashboard })))
 
 const router = createBrowserRouter([
   // ── Démarrage intelligent ─────────────────────────────────────────────────
@@ -119,6 +120,16 @@ const router = createBrowserRouter([
   {
     path: '/dashboard',
     element: <ProtectedRoute><HomeRedirect /></ProtectedRoute>,
+  },
+
+  // Accueil-hub : membres, gestionnaires, nouveaux inscrits
+  {
+    path: '/accueil',
+    element: <ProtectedRoute><S><HomePage /></S></ProtectedRoute>,
+  },
+  {
+    path: '/jackpots',
+    element: <ProtectedRoute><S><MesJackpotsPage /></S></ProtectedRoute>,
   },
 
   // Super Admin
@@ -149,8 +160,9 @@ const router = createBrowserRouter([
 
   // Admin
   {
+    // Ancien tableau de bord gestionnaire → accueil-hub
     path: '/admin/dashboard',
-    element: <RoleRoute requiredRoles={[UserRole.ADMIN]}><S><AdminDashboard /></S></RoleRoute>,
+    element: <Navigate to="/accueil" replace />,
   },
   {
     path: '/admin/tontines',
@@ -175,14 +187,16 @@ const router = createBrowserRouter([
   },
   // User (rôle USER — pas encore membre)
   {
+    // Ancien accueil nouvel inscrit → accueil-hub
     path: '/user/dashboard',
-    element: <ProtectedRoute><S><UserDashboard /></S></ProtectedRoute>,
+    element: <Navigate to="/accueil" replace />,
   },
 
   // Member (ADMIN inclus — un admin est souvent aussi membre de ses tontines)
   {
+    // Ancien tableau de bord membre → accueil-hub
     path: '/member/dashboard',
-    element: <RoleRoute requiredRoles={[UserRole.MEMBER, UserRole.ADMIN]}><S><MemberDashboard /></S></RoleRoute>,
+    element: <Navigate to="/accueil" replace />,
   },
   {
     path: '/member/tontines',
