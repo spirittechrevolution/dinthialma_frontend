@@ -49,3 +49,9 @@ export function compteARebours(iso: string | null | undefined): string | null {
   if (j === null) return null
   return j > 0 ? `J-${j}` : j === 0 ? "Aujourd'hui" : `J+${Math.abs(j)}`
 }
+
+/** Valeurs de repli si les listes de valeurs (référentiels) ne répondent pas */
+export const FREQUENCES_DEFAUT = ['JOURNALIERE', 'HEBDOMADAIRE', 'BIMENSUEL', 'MENSUEL', 'TRIMESTRIEL']
+export const ORDRES_DEFAUT = ['ROTATION', 'ALEATOIRE', 'MANUEL']
+export const ORDRE_LABEL: Record<string, string> = { ROTATION: 'Ordre fixe', ALEATOIRE: 'Tirage au sort', MANUEL: 'Je choisis' }
+export const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)

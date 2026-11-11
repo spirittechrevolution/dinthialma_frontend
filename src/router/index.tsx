@@ -103,6 +103,7 @@ const MembresTontinePage = lazy(() => import('@/pages/tontine/MembresTontinePage
 const MembreFichePage = lazy(() => import('@/pages/tontine/MembreFichePage').then(m => ({ default: m.MembreFichePage })))
 const ReglagesTontinePage = lazy(() => import('@/pages/tontine/ReglagesTontinePage').then(m => ({ default: m.ReglagesTontinePage })))
 const CreerTontinePage = lazy(() => import('@/pages/tontine/CreerTontinePage').then(m => ({ default: m.CreerTontinePage })))
+const ModifierTontinePage = lazy(() => import('@/pages/tontine/ModifierTontinePage').then(m => ({ default: m.ModifierTontinePage })))
 const ScannerPage = lazy(() => import('@/pages/qr/ScannerPage').then(m => ({ default: m.ScannerPage })))
 const PartagerPage = lazy(() => import('@/pages/qr/PartagerPage').then(m => ({ default: m.PartagerPage })))
 const MembreQrPage = lazy(() => import('@/pages/qr/MembreQrPage').then(m => ({ default: m.MembreQrPage })))
@@ -215,6 +216,10 @@ const router = createBrowserRouter([
   {
     path: '/tontine/:id/reglages',
     element: <ProtectedRoute><S><ReglagesTontinePage /></S></ProtectedRoute>,
+  },
+  {
+    path: '/tontine/:id/modifier',
+    element: <ProtectedRoute><S><ModifierTontinePage /></S></ProtectedRoute>,
   },
 
   // Super Admin

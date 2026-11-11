@@ -116,7 +116,14 @@ export function ReglagesTontinePage() {
   return (
     <Shell title={gerant ? `Réglages · ${t.nom}` : `Infos · ${t.nom}`}>
       <div className="space-y-5">
-        <Section titre="Règles">
+        <Section
+          titre="Règles"
+          action={gerant && brouillon ? (
+            <button onClick={() => navigate(`/tontine/${id}/modifier`)} disabled={!online} className="h-9 px-3 rounded-full bg-primary-50 text-sm font-semibold text-primary-800 inline-flex items-center gap-1 disabled:opacity-50">
+              <Pencil size={15} /> Modifier
+            </button>
+          ) : undefined}
+        >
           <dl className="divide-y divide-neutral-100">
             {regles.map(([k, val]) => (
               <div key={k} className="flex items-start justify-between gap-4 px-4 py-3">

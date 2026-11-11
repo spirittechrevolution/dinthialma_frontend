@@ -12,7 +12,7 @@ import { useNavigate } from 'react-router-dom'
 import { clsx } from 'clsx'
 import {
   RefreshCw, Moon, Heart, Baby, Users, Briefcase, GraduationCap, Plane, MoreHorizontal,
-  Minus, Plus, ChevronDown, CheckCircle2, UserPlus,
+  ChevronDown, CheckCircle2, UserPlus,
 } from 'lucide-react'
 import { ScreenHeader } from '@/components/layout/ScreenHeader'
 import { AmountPad, BigAmount } from '@/components/pay/AmountPad'
@@ -21,7 +21,8 @@ import { useCodeList } from '@/hooks/useCodeList'
 import { useAuth } from '@/hooks/useAuth'
 import { useOnline } from '@/hooks/useOnline'
 import { formatF, formatDateCourte } from '@/lib/format'
-import { rythmeCourt, datesTourSuggerees } from '@/lib/tontineLabels'
+import { rythmeCourt, datesTourSuggerees, FREQUENCES_DEFAUT, ORDRES_DEFAUT, ORDRE_LABEL, capital } from '@/lib/tontineLabels'
+import { Stepper } from '@/components/ui/Stepper'
 import { parseApiError } from '@/lib/apiError'
 import { ModeCycle } from '@/types/common'
 import { TontineType, type CreateTontineRequest } from '@/types/tontine'
@@ -42,10 +43,6 @@ const OBJECTIFS: { id: Objectif; label: string; icon: JSX.Element; type: Tontine
   { id: 'autre', label: 'Autre', icon: <MoreHorizontal size={30} />, type: TontineType.ROTATIVE, nom: 'Ma tontine', frequence: 'MENSUEL', tone: 'bg-neutral-200 text-neutral-700' },
 ]
 
-const FREQUENCES_DEFAUT = ['JOURNALIERE', 'HEBDOMADAIRE', 'BIMENSUEL', 'MENSUEL', 'TRIMESTRIEL']
-const ORDRES_DEFAUT = ['ROTATION', 'ALEATOIRE', 'MANUEL']
-const ORDRE_LABEL: Record<string, string> = { ROTATION: 'Ordre fixe', ALEATOIRE: 'Tirage au sort', MANUEL: 'Je choisis' }
-const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
 export function CreerTontinePage() {
   const navigate = useNavigate()
@@ -382,20 +379,6 @@ export function CreerTontinePage() {
           )}
         </div>
       </div>
-    </div>
-  )
-}
-
-function Stepper({ value, min, max, onChange, label, small }: { value: number; min: number; max: number; onChange: (v: number) => void; label: string; small?: boolean }) {
-  const btn = 'w-12 h-12 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-800 active:scale-95 disabled:opacity-40'
-  return (
-    <div className="flex items-center justify-between gap-4">
-      <button type="button" className={btn} onClick={() => onChange(Math.max(min, value - 1))} disabled={value <= min} aria-label="Moins"><Minus size={20} /></button>
-      <span className="text-center" aria-live="polite">
-        <span className={clsx('block font-extrabold tabular-nums text-neutral-900', small ? 'text-2xl' : 'text-[40px] leading-none')}>{value}</span>
-        <span className="text-sm text-neutral-500">{label}</span>
-      </span>
-      <button type="button" className={btn} onClick={() => onChange(Math.min(max, value + 1))} disabled={value >= max} aria-label="Plus"><Plus size={20} /></button>
     </div>
   )
 }

@@ -64,6 +64,11 @@ export interface UpdateTontineRequest {
   dateDebut?: string
   nombreMembres?: number
   nombreGagnants?: number
+  // EVENEMENTIELLE (présents dans UpdateTontineRequest de api-docs.json)
+  dateEcheance?: string
+  nomEvenement?: string
+  montantLibre?: boolean
+  montantMinimum?: number
 }
 
 // ─── Commission ───────────────────────────────────────────────────────────────
