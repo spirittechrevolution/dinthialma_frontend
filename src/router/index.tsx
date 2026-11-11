@@ -89,6 +89,8 @@ const HomePage = lazy(() => import('@/pages/home/HomePage').then(m => ({ default
 const MesJackpotsPage = lazy(() => import('@/pages/home/MesJackpotsPage').then(m => ({ default: m.MesJackpotsPage })))
 const PayerPage = lazy(() => import('@/pages/pay/PayerPage').then(m => ({ default: m.PayerPage })))
 const RecuPage = lazy(() => import('@/pages/pay/RecuPage').then(m => ({ default: m.RecuPage })))
+const AValiderPage = lazy(() => import('@/pages/gestion/AValiderPage').then(m => ({ default: m.AValiderPage })))
+const EncaisserPage = lazy(() => import('@/pages/gestion/EncaisserPage').then(m => ({ default: m.EncaisserPage })))
 
 // Admin
 const TontinesPage = lazy(() => import('@/pages/admin/TontinesPage').then(m => ({ default: m.TontinesPage })))
@@ -144,6 +146,19 @@ const router = createBrowserRouter([
   {
     path: '/recu/:tontineId/:cotisationId',
     element: <ProtectedRoute><S><RecuPage /></S></ProtectedRoute>,
+  },
+  // Gestionnaire : le rôle se vérifie par tontine (créateur), pas par le rôle global du jeton
+  {
+    path: '/a-valider',
+    element: <ProtectedRoute><S><AValiderPage /></S></ProtectedRoute>,
+  },
+  {
+    path: '/encaisser',
+    element: <ProtectedRoute><S><EncaisserPage /></S></ProtectedRoute>,
+  },
+  {
+    path: '/encaisser/:tontineId',
+    element: <ProtectedRoute><S><EncaisserPage /></S></ProtectedRoute>,
   },
 
   // Super Admin

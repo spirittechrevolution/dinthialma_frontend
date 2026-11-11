@@ -66,8 +66,8 @@ function getNotifLink(notif: NotificationItem, isAdmin: boolean): string | null 
   switch (notif.type) {
     case NotificationType.PAIEMENT_RECU:
     case NotificationType.COTISATION_SOUMISE:
-      // Admin → onglet cotisations de la tontine, Membre → ses cotisations
-      return isAdmin ? `${tontineBase}` : '/member/cotisations'
+      // Gestionnaire → file « À valider » de la tontine, Membre → ses cotisations
+      return isAdmin ? `/a-valider?tontine=${notif.tontineId}` : '/member/cotisations'
     case NotificationType.COTISATION_VALIDEE:
       return '/member/cotisations'
     case NotificationType.JACKPOT_DISTRIBUE:

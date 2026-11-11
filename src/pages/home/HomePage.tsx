@@ -3,7 +3,7 @@
  *
  * Bandeau (réglages, alertes, bascule Je cotise / Je gère, filtre tontine, montant masquable),
  * carte QR, carte d'action unique, grille de 8 services, fil d'activité.
- * Les écrans pas encore refaits (Encaisser, À valider…) ouvrent provisoirement
+ * Les écrans pas encore refaits (Membres, Tours, Créer…) ouvrent provisoirement
  * les écrans existants ; il suffira de changer la destination dans `services`.
  */
 import { useEffect, useMemo, useState } from 'react'
@@ -119,7 +119,7 @@ export function HomePage() {
           title={`${aValider} paiement${aValider > 1 ? 's' : ''} à valider`}
           subtitle={cible.length === 1 ? cible[0].nom : `${cible.length} tontines`}
           actionLabel="Valider"
-          onAction={() => navigate('/admin/cotisations', { state: { tontineId: cible[0]?.tontineId } })}
+          onAction={() => navigate(cible.length === 1 ? `/a-valider?tontine=${cible[0].tontineId}` : '/a-valider')}
           disabled={!online} disabledReason={offlineReason}
         />
       )
@@ -130,7 +130,7 @@ export function HomePage() {
           title={`${retard.manquants} n'${retard.manquants > 1 ? 'ont' : 'a'} pas payé`}
           subtitle={`${retard.t.nom} · Tour ${retard.t.cycleEnCours!.numeroCycle}`}
           actionLabel="Encaisser"
-          onAction={() => navigate(`/admin/tontines/${retard.t.tontineId}`)}
+          onAction={() => navigate(`/encaisser/${retard.t.tontineId}`)}
           disabled={!online} disabledReason={offlineReason}
         />
       )
@@ -197,8 +197,8 @@ export function HomePage() {
 
   const services: ServiceItem[] = mode === 'GERE'
     ? [
-        { key: 'encaisser', label: 'Encaisser', icon: <CreditCard size={26} />, tone: 'green', to: '/admin/cotisations', state: { tontineId: tontineId ?? undefined } },
-        { key: 'valider', label: 'À valider', icon: <ListChecks size={26} />, tone: 'amber', to: '/admin/cotisations', state: { tontineId: tontineId ?? undefined }, badge: aValiderTotal },
+        { key: 'encaisser', label: 'Encaisser', icon: <CreditCard size={26} />, tone: 'green', to: tontineId ? `/encaisser/${tontineId}` : '/encaisser' },
+        { key: 'valider', label: 'À valider', icon: <ListChecks size={26} />, tone: 'amber', to: tontineId ? `/a-valider?tontine=${tontineId}` : '/a-valider', badge: aValiderTotal },
         { key: 'tontines', label: 'Tontines', icon: <Wallet size={26} />, tone: 'blue', to: '/admin/tontines' },
         { key: 'membres', label: 'Membres', icon: <Users size={26} />, tone: 'violet', to: '/admin/membres' },
         { key: 'tours', label: 'Tours', icon: <RefreshCw size={26} />, tone: 'teal', to: '/admin/cycles' },
