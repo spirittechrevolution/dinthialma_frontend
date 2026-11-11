@@ -24,8 +24,8 @@ import { ActionCard, ActionCardSkeleton } from '@/components/home/ActionCard'
 import { ServiceGrid, type ServiceItem } from '@/components/home/ServiceGrid'
 import { ActivityFeed } from '@/components/home/ActivityFeed'
 import { TontinePickerSheet, MontantsSheet, PlusSheet, dueDetail, type PlusItem } from '@/components/home/HomeSheets'
-import { formatF } from '@/lib/format'
-import { appUrl, memberQrUrl, shareLink, tontineQrUrl } from '@/lib/share'
+import { formatF, safeGet } from '@/lib/format'
+import { memberQrUrl, tontineQrUrl, INVITATION_EN_ATTENTE_KEY } from '@/lib/share'
 import { jeCotise, jeGere, type ActiviteItem, type ModeAccueil } from '@/types/me'
 
 const MODES = ['COTISE', 'GERE'] as const
@@ -47,6 +47,15 @@ export function HomePage() {
   const mode: ModeAccueil = roles.deuxModes ? savedMode : roles.gere ? 'GERE' : 'COTISE'
   const [tontineId, setTontineId] = useState<string | null>(null)
   useEffect(() => { setTontineId(null) }, [mode])
+
+  // Invitation ouverte avant connexion (page /q/t/…) : on la rouvre une fois connecté
+  useEffect(() => {
+    const enAttente = safeGet(INVITATION_EN_ATTENTE_KEY)
+    if (enAttente) {
+      try { localStorage.removeItem(INVITATION_EN_ATTENTE_KEY) } catch { /* ignore */ }
+      navigate(enAttente, { replace: true })
+    }
+  }, [navigate])
 
   // ─── Données ─────────────────────────────────────────────────────────────
   const cotisant = useCotisantSummary(roles.cotise)
@@ -176,7 +185,7 @@ export function HomePage() {
     ? {
         title: tontineChoisie ? `Inviter dans ${tontineChoisie.nom}` : 'Inviter dans une tontine',
         subtitle: tontineChoisie ? 'Faites scanner ce QR pour rejoindre' : 'Choisissez la tontine à partager',
-        url: tontineChoisie ? tontineQrUrl(tontineChoisie.id) : null,
+        url: tontineChoisie ? tontineQrUrl(tontineChoisie) : null,
         shareText: tontineChoisie
           ? `Rejoins notre tontine ${tontineChoisie.nom} (${formatF(tontineChoisie.montant)}) :`
           : '',
@@ -194,11 +203,7 @@ export function HomePage() {
     if (cible) navigate(`/tontine/${cible}/${r}`)
     else setRubriqueCible(r)
   }
-  const inviter = () => shareLink({
-    title: 'Dinthialma',
-    text: 'Je gère mes tontines avec Dinthialma, rejoins-moi :',
-    url: appUrl(),
-  })
+  const inviter = () => navigate('/partager')
 
   const services: ServiceItem[] = mode === 'GERE'
     ? [
@@ -279,6 +284,8 @@ export function HomePage() {
               url={qr.url}
               shareText={qr.shareText}
               onChoose={mode === 'GERE' ? () => setFilterOpen(true) : undefined}
+              onScan={() => navigate('/scanner')}
+              onShare={mode === 'GERE' && tontineChoisie ? () => navigate(`/partager?tontine=${tontineChoisie.id}`) : undefined}
             />
             {actionCard}
             <ServiceGrid items={services} />

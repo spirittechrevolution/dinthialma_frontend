@@ -103,6 +103,10 @@ const MembresTontinePage = lazy(() => import('@/pages/tontine/MembresTontinePage
 const MembreFichePage = lazy(() => import('@/pages/tontine/MembreFichePage').then(m => ({ default: m.MembreFichePage })))
 const ReglagesTontinePage = lazy(() => import('@/pages/tontine/ReglagesTontinePage').then(m => ({ default: m.ReglagesTontinePage })))
 const CreerTontinePage = lazy(() => import('@/pages/tontine/CreerTontinePage').then(m => ({ default: m.CreerTontinePage })))
+const ScannerPage = lazy(() => import('@/pages/qr/ScannerPage').then(m => ({ default: m.ScannerPage })))
+const PartagerPage = lazy(() => import('@/pages/qr/PartagerPage').then(m => ({ default: m.PartagerPage })))
+const MembreQrPage = lazy(() => import('@/pages/qr/MembreQrPage').then(m => ({ default: m.MembreQrPage })))
+const InvitationPage = lazy(() => import('@/pages/qr/InvitationPage').then(m => ({ default: m.InvitationPage })))
 
 // Admin
 const TontinesPage = lazy(() => import('@/pages/admin/TontinesPage').then(m => ({ default: m.TontinesPage })))
@@ -173,6 +177,21 @@ const router = createBrowserRouter([
     path: '/creer',
     element: <ProtectedRoute><S><CreerTontinePage /></S></ProtectedRoute>,
   },
+  // QR : scanner, partager, liens encodés dans les QR (ouvrables par l'appareil photo du téléphone)
+  {
+    path: '/scanner',
+    element: <ProtectedRoute><S><ScannerPage /></S></ProtectedRoute>,
+  },
+  {
+    path: '/partager',
+    element: <ProtectedRoute><S><PartagerPage /></S></ProtectedRoute>,
+  },
+  {
+    path: '/q/m/:phone',
+    element: <ProtectedRoute><S><MembreQrPage /></S></ProtectedRoute>,
+  },
+  // Invitation : publique (ouverte depuis un QR même sans compte)
+  { path: '/q/t/:id', element: <S><InvitationPage /></S> },
   // Fiche tontine (vue gestionnaire / membre / lecture selon la tontine)
   {
     path: '/tontine/:id',

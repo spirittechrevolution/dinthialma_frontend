@@ -189,7 +189,8 @@ export function ReglagesTontinePage() {
           <QrCard
             title={`Inviter dans ${t.nom}`}
             subtitle="Faites scanner ce QR pour rejoindre"
-            url={tontineQrUrl(t.id)}
+            url={tontineQrUrl(t)}
+            onShare={() => navigate(`/partager?tontine=${t.id}`)}
             shareText={`Rejoins notre tontine ${t.nom} (${formatF(t.montant)} / ${rythmeCourt(t.frequence)}) :`}
           />
         )}

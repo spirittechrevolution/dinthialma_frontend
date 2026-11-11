@@ -62,11 +62,13 @@ interface AddMembreModalProps {
   tontineId: string
   isOpen: boolean
   onClose: () => void
+  /** Numéro prérempli (ex. : QR membre scanné), format +221… */
+  initialPhone?: string
 }
 
 // ─── Composant ────────────────────────────────────────────────────────────────
 
-export function AddMembreModal({ tontineId, isOpen, onClose }: AddMembreModalProps) {
+export function AddMembreModal({ tontineId, isOpen, onClose, initialPhone }: AddMembreModalProps) {
   const [step, setStep] = useState<Step>('search')
   const [foundUser, setFoundUser] = useState<UserSearchResult | null>(null)
   const [phoneSearched, setPhoneSearched] = useState('')
@@ -78,7 +80,7 @@ export function AddMembreModal({ tontineId, isOpen, onClose }: AddMembreModalPro
 
   const searchForm = useForm<SearchForm>({
     resolver: zodResolver(searchSchema),
-    defaultValues: { phone: '+221' },
+    defaultValues: { phone: initialPhone || '+221' },
   })
   const positionForm = useForm<PositionForm>({ resolver: zodResolver(positionSchema) })
   const newMembreForm = useForm<NewMembreForm>({ resolver: zodResolver(newMembreSchema) })

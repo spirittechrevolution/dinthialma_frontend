@@ -150,6 +150,22 @@ export const meService = {
   },
 
   /**
+   * QR membre (B15) : retrouve une personne (par son numéro) parmi les membres de mes tontines gérées.
+   * Cible backend : `GET /v1/qr/{token}` qui renvoie directement ces correspondances.
+   */
+  async trouverMembreDansMesTontines(phone: string, mesTontines: MaTontine[]): Promise<{ tontine: MaTontine; membre: Membre }[]> {
+    const gerees = mesTontines.filter(jeGere)
+    const res = await Promise.all(
+      gerees.map(async (t) => {
+        const membres = await getMembres(t.id)
+        const membre = membres.find((m) => samePhone(m.user?.phone, phone) && m.statut !== MembreStatut.SORTI)
+        return membre ? { tontine: t, membre } : null
+      }),
+    )
+    return res.filter((x): x is { tontine: MaTontine; membre: Membre } => x !== null)
+  },
+
+  /**
    * B04 — Résumé « Je cotise » (toutes mes tontines où je cotise).
    * Cible backend : `GET /v1/me/summary`.
    */
