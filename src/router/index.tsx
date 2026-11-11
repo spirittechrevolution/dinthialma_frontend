@@ -187,7 +187,7 @@ const router = createBrowserRouter([
     element: <ProtectedRoute><S><PartagerPage /></S></ProtectedRoute>,
   },
   {
-    path: '/q/m/:phone',
+    path: '/q/:token',
     element: <ProtectedRoute><S><MembreQrPage /></S></ProtectedRoute>,
   },
   // Invitation : publique (ouverte depuis un QR même sans compte)

@@ -21,7 +21,7 @@ import { useOnline } from '@/hooks/useOnline'
 import { formatF, formatDateCourte } from '@/lib/format'
 import { formatPhoneLocal, toLocalPhone } from '@/lib/phone'
 import { rythmeCourt } from '@/lib/tontineLabels'
-import { tontineQrUrl } from '@/lib/share'
+import { useInvitationTontine, useRegenererInvitation, useRevoquerInvitation } from '@/hooks/useQr'
 import { messageErreur } from '@/lib/apiError'
 import { ModeCycle, TontineStatut } from '@/types/common'
 import { TontineType, type Commission } from '@/types/tontine'
@@ -59,6 +59,10 @@ export function ReglagesTontinePage() {
   const { mutate: activer, isPending: activating } = useActiverTontine()
   const { mutate: supprimer, isPending: deleting } = useDeleteTontine()
   const { mutate: supprimerCommission } = useDeleteCommission()
+  const invitationActive = gerant && t?.statut === TontineStatut.ACTIVE
+  const invitation = useInvitationTontine(invitationActive ? id : null)
+  const { mutate: regenerer, isPending: regenerating } = useRegenererInvitation(id)
+  const { mutate: revoquer, isPending: revoking } = useRevoquerInvitation(id)
 
   if (v.isLoading) {
     return <Shell title="Réglages"><div className="space-y-4" aria-busy="true"><div className="h-64 rounded-3xl bg-white animate-pulse" /><div className="h-32 rounded-3xl bg-white animate-pulse" /></div></Shell>
@@ -192,14 +196,34 @@ export function ReglagesTontinePage() {
           )}
         </Section>
 
-        {gerant && t.statut === TontineStatut.ACTIVE && (
-          <QrCard
-            title={`Inviter dans ${t.nom}`}
-            subtitle="Faites scanner ce QR pour rejoindre"
-            url={tontineQrUrl(t)}
-            onShare={() => navigate(`/partager?tontine=${t.id}`)}
-            shareText={`Rejoins notre tontine ${t.nom} (${formatF(t.montant)} / ${rythmeCourt(t.frequence)}) :`}
-          />
+        {invitationActive && (
+          <section className="space-y-2">
+            <QrCard
+              title={`Inviter dans ${t.nom}`}
+              subtitle={invitation.data ? `Code ${invitation.data.code}` : invitation.isError ? 'Lien d’invitation désactivé' : 'Préparation du lien…'}
+              url={invitation.data?.url ?? null}
+              onShare={() => navigate(`/partager?tontine=${t.id}`)}
+              shareText={`Rejoins notre tontine ${t.nom} (${formatF(t.montant)} / ${rythmeCourt(t.frequence)}) :`}
+            />
+            <div className="flex flex-wrap gap-2 px-1">
+              <button
+                onClick={() => regenerer(undefined, { onSuccess: () => toast.success('Nouveau code créé : l’ancien lien ne fonctionne plus'), onError: (e) => toast.error(messageErreur(e)) })}
+                disabled={!online || regenerating}
+                className="h-10 px-4 rounded-full bg-white shadow-sm text-sm font-semibold text-neutral-700 disabled:opacity-50"
+              >
+                Nouveau code
+              </button>
+              {invitation.data && (
+                <button
+                  onClick={() => revoquer(undefined, { onSuccess: () => toast.success('Lien d’invitation désactivé'), onError: (e) => toast.error(messageErreur(e)) })}
+                  disabled={!online || revoking}
+                  className="h-10 px-4 rounded-full bg-white shadow-sm text-sm font-semibold text-red-700 disabled:opacity-50"
+                >
+                  Désactiver le lien
+                </button>
+              )}
+            </div>
+          </section>
         )}
 
         {gerant && (

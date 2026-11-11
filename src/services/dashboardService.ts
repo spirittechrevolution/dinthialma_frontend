@@ -25,6 +25,8 @@ export const dashboardService = {
       totalMembres: Number(raw.totalMembres ?? 0),
       totalCotisationsEnAttente: Number(raw.totalCotisationsEnAttente ?? 0),
       totalCotisationsEnRetard: Number(raw.totalCotisationsEnRetard ?? 0),
+      totalCollecteToursEnCours: Number(raw.totalCollecteToursEnCours ?? 0),
+      totalAttenduToursEnCours: raw.totalAttenduToursEnCours == null ? null : Number(raw.totalAttenduToursEnCours),
       tontines: toPage(raw.tontines),
     }
   },

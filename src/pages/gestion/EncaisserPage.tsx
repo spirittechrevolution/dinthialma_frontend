@@ -33,8 +33,8 @@ function ChoisirTontine() {
   const { data, isLoading, isError, refetch } = useGestionSummary()
   const avecTour = (data?.tontines ?? []).filter((t) => t.cycleEnCours)
     .sort((a, b) => {
-      const ma = a.cycleEnCours!.membresActifs - a.cycleEnCours!.membresAyantDeclare
-      const mb = b.cycleEnCours!.membresActifs - b.cycleEnCours!.membresAyantDeclare
+      const ma = a.cycleEnCours!.membresActifs - a.cycleEnCours!.membresAyantPaye - a.cycleEnCours!.membresEnAttente
+      const mb = b.cycleEnCours!.membresActifs - b.cycleEnCours!.membresAyantPaye - b.cycleEnCours!.membresEnAttente
       return mb - ma
     })
 
@@ -52,7 +52,7 @@ function ChoisirTontine() {
           <ul className="mt-2 bg-white rounded-3xl shadow-sm divide-y divide-neutral-100">
             {avecTour.map((t) => {
               const c = t.cycleEnCours!
-              const manquants = c.membresActifs - c.membresAyantDeclare
+              const manquants = c.membresActifs - c.membresAyantPaye - c.membresEnAttente
               return (
                 <li key={t.tontineId}>
                   <Link to={`/encaisser/${t.tontineId}`} className="flex items-center gap-3 px-4 py-3 min-h-[64px]">

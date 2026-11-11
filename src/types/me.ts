@@ -1,26 +1,19 @@
 /**
- * Types de la couche « moi » (données centrées sur l'utilisateur connecté).
+ * Types de la couche « moi » — alignés sur les réponses du backend (api-docs.json) :
+ * TontineResponse.monRole (B01), /me/summary (B04), /admin/my-dashboard (B05),
+ * /me/gestion/cotisations (B06), /me/activite (B09), /me/jackpots (B10).
  *
- * Ils reprennent les contrats proposés dans docs/BESOINS_BACKEND.md (B01, B04, B05, B06,
- * B09, B10). Tant que le backend ne les fournit pas, `meService` les reconstruit à partir
- * des endpoints existants ; les écrans ne dépendent que de ces types.
+ * Le backend omet les champs `null` : un champ absent est normalisé en `null` par meService.
  */
 import type { Tontine } from './tontine'
 import type { Cotisation } from './cotisation'
-import type { CotisationStatut, MembreStatut } from './common'
+import type { CotisationStatut, MembreStatut, TontineStatut } from './common'
 
 // ─── B01 : mon rôle dans chaque tontine ──────────────────────────────────────
 export type MonRole = 'GESTIONNAIRE' | 'MEMBRE' | 'GESTIONNAIRE_ET_MEMBRE' | 'LECTURE'
 
-export interface MaTontine extends Omit<Tontine, 'monRole' | 'monMembreId' | 'monStatutMembre'> {
+export interface MaTontine extends Omit<Tontine, 'monRole'> {
   monRole: MonRole
-  /** Mon identifiant de membre dans cette tontine (null si je n'y cotise pas) */
-  monMembreId: string | null
-  monStatutMembre: MembreStatut | null
-  /** Ma position dans l'ordre de passage (null si je n'y cotise pas) */
-  monOrdreJackpot: number | null
-  /** true si j'ai déjà reçu le jackpot dans cette tontine */
-  aRecuJackpot: boolean
 }
 
 export const jeGere = (t: Pick<MaTontine, 'monRole'>) =>
@@ -29,34 +22,43 @@ export const jeGere = (t: Pick<MaTontine, 'monRole'>) =>
 export const jeCotise = (t: Pick<MaTontine, 'monRole'>) =>
   t.monRole === 'MEMBRE' || t.monRole === 'GESTIONNAIRE_ET_MEMBRE'
 
-// ─── B04 : résumé « Je cotise » ──────────────────────────────────────────────
+// ─── B04 : résumé « Je cotise » (/me/summary) ────────────────────────────────
 export type StatutCotisationDue = 'A_PAYER' | 'EN_ATTENTE' | 'VALIDE'
 
 export interface CotisationDue {
+  /** Tour concerné (repris de cycleEnCours) */
   cycleId: string
   numeroCycle: number
-  /** Montant fixe ; pour un montant libre, le minimum (ou null s'il n'y en a pas) */
+  /** null = montant libre sans plancher (laisser saisir) */
   montant: number | null
   montantLibre: boolean
   montantMinimum: number | null
   dateLimite: string
   statut: StatutCotisationDue
-  /** Cotisation déjà déclarée sur ce tour (null si à payer) */
+  /** Cotisation active sur ce tour (null si à payer) */
   cotisationId: string | null
+  /** Après un refus : statut A_PAYER + motif du dernier refus */
+  motifDernierRefus: string | null
 }
 
 export interface CotisantTontineSummary {
   tontineId: string
   nom: string
   tontineType: Tontine['tontineType']
+  statut: TontineStatut
+  frequence: string | null
   monMembreId: string | null
+  monStatutMembre: MembreStatut | null
+  ordreJackpot: number | null
+  aRecuJackpot: boolean
   totalCotiseValide: number
   totalEnAttente: number
   toursPayes: number
   toursTotal: number
+  /** Total des jackpots reçus dans cette tontine (déduit de /me/jackpots) */
   totalJackpotsRecus: number
-  cycleEnCours: { cycleId: string; numeroCycle: number; dateFin: string } | null
-  /** null s'il n'y a pas de tour en cours ou si je ne suis pas actif */
+  cycleEnCours: { cycleId: string; numeroCycle: number; dateDebut: string; dateFin: string } | null
+  /** null : tontine non active, pas de tour en cours ou membership non actif (rien à payer) */
   cotisationDue: CotisationDue | null
   gestionnaire: { firstName: string; lastName: string; phone: string }
 }
@@ -65,12 +67,14 @@ export interface CotisantSummary {
   totalCotiseValide: number
   totalEnAttente: number
   totalJackpotsRecus: number
-  /** Cotisations à payer maintenant, la plus urgente (date limite la plus proche) en tête */
+  nombreCotisationsDues: number
+  montantDu: number
+  /** Cotisations à payer, la plus urgente (date limite la plus proche) en tête */
   aPayer: CotisantTontineSummary[]
   tontines: CotisantTontineSummary[]
 }
 
-// ─── B05 : résumé « Je gère » ────────────────────────────────────────────────
+// ─── B05 : résumé « Je gère » (/admin/my-dashboard) ──────────────────────────
 export interface GestionTontineSummary {
   tontineId: string
   nom: string
@@ -80,21 +84,25 @@ export interface GestionTontineSummary {
   cotisationsEnAttente: number
   cotisationsEnRetard: number
   montantTotalValide: number
+  /** ROTATIVE à ordre MANUEL avec un tour terminé sans gagnant */
+  gagnantsADesigner: boolean
   cycleEnCours: {
     cycleId: string
     numeroCycle: number
     dateFin: string
-    /** Somme des cotisations VALIDÉES du tour */
+    /** Cotisations VALIDÉES uniquement */
     montantCollecte: number
-    /** montant × membres actifs ; null pour un montant libre */
+    montantEnAttente: number
+    /** null si montant libre sans plancher */
     montantAttendu: number | null
     membresAyantPaye: number
-    membresAyantDeclare: number
+    membresEnAttente: number
     membresActifs: number
   } | null
 }
 
 export interface GestionSummary {
+  nombreTontinesGerees: number
   totalCollecteToursEnCours: number
   totalAttenduToursEnCours: number | null
   totalCotisationsEnAttente: number
@@ -102,17 +110,18 @@ export interface GestionSummary {
   tontines: GestionTontineSummary[]
 }
 
-// ─── B06 : file « À valider » ────────────────────────────────────────────────
+// ─── B06 : file « À valider » (/me/gestion/cotisations) ──────────────────────
 export interface CotisationAValider extends Cotisation {
   tontineNom: string
 }
 
-// ─── B09 : fil d'activité ────────────────────────────────────────────────────
+// ─── B09 : fil d'activité (/me/activite) ─────────────────────────────────────
 export type ActiviteType =
   | 'COTISATION_DECLAREE'
   | 'COTISATION_VALIDEE'
   | 'COTISATION_ENCAISSEE'
   | 'COTISATION_EN_RETARD'
+  | 'COTISATION_REFUSEE'
   | 'JACKPOT_RECU'
 
 export interface ActiviteItem {
@@ -126,14 +135,17 @@ export interface ActiviteItem {
   tontineId: string
   tontineNom: string
   cycleId: string | null
+  numeroCycle: number | null
   cotisationId: string | null
-  /** Nom du membre concerné (utile en mode « Je gère ») */
+  membreId: string | null
+  /** Nom du membre concerné (mode « Je gère ») */
   membreNom: string | null
+  libelle: string | null
 }
 
 export type ModeAccueil = 'COTISE' | 'GERE'
 
-// ─── B10 : mes jackpots ──────────────────────────────────────────────────────
+// ─── B10 : mes jackpots (/me/jackpots) ───────────────────────────────────────
 export type ModeAttribution = 'ORDRE' | 'TIRAGE' | 'CHOIX'
 
 export interface JackpotRecu {
@@ -148,11 +160,13 @@ export interface JackpotRecu {
 export interface JackpotAVenir {
   tontineId: string
   tontineNom: string
+  monMembreId: string | null
+  /** Rang parmi les non-gagnants (ORDRE uniquement) */
   position: number | null
   numeroCycleEstime: number | null
-  /** Fin du tour estimé ; null si l'ordre est tiré au sort / choisi ou si le tour n'existe pas encore */
+  /** Fin du tour estimé ; null si TIRAGE / CHOIX ou tour pas encore planifié */
   dateEstimee: string | null
-  /** Estimation brute : montant × membres / gagnants par tour (commissions non déduites) */
+  /** Brut, avant commissions : à libeller « environ » */
   montantEstime: number | null
   modeAttribution: ModeAttribution
 }

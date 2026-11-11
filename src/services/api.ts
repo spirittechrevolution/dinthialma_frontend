@@ -7,6 +7,8 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081'
 const api: AxiosInstance = axios.create({
   baseURL: `${API_BASE_URL}/api`,
   headers: { 'Content-Type': 'application/json' },
+  // Multi-valeurs au format attendu par le backend : ?statut=A&statut=B (pas statut[]=A)
+  paramsSerializer: { indexes: null },
 })
 
 // ─── Injection du Bearer token ────────────────────────────────────────────────

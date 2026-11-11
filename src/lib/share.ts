@@ -8,56 +8,24 @@ export function appUrl(): string {
   return window.location.origin
 }
 
-/** Lien encodé dans le QR membre — v1 : numéro en clair (B15 : identifiant opaque à venir) */
-export function memberQrUrl(phone: string): string {
-  return `${window.location.origin}/q/m/${phone.replace(/\D/g, '')}`
-}
-
 /**
- * Lien d'invitation d'une tontine — v1 provisoire (B16 : code d'invitation + aperçu public à venir).
- * Faute d'aperçu public côté API, le lien transporte ce qu'il faut afficher sur la page d'invitation :
- * nom, montant, rythme, prénom et numéro du gestionnaire (partagés par le gestionnaire lui-même).
+ * Chemin interne correspondant à un QR scanné (§8 de PROMPT_ALIGNEMENT_FRONT) :
+ * - URL complète `…/q/{token}` (membre) ou `…/q/t/{code}` (invitation) → dernier segment ;
+ * - jeton brut `m_…` (membre) ou code `XXXX-XXXX` (invitation).
+ * Renvoie null si ce n'est pas un QR Dinthialma.
  */
-export function tontineQrUrl(t: {
-  id: string
-  nom: string
-  montant?: number | null
-  montantLibre?: boolean | null
-  frequence?: string | null
-  creePar?: { firstName?: string; phone?: string } | null
-}): string {
-  const p = new URLSearchParams()
-  p.set('n', t.nom)
-  if (t.montantLibre) p.set('l', '1')
-  else if (t.montant) p.set('m', String(t.montant))
-  if (t.frequence) p.set('f', t.frequence)
-  if (t.creePar?.firstName) p.set('p', t.creePar.firstName)
-  if (t.creePar?.phone) p.set('g', t.creePar.phone.replace(/\D/g, ''))
-  return `${window.location.origin}/q/t/${t.id}?${p.toString()}`
-}
-
-/** Informations lues dans un lien d'invitation (voir tontineQrUrl) */
-export function lireInvitation(search: URLSearchParams) {
-  const m = Number(search.get('m'))
-  return {
-    nom: search.get('n') || null,
-    montant: Number.isFinite(m) && m > 0 ? m : null,
-    montantLibre: search.get('l') === '1',
-    frequence: search.get('f') || null,
-    gestionnairePrenom: search.get('p') || null,
-    gestionnairePhone: search.get('g') || null,
-  }
-}
-
-/** Un texte scanné est-il un lien Dinthialma ? Renvoie le chemin interne (/q/…) ou null. */
 export function cheminQrDinthialma(texte: string): string | null {
+  const t = texte.trim()
+  if (/^m_[\w-]+$/i.test(t)) return `/q/${t}`
+  if (/^[a-z0-9]{4}-?[a-z0-9]{4}$/i.test(t)) return `/q/t/${t}`
   try {
-    const u = new URL(texte.trim())
-    if (u.origin !== window.location.origin && !/dinthialma/i.test(u.hostname)) return null
-    return u.pathname.startsWith('/q/') ? `${u.pathname}${u.search}` : null
+    const u = new URL(t)
+    const m = u.pathname.match(/^\/q\/(t\/)?([^/]+)\/?$/)
+    if (m) return m[1] ? `/q/t/${m[2]}` : `/q/${m[2]}`
   } catch {
-    return null
+    /* pas une URL */
   }
+  return null
 }
 
 /**

@@ -10,7 +10,8 @@ export const cotisationService = {
     cycleId?: string,
     page = 0,
     size = 20,
-    membreId?: string
+    membreId?: string,
+    filtres: { statut?: string[]; q?: string } = {}
   ): Promise<PageResponse<Cotisation>> => {
     const response = await api.get<CustomResponse<RawPage<Cotisation>>>(
       `/v1/tontines/${tontineId}/cotisations`,
@@ -19,6 +20,8 @@ export const cotisationService = {
           page, size, sort: 'createdAt,desc',
           ...(cycleId ? { cycleId } : {}),
           ...(membreId ? { membreId } : {}),
+          ...(filtres.statut?.length ? { statut: filtres.statut } : {}),
+          ...(filtres.q ? { q: filtres.q } : {}),
         },
       }
     )

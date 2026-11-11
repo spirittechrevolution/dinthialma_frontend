@@ -48,6 +48,10 @@ export interface MyDashboardResponse {
   totalMembres: number
   totalCotisationsEnAttente: number
   totalCotisationsEnRetard: number
+  /** Somme des cotisations VALIDÉES des tours en cours */
+  totalCollecteToursEnCours: number
+  /** Absent si aucun montant attendu calculable (montants libres) */
+  totalAttenduToursEnCours: number | null
   /** Paginé côté backend : ?page=&size=&sort= */
   tontines: PageResponse<TontineStats>
 }
@@ -73,6 +77,8 @@ export interface TontineStats {
   montantLibre: boolean | null
   /** Membres ayant au moins une cotisation VALIDÉE */
   nombreMembresCotise: number | null
+  /** ROTATIVE à ordre MANUEL avec un tour terminé sans gagnant */
+  gagnantsADesigner?: boolean
 }
 
 export interface CycleEnCoursInfo {
@@ -82,4 +88,12 @@ export interface CycleEnCoursInfo {
   dateFin: string
   beneficiaireNom?: string
   beneficiaireUserId?: string
+  /** Cotisations VALIDÉES du tour */
+  montantCollecte?: number
+  montantEnAttente?: number
+  /** Absent si montant libre sans plancher */
+  montantAttendu?: number
+  membresAyantPaye?: number
+  membresEnAttente?: number
+  membresActifs?: number
 }
