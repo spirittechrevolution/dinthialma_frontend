@@ -111,7 +111,7 @@ export function TontinesPage() {
             const isEvent = t.tontineType === TontineType.EVENEMENTIELLE
             const pct = t.nombreMembres > 0 ? Math.round((t.nombreMembresActuels / t.nombreMembres) * 100) : 0
             return (
-              <div key={t.id} onClick={() => navigate(`/admin/tontines/${t.id}`)} className="bg-white rounded-2xl border border-neutral-100 p-4 sm:p-5 flex flex-col cursor-pointer hover:border-primary-200 active:scale-[0.99] transition">
+              <div key={t.id} onClick={() => navigate(`/tontine/${t.id}`)} className="bg-white rounded-2xl border border-neutral-100 p-4 sm:p-5 flex flex-col cursor-pointer hover:border-primary-200 active:scale-[0.99] transition">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <Badge variant={BADGE_VARIANT[t.statut]}>
@@ -128,7 +128,7 @@ export function TontinesPage() {
                     )}
                   </div>
                   <button
-                    onClick={() => navigate(`/admin/tontines/${t.id}`)}
+                    onClick={() => navigate(`/tontine/${t.id}`)}
                     className="p-1 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-600 transition-colors"
                   >
                     <ArrowRight size={16} />

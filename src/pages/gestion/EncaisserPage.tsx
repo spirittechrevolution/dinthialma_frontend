@@ -95,7 +95,7 @@ function EncaisserTontine({ tontineId }: { tontineId: string }) {
     return (
       <Shell title={stats.nom}>
         <Message icon={<CalendarX size={28} />} title="Aucun tour en cours" text="Démarrez un tour pour pouvoir encaisser.">
-          <Link to={`/admin/tontines/${tontineId}`} className="h-12 px-5 rounded-full bg-primary-700 text-white font-bold inline-flex items-center">Voir la tontine</Link>
+          <Link to={`/tontine/${tontineId}/tours`} className="h-12 px-5 rounded-full bg-primary-700 text-white font-bold inline-flex items-center">Voir les tours</Link>
         </Message>
       </Shell>
     )

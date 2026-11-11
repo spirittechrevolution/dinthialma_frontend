@@ -96,7 +96,7 @@ export function MontantsSheet({ isOpen, onClose, mode, cotisant, gestion, hidden
               const pct = t.toursTotal > 0 ? Math.round((t.toursPayes / t.toursTotal) * 100) : 0
               return (
                 <li key={t.tontineId}>
-                  <Link to={`/member/tontines/${t.tontineId}`} onClick={onClose} className="flex items-center gap-3 px-2 py-3 rounded-2xl hover:bg-neutral-50">
+                  <Link to={`/tontine/${t.tontineId}`} onClick={onClose} className="flex items-center gap-3 px-2 py-3 rounded-2xl hover:bg-neutral-50">
                     <InitialsAvatar name={t.nom} />
                     <span className="min-w-0 flex-1">
                       <span className="flex justify-between gap-2">
@@ -128,7 +128,7 @@ export function MontantsSheet({ isOpen, onClose, mode, cotisant, gestion, hidden
             const pct = c && c.montantAttendu ? Math.min(100, Math.round((c.montantCollecte / c.montantAttendu) * 100)) : 0
             return (
               <li key={t.tontineId}>
-                <Link to={`/admin/tontines/${t.tontineId}`} onClick={onClose} className="flex items-center gap-3 px-2 py-3 rounded-2xl hover:bg-neutral-50">
+                <Link to={`/tontine/${t.tontineId}`} onClick={onClose} className="flex items-center gap-3 px-2 py-3 rounded-2xl hover:bg-neutral-50">
                   <InitialsAvatar name={t.nom} />
                   <span className="min-w-0 flex-1">
                     <span className="flex justify-between gap-2">

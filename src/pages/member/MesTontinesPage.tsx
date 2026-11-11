@@ -67,7 +67,7 @@ export function MesTontinesPage() {
               return (
                 <li key={t.id} className="border-b border-neutral-100 last:border-0">
                   <button
-                    onClick={() => navigate(`/member/tontines/${t.id}`)}
+                    onClick={() => navigate(`/tontine/${t.id}`)}
                     className="w-full text-left flex items-center gap-3 px-4 py-4 hover:bg-neutral-50 active:bg-neutral-100 transition-colors"
                   >
                     <InitialsAvatar name={t.nom} size={44} />

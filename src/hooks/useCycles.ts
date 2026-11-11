@@ -33,6 +33,8 @@ export function useOpenCycle() {
       cycleService.openCycle(tontineId, request),
     onSuccess: (_, { tontineId }) => {
       queryClient.invalidateQueries({ queryKey: ['cycles', tontineId] })
+      queryClient.invalidateQueries({ queryKey: ['cycle', tontineId] })
+      queryClient.invalidateQueries({ queryKey: ['recapCycle', tontineId] })
     },
   })
 }
@@ -44,6 +46,8 @@ export function useCloturerCycle() {
       cycleService.cloturerCycle(tontineId, cycleId),
     onSuccess: (_, { tontineId }) => {
       queryClient.invalidateQueries({ queryKey: ['cycles', tontineId] })
+      queryClient.invalidateQueries({ queryKey: ['cycle', tontineId] })
+      queryClient.invalidateQueries({ queryKey: ['recapCycle', tontineId] })
       queryClient.invalidateQueries({ queryKey: ['tontine', tontineId] })
       queryClient.invalidateQueries({ queryKey: ['beneficiaires-historique', tontineId] })
     },
@@ -64,6 +68,8 @@ export function useDesignerGagnants() {
     }) => cycleService.designerGagnants(tontineId, cycleId, request),
     onSuccess: (_, { tontineId }) => {
       queryClient.invalidateQueries({ queryKey: ['cycles', tontineId] })
+      queryClient.invalidateQueries({ queryKey: ['cycle', tontineId] })
+      queryClient.invalidateQueries({ queryKey: ['recapCycle', tontineId] })
       queryClient.invalidateQueries({ queryKey: ['membres', tontineId] })
       queryClient.invalidateQueries({ queryKey: ['beneficiaires-historique', tontineId] })
     },

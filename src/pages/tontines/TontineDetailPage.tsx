@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -184,6 +184,7 @@ function SaisieParBadge({ cotisation }: { cotisation: Cotisation }) {
 }
 
 type Tab = 'infos' | 'membres' | 'cycles' | 'cotisations' | 'recap' | 'commissions' | 'historique'
+const TABS: readonly Tab[] = ['infos', 'membres', 'cycles', 'cotisations', 'recap', 'commissions', 'historique']
 
 // ─── Page principale ──────────────────────────────────────────────────────────
 
@@ -192,7 +193,10 @@ export function TontineDetailPage() {
   const navigate = useNavigate()
   const { user, hasRole } = useAuth()
 
-  const [activeTab, setActiveTab] = useState<Tab>('infos')
+  // ?onglet=membres : ouverture directe d'un onglet (liens de la nouvelle fiche tontine)
+  const [searchParams] = useSearchParams()
+  const ongletDemande = searchParams.get('onglet') as Tab | null
+  const [activeTab, setActiveTab] = useState<Tab>(ongletDemande && TABS.includes(ongletDemande) ? ongletDemande : 'infos')
   const [confirmAction, setConfirmAction] = useState<{ type: 'activer' | 'suspendre' } | null>(null)
 
   // Modals

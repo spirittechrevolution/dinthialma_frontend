@@ -231,7 +231,7 @@ export function HomePage() {
   // ─── Navigation depuis le fil ────────────────────────────────────────────
   const openActivite = (it: ActiviteItem) => {
     if (it.cotisationId) navigate(`/recu/${it.tontineId}/${it.cotisationId}`)
-    else navigate(mode === 'GERE' ? `/admin/tontines/${it.tontineId}` : `/member/tontines/${it.tontineId}`)
+    else navigate(`/tontine/${it.tontineId}`)
   }
 
   const filterOptions = tontinesDuMode.map((t) => ({ id: t.id, nom: t.nom, detail: `${formatF(t.montant)} · ${t.nombreMembresActuels} membres` }))

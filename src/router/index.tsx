@@ -91,6 +91,9 @@ const PayerPage = lazy(() => import('@/pages/pay/PayerPage').then(m => ({ defaul
 const RecuPage = lazy(() => import('@/pages/pay/RecuPage').then(m => ({ default: m.RecuPage })))
 const AValiderPage = lazy(() => import('@/pages/gestion/AValiderPage').then(m => ({ default: m.AValiderPage })))
 const EncaisserPage = lazy(() => import('@/pages/gestion/EncaisserPage').then(m => ({ default: m.EncaisserPage })))
+const FicheTontinePage = lazy(() => import('@/pages/tontine/FicheTontinePage').then(m => ({ default: m.FicheTontinePage })))
+const ToursPage = lazy(() => import('@/pages/tontine/ToursPage').then(m => ({ default: m.ToursPage })))
+const TourPage = lazy(() => import('@/pages/tontine/TourPage').then(m => ({ default: m.TourPage })))
 
 // Admin
 const TontinesPage = lazy(() => import('@/pages/admin/TontinesPage').then(m => ({ default: m.TontinesPage })))
@@ -159,6 +162,19 @@ const router = createBrowserRouter([
   {
     path: '/encaisser/:tontineId',
     element: <ProtectedRoute><S><EncaisserPage /></S></ProtectedRoute>,
+  },
+  // Fiche tontine (vue gestionnaire / membre / lecture selon la tontine)
+  {
+    path: '/tontine/:id',
+    element: <ProtectedRoute><S><FicheTontinePage /></S></ProtectedRoute>,
+  },
+  {
+    path: '/tontine/:id/tours',
+    element: <ProtectedRoute><S><ToursPage /></S></ProtectedRoute>,
+  },
+  {
+    path: '/tontine/:id/tours/:cycleId',
+    element: <ProtectedRoute><S><TourPage /></S></ProtectedRoute>,
   },
 
   // Super Admin

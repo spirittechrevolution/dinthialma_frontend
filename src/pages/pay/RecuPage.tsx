@@ -140,7 +140,7 @@ export function RecuPage() {
             </button>
           ) : (
             <Link
-              to={gere ? `/admin/tontines/${tontineId}` : `/member/tontines/${tontineId}`}
+              to={`/tontine/${tontineId}`}
               className="h-12 rounded-full bg-white shadow-sm font-semibold text-neutral-800 inline-flex items-center justify-center"
             >
               Voir la tontine

@@ -59,9 +59,8 @@ function formatDate(iso: string): string {
 function getNotifLink(notif: NotificationItem, isAdmin: boolean): string | null {
   if (!notif.tontineId) return null
 
-  const tontineBase = isAdmin
-    ? `/admin/tontines/${notif.tontineId}`
-    : `/member/tontines/${notif.tontineId}`
+  // Fiche tontine unique : la vue (gestionnaire / membre) dépend de la tontine
+  const tontineBase = `/tontine/${notif.tontineId}`
 
   switch (notif.type) {
     case NotificationType.PAIEMENT_RECU:

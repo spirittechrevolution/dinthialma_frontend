@@ -72,7 +72,7 @@ export function MesJackpotsPage() {
                 <ul className="divide-y divide-neutral-100">
                   {data.aVenir.map((j) => (
                     <li key={j.tontineId}>
-                      <button onClick={() => navigate(`/member/tontines/${j.tontineId}`)} className="w-full flex items-center gap-3 px-4 py-3 min-h-[64px] text-left hover:bg-neutral-50">
+                      <button onClick={() => navigate(`/tontine/${j.tontineId}`)} className="w-full flex items-center gap-3 px-4 py-3 min-h-[64px] text-left hover:bg-neutral-50">
                         <InitialsAvatar name={j.tontineNom} />
                         <span className="min-w-0 flex-1">
                           <span className="block font-semibold text-neutral-900 truncate">{j.tontineNom}</span>
@@ -102,7 +102,7 @@ export function MesJackpotsPage() {
                   {data.recus.map((r) => (
                     <li key={`${r.cycleId}`}>
                       <button
-                        onClick={() => navigate(`/member/tontines/${r.tontineId}`)}
+                        onClick={() => navigate(`/tontine/${r.tontineId}`)}
                         className="w-full h-full rounded-2xl border border-yellow-200 bg-yellow-50 p-3 text-left"
                       >
                         <Trophy size={20} className="text-yellow-700" />
