@@ -11,6 +11,9 @@ import { Input } from '@/components/ui/Input'
 import { PhoneInput } from '@/components/ui/PhoneInput'
 import { AuthShell, AuthSteps, AuthAlert } from '@/components/auth/AuthShell'
 import { messageErreur } from '@/lib/apiError'
+import { describeDevice } from '@/lib/device'
+import { detectClientType } from '@/lib/tokenStorage'
+import { useAuth } from '@/hooks/useAuth'
 
 const step1Schema = z.object({
   phone: zPhone,
@@ -38,6 +41,7 @@ type Step3Data = z.infer<typeof step3Schema>
 export function RegisterPage() {
   const navigate = useNavigate()
   const location = useLocation()
+  const { ouvrirSession } = useAuth()
   const locationState = location.state as { phone?: string } | null
   const preFillPhone = locationState?.phone || ''
 
@@ -71,13 +75,19 @@ export function RegisterPage() {
   const onStep3 = async ({ firstName, lastName, password, email }: Step3Data) => {
     setError(null)
     try {
-      const result = await authService.registerComplete({ phone, firstName, lastName, password, email: email || undefined })
-      if (result.role === 'DINTHIALMA_MEMBER') {
-        navigate('/tontines', { replace: true, state: { welcomeActivated: true } })
+      const result = await authService.registerComplete({
+        phone, firstName, lastName, password, email: email || undefined,
+        clientType: detectClientType(), deviceInfo: describeDevice(),
+      })
+      if (result.access_token && result.refresh_token) {
+        // B13 : connexion automatique → création du code secret, sans repasser par la connexion
+        ouvrirSession(result.access_token, result.refresh_token, phone, result.pin_configured ?? false)
+        navigate('/pin/setup', { replace: true })
       } else {
+        // Inscription réussie mais connexion automatique indisponible : repli sur l'écran de connexion
         navigate('/login', { state: { registered: true } })
       }
-    } catch { setError('Erreur lors de la création. Réessayez.') }
+    } catch (err) { setError(messageErreur(err, 'Erreur lors de la création. Réessayez.')) }
   }
 
   // ─── Formulaires par étape ─────────────────────────────────────────────────

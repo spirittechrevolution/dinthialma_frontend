@@ -9,6 +9,7 @@ import {
   getRefreshToken, setTokens, getClientType, clearAll,
 } from '@/lib/tokenStorage'
 import axios from 'axios'
+import { describeDevice } from '@/lib/device'
 import api from '@/services/api'
 
 interface ExtendedAuthContextType extends AuthContextType {
@@ -19,6 +20,8 @@ interface ExtendedAuthContextType extends AuthContextType {
    * tontine — B12). Renvoie false si le renouvellement échoue ; la session en cours reste valable.
    */
   refreshSession: () => Promise<boolean>
+  /** Ouvre une session à partir de jetons déjà obtenus (connexion automatique après inscription) */
+  ouvrirSession: (accessToken: string, refreshToken: string, phone: string, pinConfigured?: boolean) => void
   /** Déconnexion complète : ferme la session côté serveur et oublie l'appareil (téléphone, PIN) */
   logoutComplet: () => Promise<void>
 }
@@ -46,7 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         username,
         password,
         clientType: detectClientType(),
-        deviceInfo: navigator.userAgent,
+        deviceInfo: describeDevice(),
       })
 
       const { access_token, refresh_token, pin_configured: pinConfigured } = data.data
@@ -74,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           phone,
           pin,
           clientType: detectClientType(),
-          deviceInfo: navigator.userAgent,
+          deviceInfo: describeDevice(),
         }
       )
       const { access_token, refresh_token } = data.data
@@ -109,6 +112,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       return false
     }
+  }, [])
+
+  // ─── Session ouverte à partir de jetons (inscription → accueil sans reconnexion, B13) ──
+  const ouvrirSession = useCallback((accessToken: string, refreshToken: string, phone: string, pinConfigured?: boolean) => {
+    storeSession(accessToken, refreshToken, phone)
+    if (pinConfigured !== undefined) setPinConfigured(pinConfigured)
+    setUser(getAuthUser(accessToken))
   }, [])
 
   // ─── Logout complet (« Oublier cet appareil ») ──────────────────────────────
@@ -146,6 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loginWithPin,
       setupPin,
       refreshSession,
+      ouvrirSession,
       logoutComplet,
       logout,
       hasRole,

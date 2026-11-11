@@ -39,13 +39,18 @@ export interface UserSearchResult {
 
 // ─── Réponse inscription complète ────────────────────────────────────────────
 export interface RegisterCompleteResponse {
-  id: string
+  userId?: string
   keycloakId: string
   phone: string
   firstName: string
   lastName: string
   email?: string
   role: string
+  /** B13 : connexion automatique (absents si elle a échoué → repli sur l'écran de connexion) */
+  access_token?: string
+  refresh_token?: string
+  expires_in?: number
+  pin_configured?: boolean
 }
 
 // ─── Profil utilisateur connecté ─────────────────────────────────────────────
@@ -113,6 +118,9 @@ export interface RegisterCompleteRequest {
   lastName: string
   password: string
   email?: string
+  /** B13 : permet la connexion automatique après inscription */
+  clientType?: 'WEB' | 'MOBILE'
+  deviceInfo?: string
 }
 
 // ─── Reset mot de passe ───────────────────────────────────────────────────────
