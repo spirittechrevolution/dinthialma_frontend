@@ -209,7 +209,7 @@ export function HomePage() {
     ? [
         { key: 'encaisser', label: 'Encaisser', icon: <CreditCard size={26} />, tone: 'green', to: tontineId ? `/encaisser/${tontineId}` : '/encaisser' },
         { key: 'valider', label: 'À valider', icon: <ListChecks size={26} />, tone: 'amber', to: tontineId ? `/a-valider?tontine=${tontineId}` : '/a-valider', badge: aValiderTotal },
-        { key: 'tontines', label: 'Tontines', icon: <Wallet size={26} />, tone: 'blue', to: '/admin/tontines' },
+        { key: 'tontines', label: 'Tontines', icon: <Wallet size={26} />, tone: 'blue', to: '/tontines?section=gere' },
         { key: 'membres', label: 'Membres', icon: <Users size={26} />, tone: 'violet', onClick: () => ouvrirRubrique('membres') },
         { key: 'tours', label: 'Tours', icon: <RefreshCw size={26} />, tone: 'teal', onClick: () => ouvrirRubrique('tours') },
         { key: 'creer', label: 'Créer', icon: <Plus size={26} />, tone: 'rose', to: '/creer' },
@@ -218,9 +218,9 @@ export function HomePage() {
       ]
     : [
         { key: 'payer', label: 'Payer', icon: <Send size={26} />, tone: 'green', onClick: () => (aPayerTotal > 1 && !tontineId ? setPayPickerOpen(true) : openPay(tontineId ?? cotisant.data?.aPayer[0]?.tontineId)) },
-        { key: 'tontines', label: 'Tontines', icon: <Wallet size={26} />, tone: 'blue', to: '/member/tontines' },
+        { key: 'tontines', label: 'Tontines', icon: <Wallet size={26} />, tone: 'blue', to: '/tontines?section=cotise' },
         { key: 'jackpots', label: 'Jackpots', icon: <Trophy size={26} />, tone: 'amber', to: '/jackpots' },
-        { key: 'historique', label: 'Historique', icon: <History size={26} />, tone: 'violet', to: '/member/cotisations' },
+        { key: 'historique', label: 'Historique', icon: <History size={26} />, tone: 'violet', to: tontineId ? `/historique?mode=COTISE&tontine=${tontineId}` : '/historique?mode=COTISE' },
         { key: 'creer', label: 'Créer', icon: <Plus size={26} />, tone: 'rose', to: '/creer' },
         { key: 'inviter', label: 'Inviter', icon: <Share2 size={26} />, tone: 'teal', onClick: inviter },
         { key: 'alertes', label: 'Alertes', icon: <Bell size={26} />, tone: 'green', to: '/notifications', badge: unread },
@@ -231,7 +231,7 @@ export function HomePage() {
     ...(mode === 'GERE'
       ? [
           { key: 'jackpots', label: 'Jackpots', icon: <Trophy size={22} />, to: '/jackpots' },
-          { key: 'historique', label: 'Mes paiements', icon: <History size={22} />, to: '/member/cotisations' },
+          { key: 'historique', label: 'Historique', icon: <History size={22} />, to: '/historique?mode=GERE' },
         ]
       : [{ key: 'alertes', label: 'Alertes', icon: <Bell size={22} />, to: '/notifications' }]),
     { key: 'profil', label: 'Paramètres', icon: <UserCircle size={22} />, to: '/parametres' },

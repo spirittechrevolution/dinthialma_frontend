@@ -74,7 +74,7 @@ export function RegisterPage() {
     try {
       const result = await authService.registerComplete({ phone, firstName, lastName, password, email: email || undefined })
       if (result.role === 'DINTHIALMA_MEMBER') {
-        navigate('/member/tontines', { replace: true, state: { welcomeActivated: true } })
+        navigate('/tontines', { replace: true, state: { welcomeActivated: true } })
       } else {
         navigate('/login', { state: { registered: true } })
       }

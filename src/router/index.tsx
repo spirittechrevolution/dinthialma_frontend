@@ -109,11 +109,10 @@ const MembreQrPage = lazy(() => import('@/pages/qr/MembreQrPage').then(m => ({ d
 const InvitationPage = lazy(() => import('@/pages/qr/InvitationPage').then(m => ({ default: m.InvitationPage })))
 
 // Admin
-const TontinesPage = lazy(() => import('@/pages/admin/TontinesPage').then(m => ({ default: m.TontinesPage })))
 
 // Member
-const MesTontinesPage = lazy(() => import('@/pages/member/MesTontinesPage').then(m => ({ default: m.MesTontinesPage })))
-const MesCotisationsPage = lazy(() => import('@/pages/member/MesCotisationsPage').then(m => ({ default: m.MesCotisationsPage })))
+const MesTontinesPage = lazy(() => import('@/pages/tontine/MesTontinesPage').then(m => ({ default: m.MesTontinesPage })))
+const HistoriquePage = lazy(() => import('@/pages/home/HistoriquePage').then(m => ({ default: m.HistoriquePage })))
 const NotificationsPage = lazy(() => import('@/pages/NotificationsPage').then(m => ({ default: m.NotificationsPage })))
 
 const router = createBrowserRouter([
@@ -250,15 +249,12 @@ const router = createBrowserRouter([
     path: '/admin/dashboard',
     element: <Navigate to="/accueil" replace />,
   },
-  {
-    path: '/admin/tontines',
-    element: <RoleRoute requiredRoles={[UserRole.ADMIN]}><S><TontinesPage /></S></RoleRoute>,
-  },
+  { path: '/admin/tontines', element: <Navigate to="/tontines?section=gere" replace /> },
   { path: '/admin/tontines/:id', element: <TontineRedirect /> },
   // Anciennes pages globales gestionnaire → nouveaux écrans
   { path: '/admin/cotisations', element: <Navigate to="/a-valider" replace /> },
-  { path: '/admin/membres', element: <Navigate to="/admin/tontines" replace /> },
-  { path: '/admin/cycles', element: <Navigate to="/admin/tontines" replace /> },
+  { path: '/admin/membres', element: <Navigate to="/tontines?section=gere" replace /> },
+  { path: '/admin/cycles', element: <Navigate to="/tontines?section=gere" replace /> },
   // User (rôle USER — pas encore membre)
   {
     // Ancien accueil nouvel inscrit → accueil-hub
@@ -272,17 +268,21 @@ const router = createBrowserRouter([
     path: '/member/dashboard',
     element: <Navigate to="/accueil" replace />,
   },
-  {
-    path: '/member/tontines',
-    element: <RoleRoute requiredRoles={[UserRole.MEMBER, UserRole.ADMIN]}><S><MesTontinesPage /></S></RoleRoute>,
-  },
+  { path: '/member/tontines', element: <Navigate to="/tontines?section=cotise" replace /> },
   {
     path: '/member/tontines/:id',
     element: <TontineRedirect />,
   },
+  { path: '/member/cotisations', element: <Navigate to="/historique" replace /> },
+
+  // Listes (brief v2)
   {
-    path: '/member/cotisations',
-    element: <RoleRoute requiredRoles={[UserRole.MEMBER, UserRole.ADMIN]}><S><MesCotisationsPage /></S></RoleRoute>,
+    path: '/tontines',
+    element: <ProtectedRoute><S><MesTontinesPage /></S></ProtectedRoute>,
+  },
+  {
+    path: '/historique',
+    element: <ProtectedRoute><S><HistoriquePage /></S></ProtectedRoute>,
   },
 
   // Profil

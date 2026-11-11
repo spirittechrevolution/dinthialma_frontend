@@ -46,7 +46,7 @@ export function AppLayout({ children }: AppLayoutProps) {
     if (hasRole(UserRole.ADMIN)) {
       return [
         { label: 'Accueil', path: '/accueil', icon: <Home size={22} />, mobile: true },
-        { label: 'Mes tontines', shortLabel: 'Tontines', path: '/admin/tontines', icon: <Wallet size={22} />, mobile: true },
+        { label: 'Mes tontines', shortLabel: 'Tontines', path: '/tontines', icon: <Wallet size={22} />, mobile: true },
         { label: 'À valider', shortLabel: 'Valider', path: '/a-valider', icon: <ListChecks size={22} />, mobile: true },
         { label: 'Encaisser', path: '/encaisser', icon: <CreditCard size={22} />, mobile: true },
       ]
@@ -55,8 +55,8 @@ export function AppLayout({ children }: AppLayoutProps) {
     if (hasRole(UserRole.MEMBER)) {
       return [
         { label: 'Accueil', path: '/accueil', icon: <Home size={22} />, mobile: true },
-        { label: 'Mes tontines', shortLabel: 'Tontines', path: '/member/tontines', icon: <Wallet size={22} />, mobile: true },
-        { label: 'Mes cotisations', shortLabel: 'Paiements', path: '/member/cotisations', icon: <CreditCard size={22} />, mobile: true },
+        { label: 'Mes tontines', shortLabel: 'Tontines', path: '/tontines', icon: <Wallet size={22} />, mobile: true },
+        { label: 'Historique', shortLabel: 'Historique', path: '/historique', icon: <CreditCard size={22} />, mobile: true },
       ]
     }
 

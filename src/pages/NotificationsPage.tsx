@@ -66,15 +66,15 @@ function getNotifLink(notif: NotificationItem, isAdmin: boolean): string | null 
     case NotificationType.PAIEMENT_RECU:
     case NotificationType.COTISATION_SOUMISE:
       // Gestionnaire → file « À valider » de la tontine, Membre → ses cotisations
-      return isAdmin ? `/a-valider?tontine=${notif.tontineId}` : '/member/cotisations'
+      return isAdmin ? `/a-valider?tontine=${notif.tontineId}` : '/historique'
     case NotificationType.COTISATION_VALIDEE:
-      return '/member/cotisations'
+      return '/historique'
     case NotificationType.JACKPOT_DISTRIBUE:
     case NotificationType.DISTRIBUTION_FINALE:
       return tontineBase
     case NotificationType.PAIEMENT_EN_RETARD:
     case NotificationType.RAPPEL_COTISATION:
-      return isAdmin ? `${tontineBase}` : '/member/cotisations'
+      return isAdmin ? `${tontineBase}` : '/historique'
     case NotificationType.TOUR_PROCHE:
     case NotificationType.CYCLE_BIENTOT_CLOTURE:
     case NotificationType.CYCLE_OUVERT:

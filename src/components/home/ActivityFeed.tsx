@@ -57,38 +57,41 @@ export function ActivityFeed({ mode, items, isLoading, isError, onRetry, onOpen 
         <p className="px-4 py-8 text-center text-sm text-neutral-500">Aucune activité pour l'instant</p>
       ) : (
         <ul className="divide-y divide-neutral-100">
-          {items.map((it) => {
-            const st = STATUT[it.type]
-            const gain = it.sens === 'GAIN'
-            const titre = mode === 'GERE' && it.membreNom ? it.membreNom : `${LIBELLES[it.type]} · ${it.tontineNom}`
-            const sous = mode === 'GERE' ? `${it.tontineNom} · ${formatDateHeure(it.date)}` : formatDateHeure(it.date)
-            return (
-              <li key={it.id}>
-                <button
-                  onClick={() => onOpen(it)}
-                  className="w-full flex items-center gap-3 px-4 py-3 min-h-[64px] text-left hover:bg-neutral-50 active:bg-neutral-100"
-                >
-                  <span className={clsx('w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0', gain ? 'bg-yellow-50 text-yellow-700' : 'bg-neutral-100 text-neutral-600')}>
-                    {gain ? <Trophy size={18} /> : <ArrowUpRight size={18} />}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block font-semibold text-neutral-900 truncate">{titre}</span>
-                    <span className="block text-sm text-neutral-500 truncate">{sous}</span>
-                  </span>
-                  <span className="flex flex-col items-end gap-1 flex-shrink-0">
-                    <span className={clsx('font-bold tabular-nums', gain ? 'text-primary-700' : 'text-neutral-900')}>
-                      {gain ? '+' : ''}{formatF(it.montant)}
-                    </span>
-                    <span className={clsx('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold', st.cls)}>
-                      {st.icon} {st.label}
-                    </span>
-                  </span>
-                </button>
-              </li>
-            )
-          })}
+          {items.map((it) => <ActiviteRow key={it.id} mode={mode} it={it} onOpen={onOpen} />)}
         </ul>
       )}
     </section>
+  )
+}
+
+/** Ligne d'activité (accueil, historique) : libellé, date, montant à droite, statut toujours visible */
+export function ActiviteRow({ mode, it, onOpen }: { mode: ModeAccueil; it: ActiviteItem; onOpen: (item: ActiviteItem) => void }) {
+  const st = STATUT[it.type]
+  const gain = it.sens === 'GAIN'
+  const titre = mode === 'GERE' && it.membreNom ? it.membreNom : `${LIBELLES[it.type]} · ${it.tontineNom}`
+  const sous = mode === 'GERE' ? `${it.tontineNom} · ${formatDateHeure(it.date)}` : formatDateHeure(it.date)
+  return (
+    <li>
+      <button
+        onClick={() => onOpen(it)}
+        className="w-full flex items-center gap-3 px-4 py-3 min-h-[64px] text-left hover:bg-neutral-50 active:bg-neutral-100"
+      >
+        <span className={clsx('w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0', gain ? 'bg-yellow-50 text-yellow-700' : 'bg-neutral-100 text-neutral-600')}>
+          {gain ? <Trophy size={18} /> : <ArrowUpRight size={18} />}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-semibold text-neutral-900 truncate">{titre}</span>
+          <span className="block text-sm text-neutral-500 truncate">{sous}</span>
+        </span>
+        <span className="flex flex-col items-end gap-1 flex-shrink-0">
+          <span className={clsx('font-bold tabular-nums', gain ? 'text-primary-700' : 'text-neutral-900')}>
+            {gain ? '+' : ''}{formatF(it.montant)}
+          </span>
+          <span className={clsx('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold', st.cls)}>
+            {st.icon} {st.label}
+          </span>
+        </span>
+      </button>
+    </li>
   )
 }
