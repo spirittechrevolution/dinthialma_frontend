@@ -174,6 +174,7 @@ export const meService = {
             montantLibre: !!t.montantLibre,
             montantMinimum: t.montantMinimum ?? null,
             dateLimite: cycleEnCours.dateFin,
+            cotisationId: existante?.id ?? null,
             statut: !existante ? 'A_PAYER'
               : existante.statut === CotisationStatut.VALIDE ? 'VALIDE'
               : 'EN_ATTENTE',

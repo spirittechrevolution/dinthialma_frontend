@@ -41,6 +41,8 @@ export interface CotisationDue {
   montantMinimum: number | null
   dateLimite: string
   statut: StatutCotisationDue
+  /** Cotisation déjà déclarée sur ce tour (null si à payer) */
+  cotisationId: string | null
 }
 
 export interface CotisantTontineSummary {

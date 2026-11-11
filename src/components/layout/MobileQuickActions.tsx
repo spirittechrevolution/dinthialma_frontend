@@ -16,7 +16,6 @@ import { CycleStatut, MembreStatut } from '@/types/common'
 import { AdminEnregistrerPaiementModal } from '@/components/shared/AdminEnregistrerPaiementModal'
 import { AddMembreModal } from '@/components/shared/AddMembreModal'
 import { CreateTontineModal } from '@/components/shared/CreateTontineModal'
-import { MemberPayModal } from '@/components/shared/MemberPayModal'
 import { Modal } from '@/components/ui/Modal'
 import { useTontine } from '@/hooks/useTontines'
 import { useCycles } from '@/hooks/useCycles'
@@ -66,7 +65,6 @@ export function MobileQuickActions() {
   const [paiementModal, setPaiementModal] = useState(false)
   const [addMembreModal, setAddMembreModal] = useState(false)
   const [createTontineModal, setCreateTontineModal] = useState(false)
-  const [memberPayModal, setMemberPayModal] = useState(false)
 
   // Données tontine courante (si on est dans une tontine)
   const { data: tontine } = useTontine(tontineId || '')
@@ -154,7 +152,7 @@ export function MobileQuickActions() {
         label: 'Déclarer mon paiement',
         icon: <CreditCard size={18} />,
         color: 'bg-primary-600 text-white',
-        onClick: () => { close(); setMemberPayModal(true) },
+        onClick: () => { close(); navigate(tontineId ? `/payer/${tontineId}` : '/payer') },
       },
     ]
   } else {
@@ -301,12 +299,6 @@ export function MobileQuickActions() {
         onClose={() => setCreateTontineModal(false)}
       />
 
-      {/* Modal paiement membre */}
-      <MemberPayModal
-        isOpen={memberPayModal}
-        onClose={() => setMemberPayModal(false)}
-        tontineId={tontineId ?? undefined}
-      />
     </>
   )
 }

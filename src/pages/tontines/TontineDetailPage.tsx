@@ -529,7 +529,7 @@ export function TontineDetailPage() {
           )
         } else if (!canManage && !isSuperAdmin && tontine.statut === TontineStatut.ACTIVE) {
           action = (
-            <button className={btn} onClick={() => navigate('/member/cotisations', { state: { openPay: true } })}>
+            <button className={btn} onClick={() => navigate(`/payer/${tontine.id}`)}>
               <Send size={18} /> Payer ma cotisation
             </button>
           )

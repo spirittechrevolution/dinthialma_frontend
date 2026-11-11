@@ -78,3 +78,15 @@ body {
 
 /* Chiffres alignés pour les montants */
 .tabular { font-variant-numeric: tabular-nums; }
+
+/* Reçu : apparition de l'icône d'état */
+@keyframes pop {
+  0%   { transform: scale(0.4); opacity: 0; }
+  70%  { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); }
+}
+.animate-pop { animation: pop 0.4s ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-pop, .animate-shake, .animate-slideUp, .animate-slideDown { animation: none; }
+}

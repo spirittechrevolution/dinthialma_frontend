@@ -10,11 +10,16 @@ export function formatFCFA(value: number | null | undefined): string {
 
 /**
  * Format « Wave » pour l'interface : 85000 → « 85.000F ».
- * Les reçus utilisent formatFCFA (« 85 000 FCFA »).
+ * Les reçus utilisent formatFcfaRecu (« 85.000 FCFA »).
  */
 export function formatF(value: number | null | undefined): string {
   const n = Math.round(value ?? 0)
   return `${Math.abs(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.')}F`
+}
+
+/** Format des reçus : 5000 → « 5.000 FCFA » */
+export function formatFcfaRecu(value: number | null | undefined): string {
+  return `${formatF(value).slice(0, -1)} FCFA`
 }
 
 /** ISO → « 12 nov. » (ou « 12 nov. 2025 » si autre année) */

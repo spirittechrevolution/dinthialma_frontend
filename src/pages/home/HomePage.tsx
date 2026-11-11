@@ -3,7 +3,7 @@
  *
  * Bandeau (réglages, alertes, bascule Je cotise / Je gère, filtre tontine, montant masquable),
  * carte QR, carte d'action unique, grille de 8 services, fil d'activité.
- * Les écrans pas encore refaits (Payer, Encaisser, À valider…) ouvrent provisoirement
+ * Les écrans pas encore refaits (Encaisser, À valider…) ouvrent provisoirement
  * les écrans existants ; il suffira de changer la destination dans `services`.
  */
 import { useEffect, useMemo, useState } from 'react'
@@ -24,7 +24,6 @@ import { ActionCard, ActionCardSkeleton } from '@/components/home/ActionCard'
 import { ServiceGrid, type ServiceItem } from '@/components/home/ServiceGrid'
 import { ActivityFeed } from '@/components/home/ActivityFeed'
 import { TontinePickerSheet, MontantsSheet, PlusSheet, dueDetail, type PlusItem } from '@/components/home/HomeSheets'
-import { MemberPayModal } from '@/components/shared/MemberPayModal'
 import { CreateTontineModal } from '@/components/shared/CreateTontineModal'
 import { formatF } from '@/lib/format'
 import { appUrl, memberQrUrl, shareLink, tontineQrUrl } from '@/lib/share'
@@ -64,11 +63,9 @@ export function HomePage() {
   const [montantsOpen, setMontantsOpen] = useState(false)
   const [plusOpen, setPlusOpen] = useState(false)
   const [payPickerOpen, setPayPickerOpen] = useState(false)
-  const [payTontineId, setPayTontineId] = useState<string | null>(null)
-  const [payOpen, setPayOpen] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
 
-  const openPay = (id?: string | null) => { setPayTontineId(id ?? null); setPayOpen(true) }
+  const openPay = (id?: string | null) => navigate(id ? `/payer/${id}` : '/payer')
 
   // ─── Montant du bandeau ──────────────────────────────────────────────────
   const { amount, amountLoading } = useMemo(() => {
@@ -233,7 +230,8 @@ export function HomePage() {
 
   // ─── Navigation depuis le fil ────────────────────────────────────────────
   const openActivite = (it: ActiviteItem) => {
-    navigate(mode === 'GERE' ? `/admin/tontines/${it.tontineId}` : `/member/tontines/${it.tontineId}`)
+    if (it.cotisationId) navigate(`/recu/${it.tontineId}/${it.cotisationId}`)
+    else navigate(mode === 'GERE' ? `/admin/tontines/${it.tontineId}` : `/member/tontines/${it.tontineId}`)
   }
 
   const filterOptions = tontinesDuMode.map((t) => ({ id: t.id, nom: t.nom, detail: `${formatF(t.montant)} · ${t.nombreMembresActuels} membres` }))
@@ -331,9 +329,7 @@ export function HomePage() {
       />
       <PlusSheet isOpen={plusOpen} onClose={() => setPlusOpen(false)} items={plusItems} />
 
-      {/* Parcours existants, en attendant les nouveaux écrans Payer (B2) et Créer (T9) */}
-      {/* key : remonte la modale pour appliquer la tontine présélectionnée */}
-      <MemberPayModal key={payTontineId ?? 'aucune'} isOpen={payOpen} onClose={() => setPayOpen(false)} tontineId={payTontineId ?? undefined} />
+      {/* Parcours existant, en attendant le nouvel écran Créer (T9) */}
       <CreateTontineModal isOpen={createOpen} onClose={() => setCreateOpen(false)} />
     </div>
   )

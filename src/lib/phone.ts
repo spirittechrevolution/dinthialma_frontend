@@ -11,6 +11,12 @@ export function toLocalPhone(phone: string | null | undefined): string {
   return (phone ?? '').replace(/\D/g, '').replace(/^221/, '')
 }
 
+/** « 221771234567 » → « 77 123 45 67 » (affichage) */
+export function formatPhoneLocal(phone: string | null | undefined): string {
+  const l = toLocalPhone(phone)
+  return l.length === 9 ? l.replace(/(\d{2})(\d{3})(\d{2})(\d{2})/, '$1 $2 $3 $4') : l
+}
+
 export function samePhone(a: string | null | undefined, b: string | null | undefined): boolean {
   const la = toLocalPhone(a)
   return la.length > 0 && la === toLocalPhone(b)

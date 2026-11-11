@@ -87,6 +87,8 @@ const TontineDetailPage = lazy(() => import('@/pages/tontines/TontineDetailPage'
 // Accueil-hub (brief v2)
 const HomePage = lazy(() => import('@/pages/home/HomePage').then(m => ({ default: m.HomePage })))
 const MesJackpotsPage = lazy(() => import('@/pages/home/MesJackpotsPage').then(m => ({ default: m.MesJackpotsPage })))
+const PayerPage = lazy(() => import('@/pages/pay/PayerPage').then(m => ({ default: m.PayerPage })))
+const RecuPage = lazy(() => import('@/pages/pay/RecuPage').then(m => ({ default: m.RecuPage })))
 
 // Admin
 const TontinesPage = lazy(() => import('@/pages/admin/TontinesPage').then(m => ({ default: m.TontinesPage })))
@@ -130,6 +132,18 @@ const router = createBrowserRouter([
   {
     path: '/jackpots',
     element: <ProtectedRoute><S><MesJackpotsPage /></S></ProtectedRoute>,
+  },
+  {
+    path: '/payer',
+    element: <ProtectedRoute><S><PayerPage /></S></ProtectedRoute>,
+  },
+  {
+    path: '/payer/:tontineId',
+    element: <ProtectedRoute><S><PayerPage /></S></ProtectedRoute>,
+  },
+  {
+    path: '/recu/:tontineId/:cotisationId',
+    element: <ProtectedRoute><S><RecuPage /></S></ProtectedRoute>,
   },
 
   // Super Admin
