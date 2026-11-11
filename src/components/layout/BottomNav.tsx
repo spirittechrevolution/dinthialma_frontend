@@ -23,7 +23,7 @@ export function BottomNav({ links }: BottomNavProps) {
   const isActive = (path: string) =>
     location.pathname === path || location.pathname.startsWith(path + '/')
 
-  const profileLink: NavLink = { label: 'Profil', path: '/profile', icon: <UserCircle size={22} /> }
+  const profileLink: NavLink = { label: 'Profil', path: '/parametres', icon: <UserCircle size={22} /> }
 
   const renderItem = (link: NavLink) => {
     const active = isActive(link.path)

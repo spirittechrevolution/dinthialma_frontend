@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
-import { isAxiosError } from 'axios'
 import { Phone, Lock, AlertCircle, ArrowRight, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { UserRole } from '@/types/common'
+import { getHomePath } from '@/lib/homePath'
+import { parseApiError } from '@/lib/apiError'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { PhoneInput } from '@/components/ui/PhoneInput'
@@ -39,10 +40,7 @@ export function LoginPage() {
       navigate('/pin/setup', { replace: true })
       return
     }
-    if (roles.includes(UserRole.SUPER_ADMIN)) navigate('/dashboard', { replace: true })
-    else if (roles.includes(UserRole.ADMIN)) navigate('/admin/dashboard', { replace: true })
-    else if (roles.includes(UserRole.MEMBER)) navigate('/member/dashboard', { replace: true })
-    else navigate('/user/dashboard', { replace: true })
+    navigate(getHomePath(roles), { replace: true })
   }
 
   const onSubmit = async ({ username, password }: LoginFormData) => {
@@ -52,19 +50,14 @@ export function LoginPage() {
       const { user, pinConfigured } = await login(username, password)
       if (user) redirectAfterLogin(user.roles, pinConfigured)
     } catch (err) {
-      if (isAxiosError(err) && err.response?.status === 403) {
-        const msg: string = err.response?.data?.message || ''
-        if (
-          msg.toLowerCase().includes('gestionnaire') ||
-          msg.toLowerCase().includes('pre_enrolled') ||
-          msg.toLowerCase().includes('pré-inscrit') ||
-          msg.toLowerCase().includes('pas encore inscrit')
-        ) {
-          setPreEnrolledPhone(username)
-          return
-        }
+      const { code } = parseApiError(err, 'login')
+      if (code === 'ACCOUNT_PRE_ENROLLED') {
+        setPreEnrolledPhone(username)
+        return
       }
-      setErrorMsg('Identifiants incorrects. Vérifiez votre téléphone et mot de passe.')
+      setErrorMsg(code === 'NETWORK_ERROR'
+        ? 'Pas de connexion. Vérifiez votre réseau et réessayez.'
+        : 'Identifiants incorrects. Vérifiez votre téléphone et mot de passe.')
     }
   }
 

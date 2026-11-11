@@ -1,266 +1,194 @@
-import { useState, useEffect } from 'react'
+/**
+ * A2 — Alertes : ce qui me concerne, avec l'écran où agir en 1 tap.
+ * La destination dépend de mon rôle dans la tontine concernée (gestionnaire ou membre).
+ * Les rappels de cotisation portent un bouton « Payer » directement dans l'alerte.
+ */
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AppLayout } from '@/components/layout/AppLayout'
-import { Spinner } from '@/components/ui/Spinner'
-import { Trophy, CheckCircle, AlertTriangle, Calendar, CreditCard, Bell, ChevronRight } from 'lucide-react'
+import { clsx } from 'clsx'
+import { Trophy, CreditCard, CheckCircle2, AlertTriangle, CalendarClock, Users, Bell, ChevronRight, RotateCw } from 'lucide-react'
+import { ScreenHeader } from '@/components/layout/ScreenHeader'
 import { useNotifications, useMarkAsRead, useMarkAllAsRead } from '@/hooks/useNotifications'
-import { NotificationItem, NotificationType } from '@/types/notification'
-import { useAuth } from '@/hooks/useAuth'
-import { UserRole } from '@/types/common'
+import { useMesTontines } from '@/hooks/useMe'
+import { NotificationType, type NotificationItem } from '@/types/notification'
+import { jeCotise, jeGere, type MaTontine } from '@/types/me'
 
-// ─── Mapping type → catégorie visuelle ───────────────────────────────────────
-type VisualCategory = 'jackpot' | 'paiement' | 'validation' | 'retard' | 'rappel'
+type Categorie = 'jackpot' | 'paiement' | 'validation' | 'retard' | 'tour' | 'membre'
 
-function getCategory(type: NotificationType): VisualCategory {
-  if (type === NotificationType.JACKPOT_DISTRIBUE || type === NotificationType.DISTRIBUTION_FINALE)
-    return 'jackpot'
-  if (type === NotificationType.PAIEMENT_RECU || type === NotificationType.COTISATION_SOUMISE)
-    return 'paiement'
-  if (type === NotificationType.COTISATION_VALIDEE)
-    return 'validation'
-  if (type === NotificationType.PAIEMENT_EN_RETARD)
-    return 'retard'
-  return 'rappel'
-}
-
-const NOTIF_CONFIG: Record<VisualCategory, { icon: React.ReactNode; bg: string; dot: string }> = {
-  jackpot:    { icon: <Trophy size={18} />,        bg: 'bg-amber-50 text-amber-600',     dot: 'bg-amber-400'   },
-  paiement:   { icon: <CreditCard size={18} />,    bg: 'bg-primary-50 text-primary-600', dot: 'bg-primary-500' },
-  validation: { icon: <CheckCircle size={18} />,   bg: 'bg-green-50 text-green-600',     dot: 'bg-green-500'   },
-  retard:     { icon: <AlertTriangle size={18} />, bg: 'bg-red-50 text-red-500',         dot: 'bg-red-500'     },
-  rappel:     { icon: <Calendar size={18} />,      bg: 'bg-orange-50 text-orange-500',   dot: 'bg-orange-400'  },
-}
-
-// ─── Formatage de date lisible ────────────────────────────────────────────────
-function formatDate(iso: string): string {
-  const date = new Date(iso)
-  const now  = new Date()
-  const diffMs  = now.getTime() - date.getTime()
-  const diffMin = Math.floor(diffMs / 60_000)
-
-  if (diffMin < 1)  return "À l'instant"
-  if (diffMin < 60) return `Il y a ${diffMin} min`
-
-  const isToday = date.toDateString() === now.toDateString()
-  if (isToday) {
-    return `Aujourd'hui, ${date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+function categorie(type: NotificationType): Categorie {
+  switch (type) {
+    case NotificationType.JACKPOT_DISTRIBUE:
+    case NotificationType.DISTRIBUTION_FINALE: return 'jackpot'
+    case NotificationType.PAIEMENT_RECU:
+    case NotificationType.COTISATION_SOUMISE: return 'paiement'
+    case NotificationType.COTISATION_VALIDEE: return 'validation'
+    case NotificationType.PAIEMENT_EN_RETARD:
+    case NotificationType.RAPPEL_COTISATION: return 'retard'
+    case NotificationType.INVITATION_TONTINE:
+    case NotificationType.STATUT_MEMBRE: return 'membre'
+    default: return 'tour'
   }
-
-  const yesterday = new Date(now)
-  yesterday.setDate(now.getDate() - 1)
-  if (date.toDateString() === yesterday.toDateString()) {
-    return `Hier, ${date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
-  }
-
-  return `${date.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}, ${date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
 }
 
-// ─── Résolution du lien contextuel selon le type + rôle ──────────────────────
-function getNotifLink(notif: NotificationItem, isAdmin: boolean): string | null {
-  if (!notif.tontineId) return null
+const ICONES: Record<Categorie, { icon: JSX.Element; cls: string }> = {
+  jackpot: { icon: <Trophy size={20} />, cls: 'bg-yellow-50 text-yellow-700' },
+  paiement: { icon: <CreditCard size={20} />, cls: 'bg-primary-50 text-primary-700' },
+  validation: { icon: <CheckCircle2 size={20} />, cls: 'bg-primary-50 text-primary-700' },
+  retard: { icon: <AlertTriangle size={20} />, cls: 'bg-red-50 text-red-600' },
+  tour: { icon: <CalendarClock size={20} />, cls: 'bg-sky-50 text-sky-700' },
+  membre: { icon: <Users size={20} />, cls: 'bg-violet-50 text-violet-700' },
+}
 
-  const tontineBase = isAdmin
-    ? `/admin/tontines/${notif.tontineId}`
-    : `/member/tontines/${notif.tontineId}`
+function dateRelative(iso: string): string {
+  const d = new Date(iso)
+  const maintenant = new Date()
+  const min = Math.floor((maintenant.getTime() - d.getTime()) / 60_000)
+  const heure = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  if (min < 1) return "À l'instant"
+  if (min < 60) return `Il y a ${min} min`
+  if (d.toDateString() === maintenant.toDateString()) return `Aujourd'hui ${heure}`
+  const hier = new Date(maintenant)
+  hier.setDate(maintenant.getDate() - 1)
+  if (d.toDateString() === hier.toDateString()) return `Hier ${heure}`
+  return `${d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} ${heure}`
+}
 
-  switch (notif.type) {
+/** Écran à ouvrir selon le type d'alerte et mon rôle dans la tontine */
+function destination(n: NotificationItem, t: MaTontine | undefined): string | null {
+  if (!n.tontineId) return null
+  const fiche = `/tontine/${n.tontineId}`
+  const gere = !!t && jeGere(t)
+  switch (n.type) {
     case NotificationType.PAIEMENT_RECU:
     case NotificationType.COTISATION_SOUMISE:
-      // Admin → onglet cotisations de la tontine, Membre → ses cotisations
-      return isAdmin ? `${tontineBase}` : '/member/cotisations'
+      return gere ? `/a-valider?tontine=${n.tontineId}` : `/historique?mode=COTISE&tontine=${n.tontineId}`
     case NotificationType.COTISATION_VALIDEE:
-      return '/member/cotisations'
-    case NotificationType.JACKPOT_DISTRIBUE:
-    case NotificationType.DISTRIBUTION_FINALE:
-      return tontineBase
+      return `/historique?mode=COTISE&tontine=${n.tontineId}`
     case NotificationType.PAIEMENT_EN_RETARD:
     case NotificationType.RAPPEL_COTISATION:
-      return isAdmin ? `${tontineBase}` : '/member/cotisations'
+      return gere && !jeCotise(t!) ? `${fiche}/tours` : `/payer/${n.tontineId}`
+    case NotificationType.JACKPOT_DISTRIBUE:
+    case NotificationType.DISTRIBUTION_FINALE:
     case NotificationType.TOUR_PROCHE:
     case NotificationType.CYCLE_BIENTOT_CLOTURE:
     case NotificationType.CYCLE_OUVERT:
-      return tontineBase
+      return `${fiche}/tours`
     case NotificationType.INVITATION_TONTINE:
     case NotificationType.STATUT_MEMBRE:
-      return isAdmin ? '/admin/membres' : '/member/tontines'
+      return gere ? `${fiche}/membres` : fiche
     default:
-      return tontineBase
+      return fiche
   }
 }
 
-// ─── Carte notification ───────────────────────────────────────────────────────
-function NotifCard({
-  notif,
-  onRead,
-  isAdmin,
-}: {
-  notif: NotificationItem
-  onRead: (id: string) => void
-  isAdmin: boolean
-}) {
-  const navigate = useNavigate()
-  const cfg  = NOTIF_CONFIG[getCategory(notif.type)]
-  const link = getNotifLink(notif, isAdmin)
-  const hasAction = !!link
-
-  const handleClick = () => {
-    if (!notif.read) onRead(notif.id)
-    if (link) navigate(link)
-  }
-
-  return (
-    <button
-      className={`w-full flex items-start gap-3 px-4 py-3.5 rounded-2xl transition-colors text-left ${
-        notif.read ? 'bg-white' : 'bg-primary-50/60'
-      } ${hasAction ? 'active:scale-[0.99]' : ''}`}
-      onClick={handleClick}
-    >
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${cfg.bg}`}>
-        {cfg.icon}
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <p className={`text-sm text-neutral-900 ${notif.read ? 'font-semibold' : 'font-bold'}`}>
-          {notif.title}
-        </p>
-        <p className="text-xs text-neutral-500 mt-0.5 leading-relaxed">{notif.body}</p>
-        <p className="text-[10px] text-neutral-400 mt-1">{formatDate(notif.createdAt)}</p>
-      </div>
-
-      <div className="flex items-center gap-1.5 flex-shrink-0 mt-1">
-        {!notif.read && (
-          <div className={`w-2.5 h-2.5 rounded-full ${cfg.dot}`} />
-        )}
-        {hasAction && (
-          <ChevronRight size={14} className="text-neutral-300" />
-        )}
-      </div>
-    </button>
-  )
-}
-
-// ─── Page principale ──────────────────────────────────────────────────────────
 export function NotificationsPage() {
+  const navigate = useNavigate()
   const [page, setPage] = useState(0)
-  const [allItems, setAllItems] = useState<NotificationItem[]>([])
+  const [items, setItems] = useState<NotificationItem[]>([])
+  const { data, isLoading, isError, refetch, isFetching } = useNotifications(page)
+  const { data: mesTontines } = useMesTontines()
+  const { mutate: marquerLu } = useMarkAsRead()
+  const { mutate: toutMarquer, isPending: marquageTout } = useMarkAllAsRead()
 
-  const { hasRole } = useAuth()
-  const isAdmin = hasRole(UserRole.ADMIN) || hasRole(UserRole.SUPER_ADMIN)
-
-  const { data, isLoading } = useNotifications(page)
-  const { mutate: markAsRead }    = useMarkAsRead()
-  const { mutate: markAllAsRead, isPending: markingAll } = useMarkAllAsRead()
-
+  // Accumulation des pages (« Voir plus »)
   useEffect(() => {
     if (!data) return
-    if (page === 0) {
-      setAllItems(data.content)
-    } else {
-      setAllItems((prev) => {
-        const existingIds = new Set(prev.map((n) => n.id))
-        const newOnes = data.content.filter((n) => !existingIds.has(n.id))
-        return newOnes.length > 0 ? [...prev, ...newOnes] : prev
-      })
-    }
+    setItems((prev) => {
+      if (page === 0) return data.content
+      const ids = new Set(prev.map((n) => n.id))
+      return [...prev, ...data.content.filter((n) => !ids.has(n.id))]
+    })
   }, [data, page])
 
-  const unread  = allItems.filter((n) => !n.read)
-  const read    = allItems.filter((n) =>  n.read)
-  const hasMore = data ? !data.last : false
+  const nouvelles = items.filter((n) => !n.read)
+  const anciennes = items.filter((n) => n.read)
+  const tontine = (id: string | null) => mesTontines?.find((t) => t.id === id)
 
-  const handleRead = (id: string) => {
-    markAsRead(id, {
-      onSuccess: () => {
-        setAllItems((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n))
-      },
-    })
+  const ouvrir = (n: NotificationItem, cible: string | null) => {
+    if (!n.read) {
+      marquerLu(n.id)
+      setItems((prev) => prev.map((x) => (x.id === n.id ? { ...x, read: true } : x)))
+    }
+    if (cible) navigate(cible)
   }
 
-  const handleMarkAll = () => {
-    markAllAsRead(undefined, {
-      onSuccess: () => {
-        setAllItems((prev) => prev.map((n) => ({ ...n, read: true })))
-      },
-    })
+  const carte = (n: NotificationItem) => {
+    const cat = ICONES[categorie(n.type)]
+    const t = tontine(n.tontineId)
+    const cible = destination(n, t)
+    const rappel = (n.type === NotificationType.RAPPEL_COTISATION || n.type === NotificationType.PAIEMENT_EN_RETARD) && !!t && jeCotise(t)
+    return (
+      <li key={n.id} className={clsx('flex items-start gap-3 px-4 py-3', !n.read && 'bg-primary-50/50')}>
+        <button onClick={() => ouvrir(n, cible)} className="flex flex-1 min-w-0 items-start gap-3 text-left">
+          <span className={clsx('w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0', cat.cls)}>{cat.icon}</span>
+          <span className="min-w-0 flex-1">
+            <span className={clsx('block text-[15px] text-neutral-900', !n.read ? 'font-bold' : 'font-semibold')}>{n.title}</span>
+            <span className="block text-sm text-neutral-600 line-clamp-2">{n.body}</span>
+            <span className="block mt-0.5 text-xs text-neutral-400">{dateRelative(n.createdAt)}{t ? ` · ${t.nom}` : ''}</span>
+          </span>
+        </button>
+        <span className="flex flex-col items-end gap-2 flex-shrink-0">
+          {!n.read && <span className="w-2.5 h-2.5 rounded-full bg-primary-600" aria-label="Non lue" />}
+          {rappel ? (
+            <button onClick={() => ouvrir(n, `/payer/${n.tontineId}`)} className="h-9 px-3 rounded-full bg-primary-700 text-white text-xs font-bold">Payer</button>
+          ) : cible ? (
+            <ChevronRight size={18} className="text-neutral-300" />
+          ) : null}
+        </span>
+      </li>
+    )
   }
 
   return (
-    <AppLayout>
-      <div className="max-w-2xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3 mb-5">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-neutral-900">Notifications</h1>
-          {unread.length > 0 && (
-            <p className="text-sm text-neutral-500 mt-1">
-              <span className="font-semibold text-primary-600">{unread.length}</span> non lue{unread.length > 1 ? 's' : ''}
-            </p>
-          )}
-        </div>
-        {unread.length > 0 && (
+    <div className="min-h-[100dvh] bg-[#f2f3f5]">
+      <ScreenHeader
+        title="Alertes"
+        right={nouvelles.length > 0 ? (
           <button
-            onClick={handleMarkAll}
-            disabled={markingAll}
-            className="h-9 px-4 rounded-full bg-primary-50 text-sm font-semibold text-primary-700 hover:bg-primary-100 disabled:opacity-50 transition-colors"
+            onClick={() => toutMarquer(undefined, { onSuccess: () => setItems((prev) => prev.map((n) => ({ ...n, read: true }))) })}
+            disabled={marquageTout}
+            className="h-11 px-3 mr-1 rounded-full text-sm font-semibold text-primary-800 hover:bg-primary-50 disabled:opacity-50"
           >
-            Tout marquer lu
+            Tout marquer comme lu
           </button>
+        ) : undefined}
+      />
+      <main className="px-4 pb-10 max-w-lg mx-auto space-y-5">
+        {isLoading && items.length === 0 ? (
+          <div className="space-y-2" aria-busy="true">{[0, 1, 2, 3].map((i) => <div key={i} className="h-20 rounded-2xl bg-white animate-pulse" />)}</div>
+        ) : isError && items.length === 0 ? (
+          <section className="bg-white rounded-3xl shadow-sm p-6 text-center">
+            <p className="text-sm text-neutral-600">Impossible de charger les alertes.</p>
+            <button onClick={() => refetch()} className="mt-3 h-11 px-4 rounded-full bg-neutral-100 text-sm font-semibold inline-flex items-center gap-2"><RotateCw size={16} /> Réessayer</button>
+          </section>
+        ) : items.length === 0 ? (
+          <section className="bg-white rounded-3xl shadow-sm p-8 text-center">
+            <span className="mx-auto w-14 h-14 rounded-full bg-neutral-100 text-neutral-500 flex items-center justify-center"><Bell size={26} /></span>
+            <p className="mt-3 text-lg font-bold text-neutral-900">Aucune alerte</p>
+            <p className="mt-1 text-sm text-neutral-500">Vous serez prévenu ici des paiements, des tours et des jackpots.</p>
+          </section>
+        ) : (
+          <>
+            {nouvelles.length > 0 && (
+              <section>
+                <h2 className="px-1 mb-2 text-sm font-semibold text-neutral-500">Nouvelles ({nouvelles.length})</h2>
+                <ul className="bg-white rounded-3xl shadow-sm divide-y divide-neutral-100 overflow-hidden">{nouvelles.map(carte)}</ul>
+              </section>
+            )}
+            {anciennes.length > 0 && (
+              <section>
+                <h2 className="px-1 mb-2 text-sm font-semibold text-neutral-500">Plus anciennes</h2>
+                <ul className="bg-white rounded-3xl shadow-sm divide-y divide-neutral-100 overflow-hidden">{anciennes.map(carte)}</ul>
+              </section>
+            )}
+            {data && !data.last && (
+              <button onClick={() => setPage((p) => p + 1)} disabled={isFetching} className="w-full h-12 rounded-full bg-white shadow-sm text-sm font-semibold text-primary-800 disabled:opacity-50">
+                {isFetching ? 'Chargement…' : 'Voir plus'}
+              </button>
+            )}
+          </>
         )}
-      </div>
-
-      {/* Chargement initial */}
-      {isLoading && allItems.length === 0 ? (
-        <div className="flex justify-center py-20"><Spinner /></div>
-      ) : allItems.length === 0 ? (
-        <div className="flex flex-col items-center py-20 text-neutral-400 gap-3">
-          <div className="w-14 h-14 rounded-full bg-neutral-100 flex items-center justify-center">
-            <Bell size={24} className="text-neutral-300" />
-          </div>
-          <p className="font-medium text-neutral-500">Aucune notification</p>
-        </div>
-      ) : (
-        <>
-          {/* Non lues */}
-          {unread.length > 0 && (
-            <div className="mb-5">
-              <p className="text-xs font-semibold text-neutral-400 uppercase tracking-widest mb-2 px-1">
-                Nouvelles
-              </p>
-              <div className="space-y-2">
-                {unread.map((n) => (
-                  <NotifCard key={n.id} notif={n} onRead={handleRead} isAdmin={isAdmin} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Lues */}
-          {read.length > 0 && (
-            <div>
-              <p className="text-xs font-semibold text-neutral-400 uppercase tracking-widest mb-2 px-1">
-                Précédentes
-              </p>
-              <div className="space-y-1">
-                {read.map((n) => (
-                  <NotifCard key={n.id} notif={n} onRead={handleRead} isAdmin={isAdmin} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Load more */}
-          {hasMore && (
-            <button
-              onClick={() => setPage((p) => p + 1)}
-              disabled={isLoading}
-              className="w-full mt-4 h-12 rounded-full border border-neutral-200 bg-white text-sm font-semibold text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 transition-colors"
-            >
-              {isLoading ? 'Chargement…' : 'Charger plus'}
-            </button>
-          )}
-        </>
-      )}
-      </div>
-    </AppLayout>
+      </main>
+    </div>
   )
 }

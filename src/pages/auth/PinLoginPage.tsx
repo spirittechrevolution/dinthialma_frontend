@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { isAxiosError } from 'axios'
 import { LogOut, Lock } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { getUserPhone, clearAll, getRefreshToken, getClientType } from '@/lib/tokenStorage'
 import { PinScreen, PIN_LENGTH } from '@/components/auth/PinPad'
 import { UserRole } from '@/types/common'
+import { getHomePath } from '@/lib/homePath'
+import { parseApiError } from '@/lib/apiError'
 import api from '@/services/api'
 
 export function PinLoginPage() {
@@ -27,10 +28,7 @@ export function PinLoginPage() {
   }, [phone])
 
   const redirectAfterLogin = (roles: UserRole[]) => {
-    if (roles.includes(UserRole.SUPER_ADMIN)) navigate('/dashboard', { replace: true })
-    else if (roles.includes(UserRole.ADMIN)) navigate('/admin/dashboard', { replace: true })
-    else if (roles.includes(UserRole.MEMBER)) navigate('/member/dashboard', { replace: true })
-    else navigate('/profile', { replace: true })
+    navigate(getHomePath(roles), { replace: true })
   }
 
   const handleKey = async (key: string) => {
@@ -51,28 +49,33 @@ export function PinLoginPage() {
         setShake(true)
         setTimeout(() => setShake(false), 500)
 
-        if (isAxiosError(err)) {
-          const status = err.response?.status
-          const msg: string = err.response?.data?.message ?? ''
-
-          if (status === 401 && msg.toLowerCase().includes('session')) {
+        const { code, serverMessage } = parseApiError(err, 'pin')
+        switch (code) {
+          case 'PIN_SESSION_EXPIRED':
             clearAll()
             toast.error('Votre session a expiré. Reconnectez-vous avec votre mot de passe.')
             navigate('/login', { replace: true })
-          } else if (status === 404) {
+            break
+          case 'ACCOUNT_NOT_FOUND':
             clearAll()
             toast.error('Compte introuvable. Reconnectez-vous.')
             navigate('/login', { replace: true })
-          } else if (status === 400 && msg.toLowerCase().includes('expiré')) {
+            break
+          case 'PIN_EXPIRED':
             toast.error('Votre PIN a expiré. Réinitialisez-le.')
             navigate('/pin/reset', { replace: true })
-          } else if (status === 400 && msg.toLowerCase().includes('simple')) {
+            break
+          case 'PIN_TOO_SIMPLE':
             toast.error('Code PIN trop simple. Choisissez un autre.')
-          } else if (status === 429) {
-            toast.error(msg || 'Code PIN verrouillé. Réessayez dans quelques minutes.')
-          } else {
+            break
+          case 'PIN_LOCKED':
+            toast.error(serverMessage || 'Code PIN verrouillé. Réessayez dans quelques minutes.')
+            break
+          case 'NETWORK_ERROR':
+            toast.error('Pas de connexion. Vérifiez votre réseau et réessayez.')
+            break
+          default:
             toast.error('Code PIN incorrect.')
-          }
         }
       } finally {
         setIsLoading(false)

@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { PhoneInput } from '@/components/ui/PhoneInput'
 import { AuthShell, AuthSteps, AuthAlert } from '@/components/auth/AuthShell'
+import { parseApiError } from '@/lib/apiError'
 
 const step1Schema = z.object({
   phone: zPhone,
@@ -55,8 +56,8 @@ export function RegisterPage() {
       setPhone(p)
       setStep(2)
     } catch (err: unknown) {
-      const status = (err as { response?: { status?: number } })?.response?.status
-      setError(status === 409 ? 'Ce numéro est déjà utilisé.' : "Impossible d'envoyer le code. Vérifiez votre numéro.")
+      const { code } = parseApiError(err, 'register')
+      setError(code === 'PHONE_ALREADY_USED' ? 'Ce numéro est déjà utilisé.' : "Impossible d'envoyer le code. Vérifiez votre numéro.")
     }
   }
 
@@ -73,7 +74,7 @@ export function RegisterPage() {
     try {
       const result = await authService.registerComplete({ phone, firstName, lastName, password, email: email || undefined })
       if (result.role === 'DINTHIALMA_MEMBER') {
-        navigate('/member/tontines', { replace: true, state: { welcomeActivated: true } })
+        navigate('/tontines', { replace: true, state: { welcomeActivated: true } })
       } else {
         navigate('/login', { state: { registered: true } })
       }

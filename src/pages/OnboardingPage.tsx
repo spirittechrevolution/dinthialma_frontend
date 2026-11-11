@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getAccessToken, getUserPhone, getPinConfigured, isTokenExpired } from '@/lib/tokenStorage'
+import { getAccessToken, getUserPhone, getPinConfigured, isTokenExpired, getAuthUser } from '@/lib/tokenStorage'
+import { getHomePath } from '@/lib/homePath'
 import { LogoIcon } from '@/components/ui/LogoIcon'
 
 // ─── Marquer l'onboarding comme vu ───────────────────────────────────────────
@@ -146,7 +147,7 @@ export function OnboardingPage() {
     const phone  = getUserPhone()
 
     if (access && !isTokenExpired(access)) {
-      navigate('/dashboard', { replace: true })
+      navigate(getHomePath(getAuthUser(access)?.roles), { replace: true })
     } else if (phone && getPinConfigured() !== false) {
       navigate('/pin', { replace: true })
     } else {

@@ -67,7 +67,7 @@ export function AllContributionsPage() {
       header: 'Tontine',
       render: (c) => (
         <button
-          onClick={(e) => { e.stopPropagation(); navigate(`/superadmin/tontines/${c.tontineId}`) }}
+          onClick={(e) => { e.stopPropagation(); navigate(`/tontine/${c.tontineId}`) }}
           className="text-primary-700 font-medium hover:underline truncate max-w-[12rem] text-left"
         >
           {tontineNom(c.tontineId) || 'Voir la tontine'}

@@ -2,6 +2,7 @@ import { Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { UserRole } from '@/types/common'
 import { Spinner } from '@/components/ui/Spinner'
+import { getHomePath } from '@/lib/homePath'
 import { ReactNode } from 'react'
 
 interface RoleRouteProps {
@@ -31,11 +32,7 @@ export function RoleRoute({ children, requiredRoles }: RoleRouteProps) {
 
   if (!hasRequiredRole) {
     // Rediriger vers la bonne page selon le rôle réel
-    const redirectPath = hasRole(UserRole.ADMIN)
-      ? '/admin/dashboard'
-      : hasRole(UserRole.MEMBER)
-      ? '/member/dashboard'
-      : '/user/dashboard'
+    const redirectPath = getHomePath(user?.roles)
 
     return (
       <div className="min-h-screen flex items-center justify-center bg-neutral-50">
@@ -43,11 +40,7 @@ export function RoleRoute({ children, requiredRoles }: RoleRouteProps) {
           <div className="text-6xl mb-4">🔒</div>
           <h1 className="text-3xl font-bold text-neutral-900 mb-2">Accès refusé</h1>
           <p className="text-neutral-500 mb-6">
-            Vous n'avez pas les permissions nécessaires pour accéder à cette page.
-          </p>
-          <p className="text-sm text-neutral-400 mb-6">
-            Rôles requis : {requiredRoles.join(', ')}<br />
-            Vos rôles : {user?.roles.join(', ') || 'aucun'}
+            Cette page n'est pas disponible avec votre compte.
           </p>
           <button
             onClick={() => navigate(redirectPath, { replace: true })}
