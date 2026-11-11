@@ -20,6 +20,16 @@ export function useMesTontines() {
   })
 }
 
+/** B01 pour une seule tontine */
+export function useMaTontine(tontineId: string) {
+  return useQuery({
+    queryKey: ['me', 'tontine', tontineId],
+    queryFn: () => meService.getMaTontine(tontineId),
+    enabled: !!tontineId,
+    staleTime: STALE_MS,
+  })
+}
+
 /** Ce que l'utilisateur peut faire : sert à afficher (ou non) la bascule Je cotise / Je gère */
 export function useMesRoles() {
   const { data, ...rest } = useMesTontines()

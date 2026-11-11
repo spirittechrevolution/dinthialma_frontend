@@ -107,6 +107,27 @@ function nomComplet(p: { firstName?: string; lastName?: string } | null | undefi
   return [p?.firstName, p?.lastName].filter(Boolean).join(' ')
 }
 
+/** Ajoute mon rôle / mon membre à une tontine (contournement B01 : comparaison des numéros) */
+async function enrichir(t: Tontine): Promise<MaTontine> {
+  const phone = currentUserPhone()
+  const estCreateur = samePhone(t.creePar?.phone, phone)
+  const membres: Membre[] = await getMembres(t.id)
+  const moi = membres.find((m) => samePhone(m.user?.phone, phone))
+  const monRole: MonRole =
+    estCreateur && moi ? 'GESTIONNAIRE_ET_MEMBRE'
+    : estCreateur ? 'GESTIONNAIRE'
+    : moi ? 'MEMBRE'
+    : 'LECTURE'
+  return {
+    ...t,
+    monRole,
+    monMembreId: moi?.id ?? null,
+    monStatutMembre: moi?.statut ?? null,
+    monOrdreJackpot: moi?.ordreJackpot ?? null,
+    aRecuJackpot: moi?.aRecuJackpot ?? false,
+  }
+}
+
 // ─── Service ─────────────────────────────────────────────────────────────────
 
 export const meService = {
@@ -118,29 +139,14 @@ export const meService = {
    * il n'est ni créateur ni membre ressortent avec `monRole = 'LECTURE'`.
    */
   async listMesTontines(): Promise<MaTontine[]> {
-    const phone = currentUserPhone()
     const tontines: Tontine[] = await collectAll(getTontinesPage)
+    return Promise.all(tontines.map((t) => enrichir(t)))
+  },
 
-    return Promise.all(
-      tontines.map(async (t): Promise<MaTontine> => {
-        const estCreateur = samePhone(t.creePar?.phone, phone)
-        const membres: Membre[] = await getMembres(t.id)
-        const moi = membres.find((m) => samePhone(m.user?.phone, phone))
-        const monRole: MonRole =
-          estCreateur && moi ? 'GESTIONNAIRE_ET_MEMBRE'
-          : estCreateur ? 'GESTIONNAIRE'
-          : moi ? 'MEMBRE'
-          : 'LECTURE'
-        return {
-          ...t,
-          monRole,
-          monMembreId: moi?.id ?? null,
-          monStatutMembre: moi?.statut ?? null,
-          monOrdreJackpot: moi?.ordreJackpot ?? null,
-          aRecuJackpot: moi?.aRecuJackpot ?? false,
-        }
-      }),
-    )
+  /** B01 pour une seule tontine (fiche, tours, membres) : 2 appels au lieu de toute la liste */
+  async getMaTontine(tontineId: string): Promise<MaTontine> {
+    const t = await cached(['tontine', tontineId], () => tontineService.getTontine(tontineId))
+    return enrichir(t)
   },
 
   /**

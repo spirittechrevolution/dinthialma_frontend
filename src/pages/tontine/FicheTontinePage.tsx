@@ -3,7 +3,7 @@
  * montant énorme, 2 boutons pilule, carte de rubriques, historique des paiements.
  *
  * Vue gestionnaire : Encaisser · Valider (n) ; vue membre : Payer · Mon tour ; brouillon : Lancer.
- * Rubriques Membres et Réglages : ancienne page détail (?onglet=) en attendant T3 et T8.
+ * Rubrique Réglages et bouton Infos : ancienne page détail (?onglet=) en attendant T8.
  */
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -267,7 +267,7 @@ export function FicheTontinePage() {
 
           {/* Rubriques */}
           <section className="bg-white rounded-3xl shadow-sm divide-y divide-neutral-100">
-            <Rubrique to={`/${gerant ? 'admin' : 'member'}/tontines/${id}?onglet=membres`} icon={<Users size={20} />} label="Membres" value={String(t.nombreMembresActuels)} />
+            <Rubrique to={`/tontine/${id}/membres`} icon={<Users size={20} />} label="Membres" value={String(t.nombreMembresActuels)} />
             <Rubrique to={`/tontine/${id}/tours`} icon={<RefreshCw size={20} />} label={isEvent ? 'Périodes' : 'Tours'} value={cycleEnCours ? `Tour ${cycleEnCours.numeroCycle} en cours` : undefined} />
             {gerant && <Rubrique to={`/admin/tontines/${id}?onglet=infos`} icon={<Settings size={20} />} label="Réglages" />}
             {prochainsGagnants.length > 0 && (
