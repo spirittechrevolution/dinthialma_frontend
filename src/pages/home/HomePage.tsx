@@ -3,7 +3,7 @@
  *
  * Bandeau (réglages, alertes, bascule Je cotise / Je gère, filtre tontine, montant masquable),
  * carte QR, carte d'action unique, grille de 8 services, fil d'activité.
- * Les écrans pas encore refaits (Créer, Tontines…) ouvrent provisoirement
+ * Les écrans pas encore refaits (listes de tontines, historique…) ouvrent provisoirement
  * les écrans existants ; il suffira de changer la destination dans `services`.
  */
 import { useEffect, useMemo, useState } from 'react'
@@ -24,7 +24,6 @@ import { ActionCard, ActionCardSkeleton } from '@/components/home/ActionCard'
 import { ServiceGrid, type ServiceItem } from '@/components/home/ServiceGrid'
 import { ActivityFeed } from '@/components/home/ActivityFeed'
 import { TontinePickerSheet, MontantsSheet, PlusSheet, dueDetail, type PlusItem } from '@/components/home/HomeSheets'
-import { CreateTontineModal } from '@/components/shared/CreateTontineModal'
 import { formatF } from '@/lib/format'
 import { appUrl, memberQrUrl, shareLink, tontineQrUrl } from '@/lib/share'
 import { jeCotise, jeGere, type ActiviteItem, type ModeAccueil } from '@/types/me'
@@ -65,7 +64,6 @@ export function HomePage() {
   const [payPickerOpen, setPayPickerOpen] = useState(false)
   /** Membres / Tours en mode « Toutes » : choisir la tontine d'abord */
   const [rubriqueCible, setRubriqueCible] = useState<'membres' | 'tours' | null>(null)
-  const [createOpen, setCreateOpen] = useState(false)
 
   const openPay = (id?: string | null) => navigate(id ? `/payer/${id}` : '/payer')
 
@@ -100,7 +98,7 @@ export function HomePage() {
         icon={<Plus size={22} />} tone="ok"
         title="Créer ma première tontine"
         subtitle="Invité par un proche ? Montrez-lui votre QR."
-        actionLabel="Créer" onAction={() => setCreateOpen(true)}
+        actionLabel="Créer" onAction={() => navigate('/creer')}
         disabled={!online} disabledReason={offlineReason}
       />
     )
@@ -209,7 +207,7 @@ export function HomePage() {
         { key: 'tontines', label: 'Tontines', icon: <Wallet size={26} />, tone: 'blue', to: '/admin/tontines' },
         { key: 'membres', label: 'Membres', icon: <Users size={26} />, tone: 'violet', onClick: () => ouvrirRubrique('membres') },
         { key: 'tours', label: 'Tours', icon: <RefreshCw size={26} />, tone: 'teal', onClick: () => ouvrirRubrique('tours') },
-        { key: 'creer', label: 'Créer', icon: <Plus size={26} />, tone: 'rose', onClick: () => setCreateOpen(true) },
+        { key: 'creer', label: 'Créer', icon: <Plus size={26} />, tone: 'rose', to: '/creer' },
         { key: 'inviter', label: 'Inviter', icon: <Share2 size={26} />, tone: 'green', onClick: inviter },
         { key: 'plus', label: 'Plus', icon: <MoreHorizontal size={26} />, tone: 'neutral', onClick: () => setPlusOpen(true) },
       ]
@@ -218,7 +216,7 @@ export function HomePage() {
         { key: 'tontines', label: 'Tontines', icon: <Wallet size={26} />, tone: 'blue', to: '/member/tontines' },
         { key: 'jackpots', label: 'Jackpots', icon: <Trophy size={26} />, tone: 'amber', to: '/jackpots' },
         { key: 'historique', label: 'Historique', icon: <History size={26} />, tone: 'violet', to: '/member/cotisations' },
-        { key: 'creer', label: 'Créer', icon: <Plus size={26} />, tone: 'rose', onClick: () => setCreateOpen(true) },
+        { key: 'creer', label: 'Créer', icon: <Plus size={26} />, tone: 'rose', to: '/creer' },
         { key: 'inviter', label: 'Inviter', icon: <Share2 size={26} />, tone: 'teal', onClick: inviter },
         { key: 'alertes', label: 'Alertes', icon: <Bell size={26} />, tone: 'green', to: '/notifications', badge: unread },
         { key: 'plus', label: 'Plus', icon: <MoreHorizontal size={26} />, tone: 'neutral', onClick: () => setPlusOpen(true) },
@@ -342,8 +340,6 @@ export function HomePage() {
       />
       <PlusSheet isOpen={plusOpen} onClose={() => setPlusOpen(false)} items={plusItems} />
 
-      {/* Parcours existant, en attendant le nouvel écran Créer (T9) */}
-      <CreateTontineModal isOpen={createOpen} onClose={() => setCreateOpen(false)} />
     </div>
   )
 }

@@ -6,7 +6,6 @@ import { Badge } from '@/components/ui/Badge'
 import { Spinner } from '@/components/ui/Spinner'
 import { Pagination } from '@/components/ui/Pagination'
 import { PageHeader } from '@/components/layout/PageHeader'
-import { CreateTontineModal } from '@/components/shared/CreateTontineModal'
 import { useTontines } from '@/hooks/useTontines'
 import { Tontine, TontineType } from '@/types/tontine'
 import { TontineStatut } from '@/types/common'
@@ -43,7 +42,6 @@ export function TontinesPage() {
   const [page, setPage] = useState(0)
   const [search, setSearch] = useState('')
   const [statutTab, setStatutTab] = useState('')
-  const [isOpen, setIsOpen] = useState(false)
 
   const { data: tontinesData, isLoading } = useTontines(page, PAGE_SIZE)
 
@@ -62,7 +60,7 @@ export function TontinesPage() {
         title="Mes tontines"
         description="Créez et gérez vos tontines."
         action={
-          <Button onClick={() => setIsOpen(true)}>
+          <Button onClick={() => navigate('/creer')}>
             <Plus size={18} /> <span className="hidden sm:inline">Nouvelle tontine</span><span className="sm:hidden">Créer</span>
           </Button>
         }
@@ -189,7 +187,6 @@ export function TontinesPage() {
         />
       )}
 
-      <CreateTontineModal isOpen={isOpen} onClose={() => setIsOpen(false)} />
     </AppLayout>
   )
 }

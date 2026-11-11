@@ -102,6 +102,7 @@ const TourPage = lazy(() => import('@/pages/tontine/TourPage').then(m => ({ defa
 const MembresTontinePage = lazy(() => import('@/pages/tontine/MembresTontinePage').then(m => ({ default: m.MembresTontinePage })))
 const MembreFichePage = lazy(() => import('@/pages/tontine/MembreFichePage').then(m => ({ default: m.MembreFichePage })))
 const ReglagesTontinePage = lazy(() => import('@/pages/tontine/ReglagesTontinePage').then(m => ({ default: m.ReglagesTontinePage })))
+const CreerTontinePage = lazy(() => import('@/pages/tontine/CreerTontinePage').then(m => ({ default: m.CreerTontinePage })))
 
 // Admin
 const TontinesPage = lazy(() => import('@/pages/admin/TontinesPage').then(m => ({ default: m.TontinesPage })))
@@ -167,6 +168,10 @@ const router = createBrowserRouter([
   {
     path: '/encaisser/:tontineId',
     element: <ProtectedRoute><S><EncaisserPage /></S></ProtectedRoute>,
+  },
+  {
+    path: '/creer',
+    element: <ProtectedRoute><S><CreerTontinePage /></S></ProtectedRoute>,
   },
   // Fiche tontine (vue gestionnaire / membre / lecture selon la tontine)
   {

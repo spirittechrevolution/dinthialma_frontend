@@ -13,7 +13,6 @@ import { clsx } from 'clsx'
 import { Plus, X, CreditCard, UserPlus, BookCopy } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { AddMembreModal } from '@/components/shared/AddMembreModal'
-import { CreateTontineModal } from '@/components/shared/CreateTontineModal'
 import { useTontine } from '@/hooks/useTontines'
 
 // ─── Helpers URL ──────────────────────────────────────────────────────────────
@@ -54,7 +53,6 @@ export function MobileQuickActions() {
 
   const [isOpen, setIsOpen] = useState(false)
   const [addMembreModal, setAddMembreModal] = useState(false)
-  const [createTontineModal, setCreateTontineModal] = useState(false)
 
   // Données tontine courante (si on est dans une tontine)
   const { data: tontine } = useTontine(tontineId || '')
@@ -102,7 +100,7 @@ export function MobileQuickActions() {
         label: 'Créer une tontine',
         icon: <BookCopy size={18} />,
         color: 'bg-primary-600 text-white',
-        onClick: () => { close(); setCreateTontineModal(true) },
+        onClick: () => { close(); navigate('/creer') },
       },
     ]
   } else if (isInTontine && isCreatorOfCurrentTontine) {
@@ -110,7 +108,7 @@ export function MobileQuickActions() {
     actions = [
       { id: 'paiement', label: 'Enregistrer paiement', icon: <CreditCard size={18} />, color: 'bg-primary-600 text-white', onClick: handleOpenPaiement },
       { id: 'membre',   label: 'Ajouter un membre',    icon: <UserPlus size={18} />,   color: 'bg-blue-600 text-white',    onClick: () => { close(); setAddMembreModal(true) } },
-      { id: 'tontine',  label: 'Créer une tontine',    icon: <BookCopy size={18} />,   color: 'bg-purple-600 text-white',  onClick: () => { close(); setCreateTontineModal(true) } },
+      { id: 'tontine',  label: 'Créer une tontine',    icon: <BookCopy size={18} />,   color: 'bg-purple-600 text-white',  onClick: () => { close(); navigate('/creer') } },
     ]
   } else if (isInTontine || isMemberPage) {
     // Dans une tontine où on est simple membre, ou sur cotisations/tontines → déclarer paiement
@@ -207,12 +205,6 @@ export function MobileQuickActions() {
           onClose={() => setAddMembreModal(false)}
         />
       )}
-
-      {/* Modal créer tontine */}
-      <CreateTontineModal
-        isOpen={createTontineModal}
-        onClose={() => setCreateTontineModal(false)}
-      />
 
     </>
   )
