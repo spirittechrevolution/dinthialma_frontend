@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { zPhone } from '@/lib/validation'
 import { isAxiosError } from 'axios'
+import { parseApiError } from '@/lib/apiError'
 import { toast } from 'sonner'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
@@ -45,17 +46,14 @@ type NewMembreForm = z.infer<typeof newMembreSchema>
 // ─── Parsing des erreurs API ──────────────────────────────────────────────────
 
 function parseAddError(err: unknown): string {
-  if (!isAxiosError(err)) return "Erreur lors de l'ajout. Réessayez."
-  const msg: string = err.response?.data?.message || ''
-  const status = err.response?.status
-  if (status === 409) {
-    if (msg.toLowerCase().includes('position') || msg.toLowerCase().includes('ordre')) {
-      return 'Cette position jackpot est déjà occupée. Choisissez une autre.'
-    }
-    return 'Ce membre est déjà dans cette tontine.'
+  const { code, serverMessage } = parseApiError(err, 'addMembre')
+  switch (code) {
+    case 'JACKPOT_POSITION_TAKEN': return 'Cette position jackpot est déjà occupée. Choisissez une autre.'
+    case 'MEMBER_ALREADY_IN_TONTINE': return 'Ce membre est déjà dans cette tontine.'
+    case 'VALIDATION_ERROR': return serverMessage || 'Informations manquantes ou invalides.'
+    case 'NETWORK_ERROR': return 'Pas de connexion. Vérifiez votre réseau et réessayez.'
+    default: return "Erreur lors de l'ajout. Réessayez."
   }
-  if (status === 400) return msg || 'Informations manquantes ou invalides.'
-  return "Erreur lors de l'ajout. Réessayez."
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -64,11 +62,13 @@ interface AddMembreModalProps {
   tontineId: string
   isOpen: boolean
   onClose: () => void
+  /** Numéro prérempli (ex. : QR membre scanné), format +221… */
+  initialPhone?: string
 }
 
 // ─── Composant ────────────────────────────────────────────────────────────────
 
-export function AddMembreModal({ tontineId, isOpen, onClose }: AddMembreModalProps) {
+export function AddMembreModal({ tontineId, isOpen, onClose, initialPhone }: AddMembreModalProps) {
   const [step, setStep] = useState<Step>('search')
   const [foundUser, setFoundUser] = useState<UserSearchResult | null>(null)
   const [phoneSearched, setPhoneSearched] = useState('')
@@ -80,7 +80,7 @@ export function AddMembreModal({ tontineId, isOpen, onClose }: AddMembreModalPro
 
   const searchForm = useForm<SearchForm>({
     resolver: zodResolver(searchSchema),
-    defaultValues: { phone: '+221' },
+    defaultValues: { phone: initialPhone || '+221' },
   })
   const positionForm = useForm<PositionForm>({ resolver: zodResolver(positionSchema) })
   const newMembreForm = useForm<NewMembreForm>({ resolver: zodResolver(newMembreSchema) })

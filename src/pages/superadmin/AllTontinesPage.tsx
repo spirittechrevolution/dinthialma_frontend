@@ -123,7 +123,7 @@ export function AllTontinesPage() {
             data={tontines}
             isLoading={isLoading}
             emptyMessage={statut ? 'Aucune tontine avec ce statut' : 'Aucune tontine sur la plateforme'}
-            onRowClick={(t) => navigate(`/superadmin/tontines/${t.id}`)}
+            onRowClick={(t) => navigate(`/tontine/${t.id}`)}
             page={page}
             totalPages={data?.totalPages}
             totalElements={data?.totalElements}

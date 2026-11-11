@@ -11,9 +11,8 @@ import {
   Users,
   Wallet,
   CreditCard,
-  RefreshCw,
   List,
-  UserCheck,
+  ListChecks,
 } from 'lucide-react'
 
 interface AppLayoutProps {
@@ -36,7 +35,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const getNavLinks = (): NavLink[] => {
     if (hasRole(UserRole.SUPER_ADMIN)) {
       return [
-        { label: 'Accueil', path: '/dashboard', icon: <Home size={22} />, mobile: true },
+        { label: 'Accueil', path: '/superadmin/dashboard', icon: <Home size={22} />, mobile: true },
         { label: 'Tontines', path: '/superadmin/tontines', icon: <Wallet size={22} />, mobile: true },
         { label: 'Cotisations', shortLabel: 'Paiements', path: '/superadmin/cotisations', icon: <CreditCard size={22} />, mobile: true },
         { label: 'Utilisateurs', path: '/superadmin/users', icon: <Users size={22} />, mobile: true },
@@ -46,25 +45,23 @@ export function AppLayout({ children }: AppLayoutProps) {
 
     if (hasRole(UserRole.ADMIN)) {
       return [
-        { label: 'Accueil', path: '/admin/dashboard', icon: <Home size={22} />, mobile: true },
-        { label: 'Mes tontines', shortLabel: 'Tontines', path: '/admin/tontines', icon: <Wallet size={22} />, mobile: true },
-        { label: 'Cotisations', shortLabel: 'Paiements', path: '/admin/cotisations', icon: <CreditCard size={22} />, mobile: true },
-        { label: 'Membres', path: '/admin/membres', icon: <Users size={22} />, mobile: true },
-        { label: 'Cycles', path: '/admin/cycles', icon: <RefreshCw size={22} /> },
-        { label: 'Mes participations', path: '/member/dashboard', icon: <UserCheck size={22} /> },
+        { label: 'Accueil', path: '/accueil', icon: <Home size={22} />, mobile: true },
+        { label: 'Mes tontines', shortLabel: 'Tontines', path: '/tontines', icon: <Wallet size={22} />, mobile: true },
+        { label: 'À valider', shortLabel: 'Valider', path: '/a-valider', icon: <ListChecks size={22} />, mobile: true },
+        { label: 'Encaisser', path: '/encaisser', icon: <CreditCard size={22} />, mobile: true },
       ]
     }
 
     if (hasRole(UserRole.MEMBER)) {
       return [
-        { label: 'Accueil', path: '/member/dashboard', icon: <Home size={22} />, mobile: true },
-        { label: 'Mes tontines', shortLabel: 'Tontines', path: '/member/tontines', icon: <Wallet size={22} />, mobile: true },
-        { label: 'Mes cotisations', shortLabel: 'Paiements', path: '/member/cotisations', icon: <CreditCard size={22} />, mobile: true },
+        { label: 'Accueil', path: '/accueil', icon: <Home size={22} />, mobile: true },
+        { label: 'Mes tontines', shortLabel: 'Tontines', path: '/tontines', icon: <Wallet size={22} />, mobile: true },
+        { label: 'Historique', shortLabel: 'Historique', path: '/historique', icon: <CreditCard size={22} />, mobile: true },
       ]
     }
 
     return [
-      { label: 'Accueil', path: '/user/dashboard', icon: <Home size={22} />, mobile: true },
+      { label: 'Accueil', path: '/accueil', icon: <Home size={22} />, mobile: true },
     ]
   }
 

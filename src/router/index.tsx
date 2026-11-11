@@ -1,10 +1,12 @@
 import { lazy, Suspense, ReactNode } from 'react'
-import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
+import { createBrowserRouter, RouterProvider, Navigate, useParams } from 'react-router-dom'
 import { Spinner } from '@/components/ui/Spinner'
 import { ProtectedRoute } from './ProtectedRoute'
 import { RoleRoute } from './RoleRoute'
 import { UserRole } from '@/types/common'
-import { getAccessToken, getUserPhone, getPinConfigured, isTokenExpired } from '@/lib/tokenStorage'
+import { getAccessToken, getUserPhone, getPinConfigured, isTokenExpired, getAuthUser } from '@/lib/tokenStorage'
+import { getHomePath } from '@/lib/homePath'
+import { useAuth } from '@/hooks/useAuth'
 import { isMobilePWA, hasSeenOnboarding } from '@/pages/OnboardingPage'
 
 function S({ children }: { children: ReactNode }) {
@@ -23,7 +25,7 @@ function S({ children }: { children: ReactNode }) {
  * Composant de démarrage — décide de la destination au lancement de l'app :
  *
  * 0. PWA mobile + première ouverture → onboarding
- * 1. Token valide                    → dashboard
+ * 1. Token valide                    → accueil du rôle
  * 2. Phone stocké + PIN configuré   → écran PIN
  * 3. Sinon                           → login complet
  */
@@ -36,9 +38,9 @@ function StartRoute() {
     return <Navigate to="/onboarding" replace />
   }
 
-  // 1. Token valide → dashboard directement
+  // 1. Token valide → accueil correspondant au rôle
   if (access && !isTokenExpired(access)) {
-    return <Navigate to="/dashboard" replace />
+    return <Navigate to={getHomePath(getAuthUser(access)?.roles)} replace />
   }
 
   // 2. Phone connu + PIN configuré (ou état inconnu = ancien localStorage) → écran PIN
@@ -48,6 +50,22 @@ function StartRoute() {
 
   // 3. Sinon → login complet
   return <Navigate to="/login" replace />
+}
+
+/**
+ * `/dashboard` (ancienne URL, favoris, PWA installées) → accueil du rôle réel.
+ * Avant, cette route affichait le tableau de bord Super Admin à tout utilisateur connecté.
+ */
+function HomeRedirect() {
+  const { user } = useAuth()
+  const roles = user?.roles ?? getAuthUser(getAccessToken() ?? undefined)?.roles
+  return <Navigate to={getHomePath(roles)} replace />
+}
+
+/** Anciennes adresses de détail tontine (/admin|/member|/superadmin/tontines/:id) → fiche unique */
+function TontineRedirect() {
+  const { id } = useParams()
+  return <Navigate to={`/tontine/${id}`} replace />
 }
 
 // Publiques
@@ -60,7 +78,7 @@ const PinResetPage = lazy(() => import('@/pages/auth/PinResetPage').then(m => ({
 const OnboardingPage = lazy(() => import('@/pages/OnboardingPage').then(m => ({ default: m.OnboardingPage })))
 
 // Protégées
-const ProfilePage = lazy(() => import('@/pages/profile/ProfilePage').then(m => ({ default: m.ProfilePage })))
+const ParametresPage = lazy(() => import('@/pages/parametres/ParametresPage').then(m => ({ default: m.ParametresPage })))
 
 // Super Admin
 const SuperAdminDashboard = lazy(() => import('@/pages/superadmin/Dashboard').then(m => ({ default: m.SuperAdminDashboard })))
@@ -70,21 +88,33 @@ const AllContributionsPage = lazy(() => import('@/pages/superadmin/AllContributi
 const CodeListPage = lazy(() => import('@/pages/superadmin/CodeListPage').then(m => ({ default: m.CodeListPage })))
 
 // Page détail tontine unifiée (SuperAdmin + Admin + Membre)
-const TontineDetailPage = lazy(() => import('@/pages/tontines/TontineDetailPage').then(m => ({ default: m.TontineDetailPage })))
+
+// Accueil-hub (brief v2)
+const HomePage = lazy(() => import('@/pages/home/HomePage').then(m => ({ default: m.HomePage })))
+const MesJackpotsPage = lazy(() => import('@/pages/home/MesJackpotsPage').then(m => ({ default: m.MesJackpotsPage })))
+const PayerPage = lazy(() => import('@/pages/pay/PayerPage').then(m => ({ default: m.PayerPage })))
+const RecuPage = lazy(() => import('@/pages/pay/RecuPage').then(m => ({ default: m.RecuPage })))
+const AValiderPage = lazy(() => import('@/pages/gestion/AValiderPage').then(m => ({ default: m.AValiderPage })))
+const EncaisserPage = lazy(() => import('@/pages/gestion/EncaisserPage').then(m => ({ default: m.EncaisserPage })))
+const FicheTontinePage = lazy(() => import('@/pages/tontine/FicheTontinePage').then(m => ({ default: m.FicheTontinePage })))
+const ToursPage = lazy(() => import('@/pages/tontine/ToursPage').then(m => ({ default: m.ToursPage })))
+const TourPage = lazy(() => import('@/pages/tontine/TourPage').then(m => ({ default: m.TourPage })))
+const MembresTontinePage = lazy(() => import('@/pages/tontine/MembresTontinePage').then(m => ({ default: m.MembresTontinePage })))
+const MembreFichePage = lazy(() => import('@/pages/tontine/MembreFichePage').then(m => ({ default: m.MembreFichePage })))
+const ReglagesTontinePage = lazy(() => import('@/pages/tontine/ReglagesTontinePage').then(m => ({ default: m.ReglagesTontinePage })))
+const CreerTontinePage = lazy(() => import('@/pages/tontine/CreerTontinePage').then(m => ({ default: m.CreerTontinePage })))
+const ModifierTontinePage = lazy(() => import('@/pages/tontine/ModifierTontinePage').then(m => ({ default: m.ModifierTontinePage })))
+const ScannerPage = lazy(() => import('@/pages/qr/ScannerPage').then(m => ({ default: m.ScannerPage })))
+const PartagerPage = lazy(() => import('@/pages/qr/PartagerPage').then(m => ({ default: m.PartagerPage })))
+const MembreQrPage = lazy(() => import('@/pages/qr/MembreQrPage').then(m => ({ default: m.MembreQrPage })))
+const InvitationPage = lazy(() => import('@/pages/qr/InvitationPage').then(m => ({ default: m.InvitationPage })))
 
 // Admin
-const AdminDashboard = lazy(() => import('@/pages/admin/Dashboard').then(m => ({ default: m.AdminDashboard })))
-const TontinesPage = lazy(() => import('@/pages/admin/TontinesPage').then(m => ({ default: m.TontinesPage })))
-const MembresPage = lazy(() => import('@/pages/admin/MembresPage').then(m => ({ default: m.MembresPage })))
-const CyclesPage = lazy(() => import('@/pages/admin/CyclesPage').then(m => ({ default: m.CyclesPage })))
-const CotisationsPage = lazy(() => import('@/pages/admin/CotisationsPage').then(m => ({ default: m.CotisationsPage })))
 
 // Member
-const MemberDashboard = lazy(() => import('@/pages/member/Dashboard').then(m => ({ default: m.MemberDashboard })))
-const MesTontinesPage = lazy(() => import('@/pages/member/MesTontinesPage').then(m => ({ default: m.MesTontinesPage })))
-const MesCotisationsPage = lazy(() => import('@/pages/member/MesCotisationsPage').then(m => ({ default: m.MesCotisationsPage })))
+const MesTontinesPage = lazy(() => import('@/pages/tontine/MesTontinesPage').then(m => ({ default: m.MesTontinesPage })))
+const HistoriquePage = lazy(() => import('@/pages/home/HistoriquePage').then(m => ({ default: m.HistoriquePage })))
 const NotificationsPage = lazy(() => import('@/pages/NotificationsPage').then(m => ({ default: m.NotificationsPage })))
-const UserDashboard = lazy(() => import('@/pages/user/Dashboard').then(m => ({ default: m.UserDashboard })))
 
 const router = createBrowserRouter([
   // ── Démarrage intelligent ─────────────────────────────────────────────────
@@ -103,10 +133,99 @@ const router = createBrowserRouter([
   { path: '/pin/setup', element: <ProtectedRoute><S><PinSetupPage /></S></ProtectedRoute> },
   { path: '/pin/reset', element: <S><PinResetPage /></S> },
 
-  // Super Admin
+  // Accueil générique → redirige selon le rôle
   {
     path: '/dashboard',
-    element: <ProtectedRoute><S><SuperAdminDashboard /></S></ProtectedRoute>,
+    element: <ProtectedRoute><HomeRedirect /></ProtectedRoute>,
+  },
+
+  // Accueil-hub : membres, gestionnaires, nouveaux inscrits
+  {
+    path: '/accueil',
+    element: <ProtectedRoute><S><HomePage /></S></ProtectedRoute>,
+  },
+  {
+    path: '/jackpots',
+    element: <ProtectedRoute><S><MesJackpotsPage /></S></ProtectedRoute>,
+  },
+  {
+    path: '/payer',
+    element: <ProtectedRoute><S><PayerPage /></S></ProtectedRoute>,
+  },
+  {
+    path: '/payer/:tontineId',
+    element: <ProtectedRoute><S><PayerPage /></S></ProtectedRoute>,
+  },
+  {
+    path: '/recu/:tontineId/:cotisationId',
+    element: <ProtectedRoute><S><RecuPage /></S></ProtectedRoute>,
+  },
+  // Gestionnaire : le rôle se vérifie par tontine (créateur), pas par le rôle global du jeton
+  {
+    path: '/a-valider',
+    element: <ProtectedRoute><S><AValiderPage /></S></ProtectedRoute>,
+  },
+  {
+    path: '/encaisser',
+    element: <ProtectedRoute><S><EncaisserPage /></S></ProtectedRoute>,
+  },
+  {
+    path: '/encaisser/:tontineId',
+    element: <ProtectedRoute><S><EncaisserPage /></S></ProtectedRoute>,
+  },
+  {
+    path: '/creer',
+    element: <ProtectedRoute><S><CreerTontinePage /></S></ProtectedRoute>,
+  },
+  // QR : scanner, partager, liens encodés dans les QR (ouvrables par l'appareil photo du téléphone)
+  {
+    path: '/scanner',
+    element: <ProtectedRoute><S><ScannerPage /></S></ProtectedRoute>,
+  },
+  {
+    path: '/partager',
+    element: <ProtectedRoute><S><PartagerPage /></S></ProtectedRoute>,
+  },
+  {
+    path: '/q/m/:phone',
+    element: <ProtectedRoute><S><MembreQrPage /></S></ProtectedRoute>,
+  },
+  // Invitation : publique (ouverte depuis un QR même sans compte)
+  { path: '/q/t/:id', element: <S><InvitationPage /></S> },
+  // Fiche tontine (vue gestionnaire / membre / lecture selon la tontine)
+  {
+    path: '/tontine/:id',
+    element: <ProtectedRoute><S><FicheTontinePage /></S></ProtectedRoute>,
+  },
+  {
+    path: '/tontine/:id/tours',
+    element: <ProtectedRoute><S><ToursPage /></S></ProtectedRoute>,
+  },
+  {
+    path: '/tontine/:id/tours/:cycleId',
+    element: <ProtectedRoute><S><TourPage /></S></ProtectedRoute>,
+  },
+  {
+    path: '/tontine/:id/membres',
+    element: <ProtectedRoute><S><MembresTontinePage /></S></ProtectedRoute>,
+  },
+  {
+    path: '/tontine/:id/membres/:membreId',
+    element: <ProtectedRoute><S><MembreFichePage /></S></ProtectedRoute>,
+  },
+  {
+    path: '/tontine/:id/reglages',
+    element: <ProtectedRoute><S><ReglagesTontinePage /></S></ProtectedRoute>,
+  },
+  {
+    path: '/tontine/:id/modifier',
+    element: <ProtectedRoute><S><ModifierTontinePage /></S></ProtectedRoute>,
+  },
+
+  // Super Admin
+  {
+    path: '/superadmin/dashboard',
+    element: <RoleRoute requiredRoles={[UserRole.SUPER_ADMIN]}><S><SuperAdminDashboard /></S></RoleRoute>,
   },
   {
     path: '/superadmin/users',
@@ -118,7 +237,7 @@ const router = createBrowserRouter([
   },
   {
     path: '/superadmin/tontines/:id',
-    element: <RoleRoute requiredRoles={[UserRole.SUPER_ADMIN]}><S><TontineDetailPage /></S></RoleRoute>,
+    element: <TontineRedirect />,
   },
   {
     path: '/superadmin/cotisations',
@@ -131,73 +250,53 @@ const router = createBrowserRouter([
 
   // Admin
   {
+    // Ancien tableau de bord gestionnaire → accueil-hub
     path: '/admin/dashboard',
-    element: <RoleRoute requiredRoles={[UserRole.ADMIN]}><S><AdminDashboard /></S></RoleRoute>,
+    element: <Navigate to="/accueil" replace />,
   },
-  {
-    path: '/admin/tontines',
-    element: <RoleRoute requiredRoles={[UserRole.ADMIN]}><S><TontinesPage /></S></RoleRoute>,
-  },
-  {
-    path: '/admin/tontines/:id',
-    element: <RoleRoute requiredRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}><S><TontineDetailPage /></S></RoleRoute>,
-  },
-  // Routes globales admin (indépendantes d'une tontineId)
-  {
-    path: '/admin/membres',
-    element: <RoleRoute requiredRoles={[UserRole.ADMIN]}><S><MembresPage /></S></RoleRoute>,
-  },
-  {
-    path: '/admin/cycles',
-    element: <RoleRoute requiredRoles={[UserRole.ADMIN]}><S><CyclesPage /></S></RoleRoute>,
-  },
-  {
-    path: '/admin/cotisations',
-    element: <RoleRoute requiredRoles={[UserRole.ADMIN]}><S><CotisationsPage /></S></RoleRoute>,
-  },
-  // Routes legacy (per-tontine, conservées pour compatibilité TontineDetailPage)
-  {
-    path: '/admin/tontines/:tontineId/membres',
-    element: <RoleRoute requiredRoles={[UserRole.ADMIN]}><S><MembresPage /></S></RoleRoute>,
-  },
-  {
-    path: '/admin/tontines/:tontineId/cycles',
-    element: <RoleRoute requiredRoles={[UserRole.ADMIN]}><S><CyclesPage /></S></RoleRoute>,
-  },
-  {
-    path: '/admin/tontines/:tontineId/cotisations',
-    element: <RoleRoute requiredRoles={[UserRole.ADMIN]}><S><CotisationsPage /></S></RoleRoute>,
-  },
-
+  { path: '/admin/tontines', element: <Navigate to="/tontines?section=gere" replace /> },
+  { path: '/admin/tontines/:id', element: <TontineRedirect /> },
+  // Anciennes pages globales gestionnaire → nouveaux écrans
+  { path: '/admin/cotisations', element: <Navigate to="/a-valider" replace /> },
+  { path: '/admin/membres', element: <Navigate to="/tontines?section=gere" replace /> },
+  { path: '/admin/cycles', element: <Navigate to="/tontines?section=gere" replace /> },
   // User (rôle USER — pas encore membre)
   {
+    // Ancien accueil nouvel inscrit → accueil-hub
     path: '/user/dashboard',
-    element: <ProtectedRoute><S><UserDashboard /></S></ProtectedRoute>,
+    element: <Navigate to="/accueil" replace />,
   },
 
   // Member (ADMIN inclus — un admin est souvent aussi membre de ses tontines)
   {
+    // Ancien tableau de bord membre → accueil-hub
     path: '/member/dashboard',
-    element: <RoleRoute requiredRoles={[UserRole.MEMBER, UserRole.ADMIN]}><S><MemberDashboard /></S></RoleRoute>,
+    element: <Navigate to="/accueil" replace />,
   },
-  {
-    path: '/member/tontines',
-    element: <RoleRoute requiredRoles={[UserRole.MEMBER, UserRole.ADMIN]}><S><MesTontinesPage /></S></RoleRoute>,
-  },
+  { path: '/member/tontines', element: <Navigate to="/tontines?section=cotise" replace /> },
   {
     path: '/member/tontines/:id',
-    element: <RoleRoute requiredRoles={[UserRole.MEMBER, UserRole.ADMIN]}><S><TontineDetailPage /></S></RoleRoute>,
+    element: <TontineRedirect />,
+  },
+  { path: '/member/cotisations', element: <Navigate to="/historique" replace /> },
+
+  // Listes (brief v2)
+  {
+    path: '/tontines',
+    element: <ProtectedRoute><S><MesTontinesPage /></S></ProtectedRoute>,
   },
   {
-    path: '/member/cotisations',
-    element: <RoleRoute requiredRoles={[UserRole.MEMBER, UserRole.ADMIN]}><S><MesCotisationsPage /></S></RoleRoute>,
+    path: '/historique',
+    element: <ProtectedRoute><S><HistoriquePage /></S></ProtectedRoute>,
   },
 
   // Profil
   {
-    path: '/profile',
-    element: <ProtectedRoute><S><ProfilePage /></S></ProtectedRoute>,
+    path: '/parametres',
+    element: <ProtectedRoute><S><ParametresPage /></S></ProtectedRoute>,
   },
+  // Ancienne page profil → Paramètres
+  { path: '/profile', element: <Navigate to="/parametres" replace /> },
 
   // Notifications (toutes les rôles)
   {
@@ -205,8 +304,8 @@ const router = createBrowserRouter([
     element: <ProtectedRoute><S><NotificationsPage /></S></ProtectedRoute>,
   },
 
-  // Catch-all
-  { path: '*', element: <Navigate to="/login" replace /> },
+  // Catch-all → démarrage (accueil si connecté, PIN ou connexion sinon)
+  { path: '*', element: <Navigate to="/" replace /> },
 ])
 
 export function Router() {

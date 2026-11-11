@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { ArrowRight, KeyRound, ShieldCheck } from 'lucide-react'
 import { PinScreen, PIN_LENGTH } from '@/components/auth/PinPad'
 import { useAuth } from '@/hooks/useAuth'
-import { UserRole } from '@/types/common'
+import { getHomePath } from '@/lib/homePath'
 
 type SetupStep = 'create' | 'confirm'
 
@@ -20,10 +20,7 @@ export function PinSetupPage() {
 
   const redirectAfterLogin = () => {
     if (!user) { navigate('/login', { replace: true }); return }
-    if (user.roles.includes(UserRole.SUPER_ADMIN)) navigate('/dashboard', { replace: true })
-    else if (user.roles.includes(UserRole.ADMIN)) navigate('/admin/dashboard', { replace: true })
-    else if (user.roles.includes(UserRole.MEMBER)) navigate('/member/dashboard', { replace: true })
-    else navigate('/profile', { replace: true })
+    navigate(getHomePath(user.roles), { replace: true })
   }
 
   const handleKey = async (key: string) => {

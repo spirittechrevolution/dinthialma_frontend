@@ -54,7 +54,7 @@ export function Sidebar({ links }: SidebarProps) {
 
       {/* Profil + déconnexion */}
       <div className="px-3 pb-5 pt-3 space-y-1 border-t border-neutral-100">
-        <Link to="/profile" className={item(location.pathname === '/profile')}>
+        <Link to="/parametres" className={item(location.pathname === '/parametres')}>
           <UserCircle size={20} className="flex-shrink-0" />
           <span>Mon profil</span>
         </Link>
