@@ -75,9 +75,6 @@ export interface CycleRecapLigne {
   enregistrePar?: EnregistreParInfo | null
 }
 
-/** Alias utilisé par les composants récap issus de main (CycleRecapModal…) */
-export type CotisationRecapItem = CycleRecapLigne
-
 // ─── Total cotisé par membre (GET .../cotisations/recap-total) ─────────────────
 export interface MembreTotalCotisation {
   membreId: string

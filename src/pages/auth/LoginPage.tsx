@@ -5,6 +5,7 @@ import { isAxiosError } from 'axios'
 import { Phone, Lock, AlertCircle, ArrowRight, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { UserRole } from '@/types/common'
+import { getHomePath } from '@/lib/homePath'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { PhoneInput } from '@/components/ui/PhoneInput'
@@ -39,10 +40,7 @@ export function LoginPage() {
       navigate('/pin/setup', { replace: true })
       return
     }
-    if (roles.includes(UserRole.SUPER_ADMIN)) navigate('/dashboard', { replace: true })
-    else if (roles.includes(UserRole.ADMIN)) navigate('/admin/dashboard', { replace: true })
-    else if (roles.includes(UserRole.MEMBER)) navigate('/member/dashboard', { replace: true })
-    else navigate('/user/dashboard', { replace: true })
+    navigate(getHomePath(roles), { replace: true })
   }
 
   const onSubmit = async ({ username, password }: LoginFormData) => {

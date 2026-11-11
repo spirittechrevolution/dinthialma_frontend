@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { Spinner } from '@/components/ui/Spinner'
 import { QuickAction } from '@/components/ui/QuickAction'
@@ -12,28 +11,6 @@ import { useAuth } from '@/hooks/useAuth'
 import { TontineStats } from '@/types/dashboard'
 import { formatFCFA } from '@/lib/format'
 import { Plus, CreditCard, Users, RefreshCw, AlertTriangle, ChevronRight, UserCheck, CheckCircle2 } from 'lucide-react'
-
-// ─── Données bar chart (mockées — à connecter au vrai endpoint stats) ─────────
-const MONTHLY_DATA = [
-  { month: 'Jan', montant: 180000 },
-  { month: 'Fév', montant: 240000 },
-  { month: 'Mar', montant: 195000 },
-  { month: 'Avr', montant: 310000 },
-  { month: 'Mai', montant: 285000 },
-  { month: 'Jun', montant: 420000 },
-]
-
-function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: { value: number }[]; label?: string }) {
-  if (active && payload && payload.length) {
-    return (
-      <div className="bg-white rounded-xl shadow-lg border border-neutral-100 px-3 py-2 text-xs">
-        <p className="text-neutral-500 mb-0.5">{label}</p>
-        <p className="font-bold text-primary-600">{payload[0].value.toLocaleString('fr-FR')} FCFA</p>
-      </div>
-    )
-  }
-  return null
-}
 
 const LIST_SIZE = 5
 
@@ -181,27 +158,6 @@ export function AdminDashboard() {
               subtitle="Vos tontines en tant que membre"
               trailing={<ChevronRight size={18} className="text-neutral-300" />}
             />
-          </Section>
-
-          {/* Graphique (desktop uniquement — données illustratives) */}
-          <Section title="Volume collecté" className="hidden md:block">
-            <div className="p-4">
-              <div className="h-40">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={MONTHLY_DATA} margin={{ top: 0, right: 0, bottom: 0, left: 0 }} barSize={22}>
-                    <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                    <YAxis hide />
-                    <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f3f4f6', radius: 6 }} />
-                    <Bar dataKey="montant" radius={[6, 6, 0, 0]}>
-                      {MONTHLY_DATA.map((_, i) => (
-                        <Cell key={i} fill={i === MONTHLY_DATA.length - 1 ? '#16a34a' : '#bbf7d0'} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-              <p className="text-[11px] text-neutral-400 mt-1 text-right">* Données illustratives (6 derniers mois)</p>
-            </div>
           </Section>
         </div>
       </div>

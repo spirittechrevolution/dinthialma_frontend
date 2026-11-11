@@ -36,7 +36,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const getNavLinks = (): NavLink[] => {
     if (hasRole(UserRole.SUPER_ADMIN)) {
       return [
-        { label: 'Accueil', path: '/dashboard', icon: <Home size={22} />, mobile: true },
+        { label: 'Accueil', path: '/superadmin/dashboard', icon: <Home size={22} />, mobile: true },
         { label: 'Tontines', path: '/superadmin/tontines', icon: <Wallet size={22} />, mobile: true },
         { label: 'Cotisations', shortLabel: 'Paiements', path: '/superadmin/cotisations', icon: <CreditCard size={22} />, mobile: true },
         { label: 'Utilisateurs', path: '/superadmin/users', icon: <Users size={22} />, mobile: true },

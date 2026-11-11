@@ -1,9 +1,8 @@
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
-import { useAppTheme } from '@/App'
 import { useUnreadCount } from '@/hooks/useNotifications'
 import { UserRole } from '@/types/common'
-import { Bell, LogOut, User, Sun, Moon } from 'lucide-react'
+import { Bell, LogOut, User } from 'lucide-react'
 import { useState } from 'react'
 import { LogoIcon } from '@/components/ui/LogoIcon'
 
@@ -24,7 +23,6 @@ function getRoleLabel(hasRole: (r: UserRole) => boolean) {
  */
 export function Topbar() {
   const { user, logout, hasRole } = useAuth()
-  const { isDark, toggleTheme } = useAppTheme()
   const navigate = useNavigate()
   const [showMenu, setShowMenu] = useState(false)
   const { data: unreadCount = 0 } = useUnreadCount()
@@ -87,13 +85,6 @@ export function Topbar() {
                     className="w-full flex items-center gap-3 px-4 h-11 text-sm text-neutral-700 hover:bg-neutral-50"
                   >
                     <User size={17} /> Mon profil
-                  </button>
-                  <button
-                    onClick={() => { toggleTheme() }}
-                    className="w-full flex items-center gap-3 px-4 h-11 text-sm text-neutral-700 hover:bg-neutral-50"
-                  >
-                    {isDark ? <Sun size={17} /> : <Moon size={17} />}
-                    {isDark ? 'Mode clair' : 'Mode sombre'}
                   </button>
                   <button
                     onClick={async () => { setShowMenu(false); await logout() }}

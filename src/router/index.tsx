@@ -4,7 +4,9 @@ import { Spinner } from '@/components/ui/Spinner'
 import { ProtectedRoute } from './ProtectedRoute'
 import { RoleRoute } from './RoleRoute'
 import { UserRole } from '@/types/common'
-import { getAccessToken, getUserPhone, getPinConfigured, isTokenExpired } from '@/lib/tokenStorage'
+import { getAccessToken, getUserPhone, getPinConfigured, isTokenExpired, getAuthUser } from '@/lib/tokenStorage'
+import { getHomePath } from '@/lib/homePath'
+import { useAuth } from '@/hooks/useAuth'
 import { isMobilePWA, hasSeenOnboarding } from '@/pages/OnboardingPage'
 
 function S({ children }: { children: ReactNode }) {
@@ -23,7 +25,7 @@ function S({ children }: { children: ReactNode }) {
  * Composant de démarrage — décide de la destination au lancement de l'app :
  *
  * 0. PWA mobile + première ouverture → onboarding
- * 1. Token valide                    → dashboard
+ * 1. Token valide                    → accueil du rôle
  * 2. Phone stocké + PIN configuré   → écran PIN
  * 3. Sinon                           → login complet
  */
@@ -36,9 +38,9 @@ function StartRoute() {
     return <Navigate to="/onboarding" replace />
   }
 
-  // 1. Token valide → dashboard directement
+  // 1. Token valide → accueil correspondant au rôle
   if (access && !isTokenExpired(access)) {
-    return <Navigate to="/dashboard" replace />
+    return <Navigate to={getHomePath(getAuthUser(access)?.roles)} replace />
   }
 
   // 2. Phone connu + PIN configuré (ou état inconnu = ancien localStorage) → écran PIN
@@ -48,6 +50,16 @@ function StartRoute() {
 
   // 3. Sinon → login complet
   return <Navigate to="/login" replace />
+}
+
+/**
+ * `/dashboard` (ancienne URL, favoris, PWA installées) → accueil du rôle réel.
+ * Avant, cette route affichait le tableau de bord Super Admin à tout utilisateur connecté.
+ */
+function HomeRedirect() {
+  const { user } = useAuth()
+  const roles = user?.roles ?? getAuthUser(getAccessToken() ?? undefined)?.roles
+  return <Navigate to={getHomePath(roles)} replace />
 }
 
 // Publiques
@@ -103,10 +115,16 @@ const router = createBrowserRouter([
   { path: '/pin/setup', element: <ProtectedRoute><S><PinSetupPage /></S></ProtectedRoute> },
   { path: '/pin/reset', element: <S><PinResetPage /></S> },
 
-  // Super Admin
+  // Accueil générique → redirige selon le rôle
   {
     path: '/dashboard',
-    element: <ProtectedRoute><S><SuperAdminDashboard /></S></ProtectedRoute>,
+    element: <ProtectedRoute><HomeRedirect /></ProtectedRoute>,
+  },
+
+  // Super Admin
+  {
+    path: '/superadmin/dashboard',
+    element: <RoleRoute requiredRoles={[UserRole.SUPER_ADMIN]}><S><SuperAdminDashboard /></S></RoleRoute>,
   },
   {
     path: '/superadmin/users',
@@ -155,20 +173,6 @@ const router = createBrowserRouter([
     path: '/admin/cotisations',
     element: <RoleRoute requiredRoles={[UserRole.ADMIN]}><S><CotisationsPage /></S></RoleRoute>,
   },
-  // Routes legacy (per-tontine, conservées pour compatibilité TontineDetailPage)
-  {
-    path: '/admin/tontines/:tontineId/membres',
-    element: <RoleRoute requiredRoles={[UserRole.ADMIN]}><S><MembresPage /></S></RoleRoute>,
-  },
-  {
-    path: '/admin/tontines/:tontineId/cycles',
-    element: <RoleRoute requiredRoles={[UserRole.ADMIN]}><S><CyclesPage /></S></RoleRoute>,
-  },
-  {
-    path: '/admin/tontines/:tontineId/cotisations',
-    element: <RoleRoute requiredRoles={[UserRole.ADMIN]}><S><CotisationsPage /></S></RoleRoute>,
-  },
-
   // User (rôle USER — pas encore membre)
   {
     path: '/user/dashboard',
@@ -205,8 +209,8 @@ const router = createBrowserRouter([
     element: <ProtectedRoute><S><NotificationsPage /></S></ProtectedRoute>,
   },
 
-  // Catch-all
-  { path: '*', element: <Navigate to="/login" replace /> },
+  // Catch-all → démarrage (accueil si connecté, PIN ou connexion sinon)
+  { path: '*', element: <Navigate to="/" replace /> },
 ])
 
 export function Router() {

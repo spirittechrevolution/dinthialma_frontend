@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { getUserPhone, clearAll, getRefreshToken, getClientType } from '@/lib/tokenStorage'
 import { PinScreen, PIN_LENGTH } from '@/components/auth/PinPad'
 import { UserRole } from '@/types/common'
+import { getHomePath } from '@/lib/homePath'
 import api from '@/services/api'
 
 export function PinLoginPage() {
@@ -27,10 +28,7 @@ export function PinLoginPage() {
   }, [phone])
 
   const redirectAfterLogin = (roles: UserRole[]) => {
-    if (roles.includes(UserRole.SUPER_ADMIN)) navigate('/dashboard', { replace: true })
-    else if (roles.includes(UserRole.ADMIN)) navigate('/admin/dashboard', { replace: true })
-    else if (roles.includes(UserRole.MEMBER)) navigate('/member/dashboard', { replace: true })
-    else navigate('/profile', { replace: true })
+    navigate(getHomePath(roles), { replace: true })
   }
 
   const handleKey = async (key: string) => {
