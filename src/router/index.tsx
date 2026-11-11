@@ -1,5 +1,5 @@
 import { lazy, Suspense, ReactNode } from 'react'
-import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom'
+import { createBrowserRouter, RouterProvider, Navigate, useParams } from 'react-router-dom'
 import { Spinner } from '@/components/ui/Spinner'
 import { ProtectedRoute } from './ProtectedRoute'
 import { RoleRoute } from './RoleRoute'
@@ -62,6 +62,12 @@ function HomeRedirect() {
   return <Navigate to={getHomePath(roles)} replace />
 }
 
+/** Anciennes adresses de détail tontine (/admin|/member|/superadmin/tontines/:id) → fiche unique */
+function TontineRedirect() {
+  const { id } = useParams()
+  return <Navigate to={`/tontine/${id}`} replace />
+}
+
 // Publiques
 const LoginPage = lazy(() => import('@/pages/auth/LoginPage').then(m => ({ default: m.LoginPage })))
 const RegisterPage = lazy(() => import('@/pages/auth/RegisterPage').then(m => ({ default: m.RegisterPage })))
@@ -82,7 +88,6 @@ const AllContributionsPage = lazy(() => import('@/pages/superadmin/AllContributi
 const CodeListPage = lazy(() => import('@/pages/superadmin/CodeListPage').then(m => ({ default: m.CodeListPage })))
 
 // Page détail tontine unifiée (SuperAdmin + Admin + Membre)
-const TontineDetailPage = lazy(() => import('@/pages/tontines/TontineDetailPage').then(m => ({ default: m.TontineDetailPage })))
 
 // Accueil-hub (brief v2)
 const HomePage = lazy(() => import('@/pages/home/HomePage').then(m => ({ default: m.HomePage })))
@@ -96,12 +101,10 @@ const ToursPage = lazy(() => import('@/pages/tontine/ToursPage').then(m => ({ de
 const TourPage = lazy(() => import('@/pages/tontine/TourPage').then(m => ({ default: m.TourPage })))
 const MembresTontinePage = lazy(() => import('@/pages/tontine/MembresTontinePage').then(m => ({ default: m.MembresTontinePage })))
 const MembreFichePage = lazy(() => import('@/pages/tontine/MembreFichePage').then(m => ({ default: m.MembreFichePage })))
+const ReglagesTontinePage = lazy(() => import('@/pages/tontine/ReglagesTontinePage').then(m => ({ default: m.ReglagesTontinePage })))
 
 // Admin
 const TontinesPage = lazy(() => import('@/pages/admin/TontinesPage').then(m => ({ default: m.TontinesPage })))
-const MembresPage = lazy(() => import('@/pages/admin/MembresPage').then(m => ({ default: m.MembresPage })))
-const CyclesPage = lazy(() => import('@/pages/admin/CyclesPage').then(m => ({ default: m.CyclesPage })))
-const CotisationsPage = lazy(() => import('@/pages/admin/CotisationsPage').then(m => ({ default: m.CotisationsPage })))
 
 // Member
 const MesTontinesPage = lazy(() => import('@/pages/member/MesTontinesPage').then(m => ({ default: m.MesTontinesPage })))
@@ -186,6 +189,10 @@ const router = createBrowserRouter([
     path: '/tontine/:id/membres/:membreId',
     element: <ProtectedRoute><S><MembreFichePage /></S></ProtectedRoute>,
   },
+  {
+    path: '/tontine/:id/reglages',
+    element: <ProtectedRoute><S><ReglagesTontinePage /></S></ProtectedRoute>,
+  },
 
   // Super Admin
   {
@@ -202,7 +209,7 @@ const router = createBrowserRouter([
   },
   {
     path: '/superadmin/tontines/:id',
-    element: <RoleRoute requiredRoles={[UserRole.SUPER_ADMIN]}><S><TontineDetailPage /></S></RoleRoute>,
+    element: <TontineRedirect />,
   },
   {
     path: '/superadmin/cotisations',
@@ -223,23 +230,11 @@ const router = createBrowserRouter([
     path: '/admin/tontines',
     element: <RoleRoute requiredRoles={[UserRole.ADMIN]}><S><TontinesPage /></S></RoleRoute>,
   },
-  {
-    path: '/admin/tontines/:id',
-    element: <RoleRoute requiredRoles={[UserRole.ADMIN, UserRole.SUPER_ADMIN]}><S><TontineDetailPage /></S></RoleRoute>,
-  },
-  // Routes globales admin (indépendantes d'une tontineId)
-  {
-    path: '/admin/membres',
-    element: <RoleRoute requiredRoles={[UserRole.ADMIN]}><S><MembresPage /></S></RoleRoute>,
-  },
-  {
-    path: '/admin/cycles',
-    element: <RoleRoute requiredRoles={[UserRole.ADMIN]}><S><CyclesPage /></S></RoleRoute>,
-  },
-  {
-    path: '/admin/cotisations',
-    element: <RoleRoute requiredRoles={[UserRole.ADMIN]}><S><CotisationsPage /></S></RoleRoute>,
-  },
+  { path: '/admin/tontines/:id', element: <TontineRedirect /> },
+  // Anciennes pages globales gestionnaire → nouveaux écrans
+  { path: '/admin/cotisations', element: <Navigate to="/a-valider" replace /> },
+  { path: '/admin/membres', element: <Navigate to="/admin/tontines" replace /> },
+  { path: '/admin/cycles', element: <Navigate to="/admin/tontines" replace /> },
   // User (rôle USER — pas encore membre)
   {
     // Ancien accueil nouvel inscrit → accueil-hub
@@ -259,7 +254,7 @@ const router = createBrowserRouter([
   },
   {
     path: '/member/tontines/:id',
-    element: <RoleRoute requiredRoles={[UserRole.MEMBER, UserRole.ADMIN]}><S><TontineDetailPage /></S></RoleRoute>,
+    element: <TontineRedirect />,
   },
   {
     path: '/member/cotisations',

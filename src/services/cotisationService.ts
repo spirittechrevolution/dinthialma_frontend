@@ -2,9 +2,6 @@ import api from './api'
 import { Cotisation, RecordCotisationRequest, AdminRecordCotisationRequest, UpdateCotisationRequest, CycleRecapLigne, MembreTotalCotisation } from '@/types/cotisation'
 import { PageResponse, CustomResponse, RawPage, toPage } from '@/types/common'
 
-/** Taille max acceptée par le backend pour une page */
-const RECAP_MAX = 200
-
 export const cotisationService = {
   // ─── Lister les cotisations d'une tontine ────────────────────────────────────
   // SUPER_ADMIN et créateur voient tout, MEMBER voit les siennes uniquement
@@ -94,11 +91,4 @@ export const cotisationService = {
     return response.data.data
   },
 
-  // ─── Récap complet (sans pagination) — utilisé par CotisationsRecapTotal ──
-  // Les endpoints sont paginés côté backend : on demande la taille max (200).
-  // Une tontine ayant au plus 100 membres, la liste est complète.
-  getCotisationsRecapTotal: async (tontineId: string): Promise<MembreTotalCotisation[]> => {
-    const page = await cotisationService.getRecapTotal(tontineId, 0, RECAP_MAX)
-    return page.content
-  },
 }

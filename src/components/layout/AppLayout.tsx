@@ -11,8 +11,8 @@ import {
   Users,
   Wallet,
   CreditCard,
-  RefreshCw,
   List,
+  ListChecks,
 } from 'lucide-react'
 
 interface AppLayoutProps {
@@ -47,9 +47,8 @@ export function AppLayout({ children }: AppLayoutProps) {
       return [
         { label: 'Accueil', path: '/accueil', icon: <Home size={22} />, mobile: true },
         { label: 'Mes tontines', shortLabel: 'Tontines', path: '/admin/tontines', icon: <Wallet size={22} />, mobile: true },
-        { label: 'Cotisations', shortLabel: 'Paiements', path: '/admin/cotisations', icon: <CreditCard size={22} />, mobile: true },
-        { label: 'Membres', path: '/admin/membres', icon: <Users size={22} />, mobile: true },
-        { label: 'Cycles', path: '/admin/cycles', icon: <RefreshCw size={22} /> },
+        { label: 'À valider', shortLabel: 'Valider', path: '/a-valider', icon: <ListChecks size={22} />, mobile: true },
+        { label: 'Encaisser', path: '/encaisser', icon: <CreditCard size={22} />, mobile: true },
       ]
     }
 

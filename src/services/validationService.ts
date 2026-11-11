@@ -10,7 +10,7 @@ import { cotisationService } from './cotisationService'
 
 function invalidate(tontineIds: Iterable<string>) {
   for (const id of new Set(tontineIds)) {
-    for (const key of ['cotisations', 'cotisation', 'recapCycle', 'recapTotal', 'cotisationsRecapTotal']) {
+    for (const key of ['cotisations', 'cotisation', 'recapCycle', 'recapTotal']) {
       queryClient.invalidateQueries({ queryKey: [key, id] })
     }
   }

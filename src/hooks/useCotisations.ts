@@ -53,7 +53,6 @@ export function useRecordCotisation() {
       queryClient.invalidateQueries({ queryKey: ['cotisation', tontineId] })
       queryClient.invalidateQueries({ queryKey: ['recapCycle', tontineId] })
       queryClient.invalidateQueries({ queryKey: ['recapTotal', tontineId] })
-      queryClient.invalidateQueries({ queryKey: ['cotisationsRecapTotal', tontineId] })
     },
   })
 }
@@ -68,7 +67,6 @@ export function useValiderCotisation() {
       queryClient.invalidateQueries({ queryKey: ['cotisation', tontineId] })
       queryClient.invalidateQueries({ queryKey: ['recapCycle', tontineId] })
       queryClient.invalidateQueries({ queryKey: ['recapTotal', tontineId] })
-      queryClient.invalidateQueries({ queryKey: ['cotisationsRecapTotal', tontineId] })
     },
   })
 }
@@ -83,7 +81,6 @@ export function useAdminRecordCotisation() {
       queryClient.invalidateQueries({ queryKey: ['cotisation', tontineId] })
       queryClient.invalidateQueries({ queryKey: ['recapCycle', tontineId] })
       queryClient.invalidateQueries({ queryKey: ['recapTotal', tontineId] })
-      queryClient.invalidateQueries({ queryKey: ['cotisationsRecapTotal', tontineId] })
     },
   })
 }
@@ -105,15 +102,6 @@ export function useUpdateCotisation() {
       queryClient.invalidateQueries({ queryKey: ['cotisation', tontineId] })
       queryClient.invalidateQueries({ queryKey: ['recapCycle', tontineId] })
       queryClient.invalidateQueries({ queryKey: ['recapTotal', tontineId] })
-      queryClient.invalidateQueries({ queryKey: ['cotisationsRecapTotal', tontineId] })
     },
-  })
-}
-
-export function useCotisationsRecapTotal(tontineId: string, enabled = true) {
-  return useQuery({
-    queryKey: ['cotisationsRecapTotal', tontineId],
-    queryFn: () => cotisationService.getCotisationsRecapTotal(tontineId),
-    enabled: !!tontineId && enabled,
   })
 }

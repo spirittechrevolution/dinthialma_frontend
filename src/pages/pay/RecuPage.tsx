@@ -12,7 +12,7 @@ import { AdminEditCotisationModal } from '@/components/shared/AdminEditCotisatio
 import { useCotisation, useValiderCotisation } from '@/hooks/useCotisations'
 import { useTontine } from '@/hooks/useTontines'
 import { useCycle } from '@/hooks/useCycles'
-import { useMesTontines } from '@/hooks/useMe'
+import { useMaTontine } from '@/hooks/useMe'
 import { useOnline } from '@/hooks/useOnline'
 import { formatFcfaRecu, formatDateHeure } from '@/lib/format'
 import { paymentMethodLabel } from '@/lib/paymentMethods'
@@ -36,8 +36,8 @@ export function RecuPage() {
   const { data: cot, isLoading, isError, refetch } = useCotisation(tontineId, cotisationId)
   const { data: tontine } = useTontine(tontineId)
   const { data: cycle } = useCycle(tontineId, cot?.cycleId ?? '')
-  const { data: mesTontines } = useMesTontines()
-  const gere = !!mesTontines?.find((t) => t.id === tontineId && jeGere(t))
+  const { data: maTontine } = useMaTontine(tontineId)
+  const gere = !!maTontine && jeGere(maTontine)
   const { mutate: valider, isPending: validating } = useValiderCotisation()
   const [editOpen, setEditOpen] = useState(false)
 

@@ -3,7 +3,6 @@
  * montant énorme, 2 boutons pilule, carte de rubriques, historique des paiements.
  *
  * Vue gestionnaire : Encaisser · Valider (n) ; vue membre : Payer · Mon tour ; brouillon : Lancer.
- * Rubrique Réglages et bouton Infos : ancienne page détail (?onglet=) en attendant T8.
  */
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -178,7 +177,7 @@ export function FicheTontinePage() {
             <UserPlus size={16} /> Membre
           </button>
         ) : (
-          <Link to={`/member/tontines/${id}?onglet=infos`} className="h-11 px-4 mr-2 rounded-full bg-white shadow-sm text-sm font-semibold text-neutral-800 inline-flex items-center gap-1.5">
+          <Link to={`/tontine/${id}/reglages`} className="h-11 px-4 mr-2 rounded-full bg-white shadow-sm text-sm font-semibold text-neutral-800 inline-flex items-center gap-1.5">
             <Info size={16} /> Infos
           </Link>
         )}
@@ -269,7 +268,7 @@ export function FicheTontinePage() {
           <section className="bg-white rounded-3xl shadow-sm divide-y divide-neutral-100">
             <Rubrique to={`/tontine/${id}/membres`} icon={<Users size={20} />} label="Membres" value={String(t.nombreMembresActuels)} />
             <Rubrique to={`/tontine/${id}/tours`} icon={<RefreshCw size={20} />} label={isEvent ? 'Périodes' : 'Tours'} value={cycleEnCours ? `Tour ${cycleEnCours.numeroCycle} en cours` : undefined} />
-            {gerant && <Rubrique to={`/admin/tontines/${id}?onglet=infos`} icon={<Settings size={20} />} label="Réglages" />}
+            {gerant && <Rubrique to={`/tontine/${id}/reglages`} icon={<Settings size={20} />} label="Réglages" />}
             {prochainsGagnants.length > 0 && (
               <div className="flex items-center gap-3 px-4 min-h-[56px]">
                 <Trophy size={20} className="text-yellow-700" />

@@ -123,7 +123,7 @@ export function SuperAdminDashboard() {
               tontines.map((tt: Tontine) => (
                 <ListItem
                   key={tt.id}
-                  to={`/superadmin/tontines/${tt.id}`}
+                  to={`/tontine/${tt.id}`}
                   leading={<InitialsAvatar name={tt.nom} />}
                   title={
                     <span className="flex items-center gap-2">

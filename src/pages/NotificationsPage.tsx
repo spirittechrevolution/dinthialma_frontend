@@ -81,7 +81,7 @@ function getNotifLink(notif: NotificationItem, isAdmin: boolean): string | null 
       return tontineBase
     case NotificationType.INVITATION_TONTINE:
     case NotificationType.STATUT_MEMBRE:
-      return isAdmin ? '/admin/membres' : '/member/tontines'
+      return isAdmin ? `${tontineBase}/membres` : tontineBase
     default:
       return tontineBase
   }

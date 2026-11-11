@@ -3,7 +3,7 @@
  *
  * Bandeau (réglages, alertes, bascule Je cotise / Je gère, filtre tontine, montant masquable),
  * carte QR, carte d'action unique, grille de 8 services, fil d'activité.
- * Les écrans pas encore refaits (Membres, Tours, Créer…) ouvrent provisoirement
+ * Les écrans pas encore refaits (Créer, Tontines…) ouvrent provisoirement
  * les écrans existants ; il suffira de changer la destination dans `services`.
  */
 import { useEffect, useMemo, useState } from 'react'
@@ -63,6 +63,8 @@ export function HomePage() {
   const [montantsOpen, setMontantsOpen] = useState(false)
   const [plusOpen, setPlusOpen] = useState(false)
   const [payPickerOpen, setPayPickerOpen] = useState(false)
+  /** Membres / Tours en mode « Toutes » : choisir la tontine d'abord */
+  const [rubriqueCible, setRubriqueCible] = useState<'membres' | 'tours' | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
 
   const openPay = (id?: string | null) => navigate(id ? `/payer/${id}` : '/payer')
@@ -189,6 +191,11 @@ export function HomePage() {
       }
 
   // ─── Grille de services ──────────────────────────────────────────────────
+  const ouvrirRubrique = (r: 'membres' | 'tours') => {
+    const cible = tontineId ?? (tontinesDuMode.length === 1 ? tontinesDuMode[0].id : null)
+    if (cible) navigate(`/tontine/${cible}/${r}`)
+    else setRubriqueCible(r)
+  }
   const inviter = () => shareLink({
     title: 'Dinthialma',
     text: 'Je gère mes tontines avec Dinthialma, rejoins-moi :',
@@ -200,8 +207,8 @@ export function HomePage() {
         { key: 'encaisser', label: 'Encaisser', icon: <CreditCard size={26} />, tone: 'green', to: tontineId ? `/encaisser/${tontineId}` : '/encaisser' },
         { key: 'valider', label: 'À valider', icon: <ListChecks size={26} />, tone: 'amber', to: tontineId ? `/a-valider?tontine=${tontineId}` : '/a-valider', badge: aValiderTotal },
         { key: 'tontines', label: 'Tontines', icon: <Wallet size={26} />, tone: 'blue', to: '/admin/tontines' },
-        { key: 'membres', label: 'Membres', icon: <Users size={26} />, tone: 'violet', to: '/admin/membres' },
-        { key: 'tours', label: 'Tours', icon: <RefreshCw size={26} />, tone: 'teal', to: '/admin/cycles' },
+        { key: 'membres', label: 'Membres', icon: <Users size={26} />, tone: 'violet', onClick: () => ouvrirRubrique('membres') },
+        { key: 'tours', label: 'Tours', icon: <RefreshCw size={26} />, tone: 'teal', onClick: () => ouvrirRubrique('tours') },
         { key: 'creer', label: 'Créer', icon: <Plus size={26} />, tone: 'rose', onClick: () => setCreateOpen(true) },
         { key: 'inviter', label: 'Inviter', icon: <Share2 size={26} />, tone: 'green', onClick: inviter },
         { key: 'plus', label: 'Plus', icon: <MoreHorizontal size={26} />, tone: 'neutral', onClick: () => setPlusOpen(true) },
@@ -312,6 +319,12 @@ export function HomePage() {
         allowAll
         selectedId={tontineId}
         onSelect={setTontineId}
+      />
+      <TontinePickerSheet
+        isOpen={rubriqueCible !== null}
+        onClose={() => setRubriqueCible(null)}
+        options={filterOptions}
+        onSelect={(id) => { if (id && rubriqueCible) navigate(`/tontine/${id}/${rubriqueCible}`) }}
       />
       <TontinePickerSheet
         isOpen={payPickerOpen}
