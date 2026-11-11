@@ -94,6 +94,8 @@ export enum CotisationStatut {
   EN_ATTENTE = 'EN_ATTENTE',
   VALIDE = 'VALIDE',
   EN_RETARD = 'EN_RETARD',
+  /** Refusée par le gestionnaire (motifRefus) — finale, hors totaux, ne bloque pas une nouvelle déclaration */
+  REFUSE = 'REFUSE',
 }
 
 // ─── Statuts membre ───────────────────────────────────────────────────────────

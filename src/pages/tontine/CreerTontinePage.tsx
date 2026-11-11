@@ -23,7 +23,7 @@ import { useOnline } from '@/hooks/useOnline'
 import { formatF, formatDateCourte } from '@/lib/format'
 import { rythmeCourt, datesTourSuggerees, FREQUENCES_DEFAUT, ORDRES_DEFAUT, ORDRE_LABEL, capital } from '@/lib/tontineLabels'
 import { Stepper } from '@/components/ui/Stepper'
-import { parseApiError } from '@/lib/apiError'
+import { messageErreur } from '@/lib/apiError'
 import { ModeCycle } from '@/types/common'
 import { TontineType, type CreateTontineRequest } from '@/types/tontine'
 
@@ -151,8 +151,7 @@ export function CreerTontinePage() {
         setCreeeId(t.id)
       },
       onError: (err) => {
-        const { code, serverMessage } = parseApiError(err)
-        setError(code === 'NETWORK_ERROR' ? 'Pas de connexion. Réessayez quand le réseau revient.' : serverMessage || 'La création a échoué. Réessayez.')
+        setError(messageErreur(err, 'La création a échoué. Réessayez.'))
       },
     })
   }

@@ -22,7 +22,7 @@ import { useOnline } from '@/hooks/useOnline'
 import { formatF, formatDateCourte, safeGet, safeSet } from '@/lib/format'
 import { formatPhoneLocal } from '@/lib/phone'
 import { isMobileMoney, LAST_METHOD_KEY } from '@/lib/paymentMethods'
-import { parseApiError } from '@/lib/apiError'
+import { messageErreur } from '@/lib/apiError'
 import type { CotisantTontineSummary } from '@/types/me'
 
 export function PayerPage() {
@@ -178,12 +178,7 @@ function DeclarerPaiement({ ligne }: { ligne: CotisantTontineSummary }) {
           navigate(`/recu/${ligne.tontineId}/${cotisation.id}`, { replace: true, state: { justCreated: true } })
         },
         onError: (err) => {
-          const { code } = parseApiError(err, 'cotisation')
-          setError(
-            code === 'COTISATION_ALREADY_EXISTS' ? 'Vous avez déjà déclaré un paiement pour ce tour.'
-            : code === 'NETWORK_ERROR' ? 'Pas de connexion. Réessayez quand le réseau revient.'
-            : "Le paiement n'a pas pu être enregistré. Réessayez.",
-          )
+          setError(messageErreur(err, "Le paiement n'a pas pu être enregistré. Réessayez."))
         },
       },
     )

@@ -6,7 +6,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { clsx } from 'clsx'
-import { Phone, MessageCircle, Trophy, RotateCw, Clock, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { Phone, MessageCircle, Trophy, RotateCw, Clock, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react'
 import { ScreenHeader } from '@/components/layout/ScreenHeader'
 import { InitialsAvatar } from '@/components/ui/Section'
 import { Modal } from '@/components/ui/Modal'
@@ -24,6 +24,7 @@ const PILL: Record<CotisationStatut, { label: string; cls: string; icon: JSX.Ele
   EN_ATTENTE: { label: 'En attente', cls: 'bg-amber-50 text-amber-800', icon: <Clock size={13} /> },
   VALIDE: { label: 'Validé', cls: 'bg-primary-50 text-primary-800', icon: <CheckCircle2 size={13} /> },
   EN_RETARD: { label: 'En retard', cls: 'bg-red-50 text-red-700', icon: <AlertTriangle size={13} /> },
+  REFUSE: { label: 'Refusé', cls: 'bg-red-50 text-red-700', icon: <XCircle size={13} /> },
 }
 
 type Action = 'suspendre' | 'reactiver' | 'retirer'

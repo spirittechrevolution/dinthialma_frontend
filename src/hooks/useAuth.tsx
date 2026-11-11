@@ -8,6 +8,7 @@ import {
   setPinConfigured, detectClientType,
   getRefreshToken, setTokens, getClientType, clearAll,
 } from '@/lib/tokenStorage'
+import axios from 'axios'
 import api from '@/services/api'
 
 interface ExtendedAuthContextType extends AuthContextType {
@@ -97,8 +98,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const refreshToken = getRefreshToken()
     if (!refreshToken) return false
     try {
-      const { data } = await api.post<{ data: { access_token: string; refresh_token: string } }>(
-        '/v1/auth/refresh',
+      // Endpoint public : appelé SANS en-tête Authorization (le jeton d'accès peut être expiré)
+      const { data } = await axios.post<{ data: { access_token: string; refresh_token: string } }>(
+        `${api.defaults.baseURL}/v1/auth/refresh`,
         { refreshToken },
       )
       setTokens(data.data.access_token, data.data.refresh_token)

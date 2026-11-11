@@ -5,7 +5,7 @@ import { Phone, Lock, AlertCircle, ArrowRight, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { UserRole } from '@/types/common'
 import { getHomePath } from '@/lib/homePath'
-import { parseApiError } from '@/lib/apiError'
+import { parseApiError, messageErreur } from '@/lib/apiError'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { PhoneInput } from '@/components/ui/PhoneInput'
@@ -50,14 +50,12 @@ export function LoginPage() {
       const { user, pinConfigured } = await login(username, password)
       if (user) redirectAfterLogin(user.roles, pinConfigured)
     } catch (err) {
-      const { code } = parseApiError(err, 'login')
+      const { code } = parseApiError(err)
       if (code === 'ACCOUNT_PRE_ENROLLED') {
         setPreEnrolledPhone(username)
         return
       }
-      setErrorMsg(code === 'NETWORK_ERROR'
-        ? 'Pas de connexion. Vérifiez votre réseau et réessayez.'
-        : 'Identifiants incorrects. Vérifiez votre téléphone et mot de passe.')
+      setErrorMsg(messageErreur(err, 'Connexion impossible. Réessayez.'))
     }
   }
 

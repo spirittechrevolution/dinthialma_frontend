@@ -102,7 +102,7 @@ export function NotificationsPage() {
 
   const nouvelles = items.filter((n) => !n.read)
   const anciennes = items.filter((n) => n.read)
-  const tontine = (id: string | null) => mesTontines?.find((t) => t.id === id)
+  const tontine = (id: string | null | undefined) => (id ? mesTontines?.find((t) => t.id === id) : undefined)
 
   const ouvrir = (n: NotificationItem, cible: string | null) => {
     if (!n.read) {

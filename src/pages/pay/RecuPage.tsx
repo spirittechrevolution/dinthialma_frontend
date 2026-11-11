@@ -6,7 +6,7 @@ import { useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { clsx } from 'clsx'
-import { Clock, CheckCircle2, AlertTriangle, Share2, Pencil, RotateCw } from 'lucide-react'
+import { Clock, CheckCircle2, AlertTriangle, Share2, Pencil, RotateCw, XCircle } from 'lucide-react'
 import { ScreenHeader } from '@/components/layout/ScreenHeader'
 import { AdminEditCotisationModal } from '@/components/shared/AdminEditCotisationModal'
 import { useCotisation, useValiderCotisation } from '@/hooks/useCotisations'
@@ -24,6 +24,7 @@ const ETATS: Record<CotisationStatut, { label: string; icon: JSX.Element; cls: s
   EN_ATTENTE: { label: 'En attente de validation', icon: <Clock size={40} />, cls: 'bg-amber-100 text-amber-800' },
   VALIDE: { label: 'Validé', icon: <CheckCircle2 size={40} />, cls: 'bg-primary-100 text-primary-700' },
   EN_RETARD: { label: 'En retard', icon: <AlertTriangle size={40} />, cls: 'bg-red-100 text-red-700' },
+  REFUSE: { label: 'Refusé', icon: <XCircle size={40} />, cls: 'bg-red-100 text-red-700' },
 }
 
 export function RecuPage() {
@@ -89,6 +90,8 @@ export function RecuPage() {
     ['Date', formatDateHeure(cot.createdAt)],
     ['Origine', encaissePar ? `Encaissé par ${encaissePar}` : 'Déclaré par le membre'],
     ...(cot.dateValidation ? [['Validé le', formatDateHeure(cot.dateValidation)] as [string, string]] : []),
+    ...(cot.motifRefus ? [['Motif du refus', cot.motifRefus] as [string, string]] : []),
+    ...(cot.dateRefus ? [['Refusé le', formatDateHeure(cot.dateRefus)] as [string, string]] : []),
   ]
 
   const partager = () => shareLink({

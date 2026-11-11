@@ -18,7 +18,7 @@ import { useTontine } from '@/hooks/useTontines'
 import { useRecapCycle, useAdminRecordCotisation } from '@/hooks/useCotisations'
 import { useOnline } from '@/hooks/useOnline'
 import { formatF } from '@/lib/format'
-import { parseApiError } from '@/lib/apiError'
+import { messageErreur } from '@/lib/apiError'
 import { AccountStatus, CotisationStatut, MembreStatut } from '@/types/common'
 import type { CycleRecapLigne } from '@/types/cotisation'
 
@@ -263,12 +263,7 @@ function Montant({ tontineId, tontineNom, cycleId, numeroCycle, montantDefaut, m
       {
         onSuccess: (cot) => navigate(`/recu/${tontineId}/${cot.id}`, { replace: true, state: { justCreated: true } }),
         onError: (err) => {
-          const { code, serverMessage } = parseApiError(err, 'cotisation')
-          setError(
-            code === 'COTISATION_ALREADY_EXISTS' ? `${membre.firstName} a déjà un paiement sur ce tour.`
-            : code === 'NETWORK_ERROR' ? 'Pas de connexion. Réessayez quand le réseau revient.'
-            : serverMessage || "L'encaissement n'a pas pu être enregistré. Réessayez.",
-          )
+          setError(messageErreur(err, "L'encaissement n'a pas pu être enregistré. Réessayez."))
         },
       },
     )

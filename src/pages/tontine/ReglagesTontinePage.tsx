@@ -22,7 +22,7 @@ import { formatF, formatDateCourte } from '@/lib/format'
 import { formatPhoneLocal, toLocalPhone } from '@/lib/phone'
 import { rythmeCourt } from '@/lib/tontineLabels'
 import { tontineQrUrl } from '@/lib/share'
-import { parseApiError } from '@/lib/apiError'
+import { messageErreur } from '@/lib/apiError'
 import { ModeCycle, TontineStatut } from '@/types/common'
 import { TontineType, type Commission } from '@/types/tontine'
 
@@ -101,7 +101,7 @@ export function ReglagesTontinePage() {
   const executerSensible = () => {
     if (!sensible) return
     const ok = (msg: string) => () => { toast.success(msg); setSensible(null) }
-    const ko = (err: unknown) => toast.error(parseApiError(err).serverMessage || 'L\'action a échoué. Réessayez.')
+    const ko = (err: unknown) => toast.error(messageErreur(err, "L'action a échoué. Réessayez."))
     if (sensible === 'suspendre') suspendre(id, { onSuccess: ok('Tontine suspendue'), onError: ko })
     else if (sensible === 'relancer') activer(id, { onSuccess: ok('Tontine relancée'), onError: ko })
     else supprimer(id, { onSuccess: () => { toast.success('Brouillon supprimé'); navigate('/accueil', { replace: true }) }, onError: ko })

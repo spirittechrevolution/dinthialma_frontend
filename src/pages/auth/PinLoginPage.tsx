@@ -7,7 +7,7 @@ import { getUserPhone, clearAll, getRefreshToken, getClientType } from '@/lib/to
 import { PinScreen, PIN_LENGTH } from '@/components/auth/PinPad'
 import { UserRole } from '@/types/common'
 import { getHomePath } from '@/lib/homePath'
-import { parseApiError } from '@/lib/apiError'
+import { parseApiError, messageErreur } from '@/lib/apiError'
 import api from '@/services/api'
 
 export function PinLoginPage() {
@@ -49,33 +49,28 @@ export function PinLoginPage() {
         setShake(true)
         setTimeout(() => setShake(false), 500)
 
-        const { code, serverMessage } = parseApiError(err, 'pin')
+        const { code, retryAfterSeconds } = parseApiError(err)
         switch (code) {
           case 'PIN_SESSION_EXPIRED':
+          case 'SESSION_EXPIRED':
+          case 'NOT_FOUND':
+          case 'PIN_NOT_CONFIGURED':
+            // Plus de session PIN (ou pas de PIN) : connexion complète par mot de passe
             clearAll()
-            toast.error('Votre session a expiré. Reconnectez-vous avec votre mot de passe.')
-            navigate('/login', { replace: true })
-            break
-          case 'ACCOUNT_NOT_FOUND':
-            clearAll()
-            toast.error('Compte introuvable. Reconnectez-vous.')
+            toast.error(messageErreur(err, 'Reconnectez-vous avec votre mot de passe.'))
             navigate('/login', { replace: true })
             break
           case 'PIN_EXPIRED':
-            toast.error('Votre PIN a expiré. Réinitialisez-le.')
+            toast.error(messageErreur(err))
             navigate('/pin/reset', { replace: true })
             break
-          case 'PIN_TOO_SIMPLE':
-            toast.error('Code PIN trop simple. Choisissez un autre.')
+          case 'PIN_LOCKED': {
+            const min = retryAfterSeconds ? Math.ceil(retryAfterSeconds / 60) : null
+            toast.error(min ? `Code verrouillé. Réessayez dans ${min} min.` : 'Code verrouillé. Réessayez plus tard.')
             break
-          case 'PIN_LOCKED':
-            toast.error(serverMessage || 'Code PIN verrouillé. Réessayez dans quelques minutes.')
-            break
-          case 'NETWORK_ERROR':
-            toast.error('Pas de connexion. Vérifiez votre réseau et réessayez.')
-            break
+          }
           default:
-            toast.error('Code PIN incorrect.')
+            toast.error(messageErreur(err, 'Code secret incorrect.'))
         }
       } finally {
         setIsLoading(false)

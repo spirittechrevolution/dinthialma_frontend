@@ -10,7 +10,7 @@ import { toast } from 'sonner'
 import { clsx } from 'clsx'
 import {
   ArrowLeft, Eye, EyeOff, UserPlus, Info, Users, RefreshCw, Settings, Trophy, ChevronRight,
-  CreditCard, ListChecks, Send, CalendarClock, Play, Lock, RotateCw, Clock, CheckCircle2, AlertTriangle,
+  CreditCard, ListChecks, Send, CalendarClock, Play, Lock, RotateCw, Clock, CheckCircle2, AlertTriangle, XCircle,
 } from 'lucide-react'
 import { InitialsAvatar } from '@/components/ui/Section'
 import { Modal } from '@/components/ui/Modal'
@@ -41,6 +41,7 @@ const STATUT_PILL: Record<CotisationStatut, { label: string; cls: string; icon: 
   EN_ATTENTE: { label: 'En attente', cls: 'bg-amber-50 text-amber-800', icon: <Clock size={13} /> },
   VALIDE: { label: 'Validé', cls: 'bg-primary-50 text-primary-800', icon: <CheckCircle2 size={13} /> },
   EN_RETARD: { label: 'En retard', cls: 'bg-red-50 text-red-700', icon: <AlertTriangle size={13} /> },
+  REFUSE: { label: 'Refusé', cls: 'bg-red-50 text-red-700', icon: <XCircle size={13} /> },
 }
 
 const PAGE = 30

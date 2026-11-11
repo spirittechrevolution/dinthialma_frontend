@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { PhoneInput } from '@/components/ui/PhoneInput'
 import { AuthShell, AuthSteps, AuthAlert } from '@/components/auth/AuthShell'
-import { parseApiError } from '@/lib/apiError'
+import { messageErreur } from '@/lib/apiError'
 
 const step1Schema = z.object({
   phone: zPhone,
@@ -56,8 +56,7 @@ export function RegisterPage() {
       setPhone(p)
       setStep(2)
     } catch (err: unknown) {
-      const { code } = parseApiError(err, 'register')
-      setError(code === 'PHONE_ALREADY_USED' ? 'Ce numéro est déjà utilisé.' : "Impossible d'envoyer le code. Vérifiez votre numéro.")
+      setError(messageErreur(err, "Impossible d'envoyer le code. Vérifiez votre numéro."))
     }
   }
 

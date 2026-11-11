@@ -22,7 +22,7 @@ import { userService } from '@/services/userService'
 import { authService } from '@/services/authService'
 import { clearAll } from '@/lib/tokenStorage'
 import { formatPhoneLocal, toLocalPhone } from '@/lib/phone'
-import { parseApiError } from '@/lib/apiError'
+import { messageErreur } from '@/lib/apiError'
 import { jeCotise, jeGere } from '@/types/me'
 import pkg from '../../../package.json'
 
@@ -222,8 +222,7 @@ function NumeroSheet({ onClose, online }: { onClose: () => void; online: boolean
       await userService.requestPhoneChange({ newPhone: e164 })
       setEtape(2)
     } catch (err) {
-      const { code: c } = parseApiError(err, 'register')
-      setErreur(c === 'PHONE_ALREADY_USED' ? 'Ce numéro a déjà un compte.' : "Impossible d'envoyer le code.")
+      setErreur(messageErreur(err, "Impossible d'envoyer le code."))
     } finally { setChargement(false) }
   }
   const verifier = async () => {

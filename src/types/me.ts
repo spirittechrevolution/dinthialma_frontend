@@ -12,7 +12,7 @@ import type { CotisationStatut, MembreStatut } from './common'
 // ─── B01 : mon rôle dans chaque tontine ──────────────────────────────────────
 export type MonRole = 'GESTIONNAIRE' | 'MEMBRE' | 'GESTIONNAIRE_ET_MEMBRE' | 'LECTURE'
 
-export interface MaTontine extends Tontine {
+export interface MaTontine extends Omit<Tontine, 'monRole' | 'monMembreId' | 'monStatutMembre'> {
   monRole: MonRole
   /** Mon identifiant de membre dans cette tontine (null si je n'y cotise pas) */
   monMembreId: string | null
