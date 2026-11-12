@@ -40,7 +40,7 @@
 | B23 | Suppression d'une valeur de liste | Listes de valeurs | P2 |
 | B24 | Export des paiements (CSV) | Historique | P2 |
 | B25 | Canal d'assistance (contact configurable) | Paramètres > Support | P2 |
-| B26 | Rythme libre (« tous les 3 jours ») + jour et heure d'échéance + rappels avant échéance | Créer, Modifier, Réglages, Fiche, Tours | P1 |
+| B26 | Rythme libre jusqu'à 1 mois (« tous les 3 jours ») + jour et heure d'échéance + rappels avant échéance | Créer, Modifier, Réglages, Fiche, Tours | P1 |
 | B27 | Amendes de retard (tontines rotatives), avec validation du gestionnaire | Réglages, À valider, Fiche, Payer, Mes tontines | P1 |
 | B28 | Prêts sur la cagnotte (tontines événementielles) | Fiche, Demande de prêt, À valider, Distribution | P1 |
 | B29 | Caisses de la tontine (commune, amendes, frais de prêt) et mouvements | Fiche (rubrique Caisse), Réglages | P1 (socle de B27/B28) |
@@ -287,10 +287,11 @@ Aucun développement backend nécessaire pour : inscription / connexion / code s
 > - **changement de règles en cours de tontine** : il ne s'applique qu'aux tours **pas encore commencés** ; chaque élément (amende, prêt) garde une **copie de la règle** en vigueur au moment où il est créé ; les membres reçoivent une notification `REGLES_MODIFIEES` ;
 > - **codes d'erreur** stables au format B02 (listés dans chaque besoin).
 
-### B26 — Rythme libre, jour et heure d'échéance, rappels avant échéance
-- **Écrans** : Créer une tontine (étape « rythme »), Modifier, Réglages, Fiche Tontine, Tours, Invitation.
-- **Existant** : `frequence` n'accepte que 5 codes (`JOURNALIERE`, `HEBDOMADAIRE`, `BIMENSUEL`, `MENSUEL`, `TRIMESTRIEL`). Impossible de dire « tous les 3 jours », « tous les 10 jours », « tous les 2 mois », « tous les 6 mois », ni « chaque dimanche avant 23h59 » ou « chaque mois le 30 (après le salaire) ». Les tours n'ont qu'une `dateFin` (jour), sans heure limite.
-- **Contournement front** : aucun possible (le backend génère les tours, les retards et les rappels).
+### B26 — Rythme libre (jusqu'à 1 mois), jour et heure d'échéance, rappels avant échéance
+- **Écrans** : Créer une tontine (réglage du rythme par barre à crans), Modifier, Réglages, Fiche Tontine, Tours, Invitation.
+- **Existant** : `frequence` n'accepte que 5 codes (`JOURNALIERE`, `HEBDOMADAIRE`, `BIMENSUEL`, `MENSUEL`, `TRIMESTRIEL`). Impossible de dire « tous les 3 jours », « tous les 10 jours », « toutes les 3 semaines », ni « chaque dimanche avant 23h59 » ou « chaque mois le 30 (après le salaire) ». Les tours n'ont qu'une `dateFin` (jour), sans heure limite.
+- **Décision produit (2026-11-12)** : le rythme est **limité à 1 mois maximum**. Au-delà (2 mois, 3 mois, 6 mois, 1 an), ce n'est plus proposé.
+- **Contournement front** : aucun possible (le backend génère les tours, les retards et les rappels). En attendant, le front n'affiche que 4 crans : chaque jour, chaque semaine, toutes les 2 semaines, chaque mois.
 - **Proposition — nouveaux champs** (dans `CreateTontineRequest`, `UpdateTontineRequest`, `TontineResponse`, `InvitationApercuResponse`, `TontineCotisant`, `TontineStats`) :
   ```json
   "rythmeIntervalle": 3,              // entier ≥ 1
@@ -299,21 +300,31 @@ Aucun développement backend nécessaire pour : inscription / connexion / code s
   "heureEcheance": "23:59",           // HH:mm, défaut 23:59
   "rappels": { "veille": true, "heuresAvant": 3 }   // défaut : veille + 3 h avant
   ```
-  - Bornes : `JOUR` 1 à 90, `SEMAINE` 1 à 26, `MOIS` 1 à 12.
-  - **Compatibilité** : `frequence` reste renvoyé (lecture) : code historique si le rythme correspond, sinon `PERSONNALISEE`. En écriture, `frequence` seul reste accepté (traduit selon le tableau ci-dessous) ; si les deux sont envoyés, les nouveaux champs priment.
-    | `frequence` historique | `rythmeIntervalle` | `rythmeUnite` |
+  - **Bornes (maximum 1 mois)** :
+    | Unité | Intervalle accepté | Exemples |
     |---|---|---|
-    | `JOURNALIERE` | 1 | `JOUR` |
-    | `HEBDOMADAIRE` | 1 | `SEMAINE` |
-    | `BIMENSUEL` | 2 | `SEMAINE` |
-    | `MENSUEL` | 1 | `MOIS` |
-    | `TRIMESTRIEL` | 3 | `MOIS` |
+    | `JOUR` | 1 à 30 | chaque jour, tous les 2, 3, 5, 10, 15 jours |
+    | `SEMAINE` | 1 à 4 | chaque semaine, toutes les 2, 3 ou 4 semaines |
+    | `MOIS` | 1 uniquement | chaque mois |
+    Toute autre valeur → `RYTHME_TROP_LONG` (au-delà d'un mois) ou `RYTHME_INVALIDE` (0, négatif, unité inconnue).
+  - **Crans proposés par le front** (barre à glisser, du plus court au plus long) : 1, 2, 3, 4, 5 jours · 1 semaine · 10 jours · 2 semaines · 3 semaines · 1 mois. Le backend accepte toute valeur dans les bornes (le front pourra ajouter des crans sans évolution backend).
+  - **Compatibilité** : `frequence` reste renvoyé (lecture) : code historique si le rythme correspond, sinon `PERSONNALISEE`. En écriture, `frequence` seul reste accepté (traduit selon le tableau ci-dessous) ; si les deux sont envoyés, les nouveaux champs priment.
+    | `frequence` historique | `rythmeIntervalle` | `rythmeUnite` | Création |
+    |---|---|---|---|
+    | `JOURNALIERE` | 1 | `JOUR` | acceptée |
+    | `HEBDOMADAIRE` | 1 | `SEMAINE` | acceptée |
+    | `BIMENSUEL` | 2 | `SEMAINE` | acceptée |
+    | `MENSUEL` | 1 | `MOIS` | acceptée |
+    | `TRIMESTRIEL` | 3 | `MOIS` | **refusée** pour une nouvelle tontine (`RYTHME_TROP_LONG`) |
+  - **Tontines existantes en `TRIMESTRIEL`** : elles continuent de fonctionner telles quelles (tours déjà générés, rappels, retards) ; elles sont traduites en `rythmeIntervalle: 3`, `rythmeUnite: "MOIS"` en lecture, par exception aux bornes. Leur rythme n'est plus modifiable que vers une valeur dans les bornes.
+  - **Référentiel `FREQUENCE_TONTINE`** : désactiver la valeur `TRIMESTRIEL` pour la création (elle reste lisible pour l'affichage des anciennes tontines), par exemple avec un champ `actif: false` sur l'entrée de la liste.
   - **Migration** des tontines existantes : traduction ci-dessus, `jourEcheance` = null, `heureEcheance` = 23:59, `rappels` par défaut. Aucun tour existant n'est modifié.
 - **Génération des tours** (activation, mode automatique et sous-cycles événementiels) :
   - tour *k* : `dateDebut` = lendemain de l'échéance du tour *k−1* (le 1ᵉʳ commence à `dateDebut` de la tontine) ;
   - **échéance** du tour *k* : `dateDebut` du tour + intervalle, puis ramenée au **prochain `jourEcheance`** s'il est défini ; si `jourEcheance` = 29, 30 ou 31 et que le mois est plus court → **dernier jour du mois** ; `DERNIER` = dernier jour du mois ;
+  - avec `jourEcheance`, un tour ne peut jamais dépasser 1 mois + 6 jours (le temps d'atteindre le jour choisi) ;
   - événementielle : le **dernier sous-cycle se termine sur `dateEcheance`** (règle actuelle conservée), même si l'intervalle n'est pas complet ;
-  - mode manuel : à l'ouverture d'un tour, les dates proposées par défaut suivent le même calcul (le gestionnaire peut toujours les changer).
+  - mode manuel : à l'ouverture d'un tour, les dates proposées par défaut suivent le même calcul (le gestionnaire peut toujours les changer, dans la limite d'un mois).
 - **Nouveau champ sur les tours** (`CycleResponse`, `CycleEnCours`, `CycleEnCoursInfo`) : `echeanceAt` (date-heure ISO avec fuseau, ex. `2026-11-22T23:59:00Z`) = jour de fin + `heureEcheance`. C'est **la** limite de paiement du tour.
 - **Simulation pour l'écran de création** (évite que le front calcule différemment du backend) :
   `GET /v1/tontines/simulation?rythmeIntervalle=3&rythmeUnite=JOUR&jourEcheance=&heureEcheance=23:59&dateDebut=2026-11-12&nombreMembres=10&tontineType=ROTATIVE&dateEcheance=` →
@@ -321,23 +332,25 @@ Aucun développement backend nécessaire pour : inscription / connexion / code s
   { "nombreTours": 10, "premiereEcheance": "2026-11-14T23:59:00Z", "derniereEcheance": "2026-12-11T23:59:00Z",
     "echeances": ["2026-11-14T23:59:00Z", "…"] }   // 400 échéances maximum
   ```
-  Authentifié, sans effet en base.
+  Authentifié, sans effet en base, mêmes bornes et mêmes codes d'erreur que la création.
 - **Retard d'une cotisation** (règle unique, utilisée aussi par B27) :
   - une cotisation **n'est pas en retard** si elle a été **déclarée** (statut `EN_ATTENTE` puis `VALIDE`) **avant `echeanceAt`** (+ délai de tolérance de B27 le cas échéant) : c'est la **date de déclaration** qui compte, **pas la date de validation** ;
   - une déclaration **refusée** (B18) ne compte pas : si le refus arrive après l'échéance, le membre est en retard (à partir du refus) ;
   - pour un paiement **encaissé par le gestionnaire** (espèces remises en main propre), ajouter un champ facultatif `datePaiement` (date-heure, ≤ maintenant, ≥ début du tour, défaut maintenant) dans la requête d'encaissement et dans `Cotisation` : c'est elle qui compte pour le retard ;
   - le passage en `EN_RETARD` se fait par un traitement planifié à `echeanceAt` (pas seulement à la lecture), pour pouvoir notifier.
 - **Rappels avant échéance** : traitement planifié qui envoie, aux membres **actifs** n'ayant **pas encore déclaré** pour le tour en cours :
-  - la **veille** à 18h00 (si `rappels.veille`) ;
+  - la **veille** à 18h00 (si `rappels.veille`) ; pas de rappel « veille » pour un rythme d'un jour (il tomberait au moment de l'échéance précédente) ;
   - **N heures avant** `echeanceAt` (si `rappels.heuresAvant` > 0, 1 à 24) ;
-  - type `RAPPEL_COTISATION` (existant), canaux selon B31 ; pas d'envoi WhatsApp entre 21h00 et 8h00 (reporté à 8h00) ; jamais deux fois le même rappel pour le même tour.
+  - type `RAPPEL_COTISATION` (existant), canaux selon B31 ; pas d'envoi WhatsApp entre 21h00 et 8h00 (reporté à 8h00, ou avancé à 20h00 si l'échéance tombe avant 8h00) ; jamais deux fois le même rappel pour le même tour.
 - **Modification** : rythme (intervalle, unité) modifiable seulement en `BROUILLON` ; `jourEcheance`, `heureEcheance`, `rappels` modifiables quand la tontine est active, **pour les tours pas encore commencés** (notification `REGLES_MODIFIEES`).
 - **Exports CSV** (B24) : ajouter le rythme lisible (« tous les 3 jours, avant 23h59 ») et `echeanceAt` par tour.
-- **Codes d'erreur** : `RYTHME_INVALIDE` (unité ou intervalle hors bornes), `JOUR_ECHEANCE_INVALIDE` (incohérent avec l'unité), `HEURE_ECHEANCE_INVALIDE`, `RYTHME_NON_MODIFIABLE` (tontine non brouillon).
+- **Codes d'erreur** : `RYTHME_INVALIDE` (unité inconnue, intervalle ≤ 0), `RYTHME_TROP_LONG` (au-delà d'un mois, y compris `TRIMESTRIEL` à la création), `JOUR_ECHEANCE_INVALIDE` (incohérent avec l'unité), `HEURE_ECHEANCE_INVALIDE`, `RYTHME_NON_MODIFIABLE` (tontine non brouillon).
 - **Critères d'acceptation** :
   - « tous les 3 jours » à partir du 12/11, 10 membres → 10 tours, échéances 14/11, 17/11… à 23h59 ;
   - « chaque semaine le dimanche » à partir d'un mercredi → 1ʳᵉ échéance le dimanche suivant ;
   - « chaque mois le 31 » → 30/11, 31/12, 28/02 (ou 29), 31/03 ;
+  - « toutes les 4 semaines » → accepté ; « tous les 31 jours », « toutes les 5 semaines », « tous les 2 mois » → `RYTHME_TROP_LONG` ;
+  - création avec l'ancien `frequence: "TRIMESTRIEL"` → `RYTHME_TROP_LONG` ; une tontine `TRIMESTRIEL` existante continue de fonctionner ;
   - une déclaration à 23h58 le jour d'échéance, validée le lendemain → **pas en retard** ;
   - une tontine créée avec l'ancien `frequence: "MENSUEL"` fonctionne comme avant.
 
