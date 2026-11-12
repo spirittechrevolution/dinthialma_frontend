@@ -23,8 +23,9 @@ import { useCodeList } from '@/hooks/useCodeList'
 import { useAuth } from '@/hooks/useAuth'
 import { useOnline } from '@/hooks/useOnline'
 import { formatF, formatDateCourte } from '@/lib/format'
-import { rythmeCourt, datesTourSuggerees, FREQUENCES_DEFAUT, ORDRES_DEFAUT, ORDRE_LABEL, capital } from '@/lib/tontineLabels'
+import { rythmePhrase, datesTourSuggerees, FREQUENCES_DEFAUT, ORDRES_DEFAUT, ORDRE_LABEL, capital } from '@/lib/tontineLabels'
 import { Stepper } from '@/components/ui/Stepper'
+import { RythmeSlider } from '@/components/ui/RythmeSlider'
 import { messageErreur } from '@/lib/apiError'
 import { ModeCycle } from '@/types/common'
 import { TontineType, type CreateTontineRequest, type Commission } from '@/types/tontine'
@@ -230,7 +231,7 @@ export function CreerTontinePage() {
   }
 
   // ─── Étapes ──────────────────────────────────────────────────────────────
-  const rythme = rythmeCourt(frequence)
+  const rythmeTexte = rythmePhrase(frequence)
   const jackpot = Math.round((montant * membres) / Math.max(1, gagnants))
   const commissionNombre = Number(commissionValeur.replace(',', '.'))
   const commissionLigne: string | null = !commissionType || !(commissionNombre > 0)
@@ -343,15 +344,16 @@ export function CreerTontinePage() {
             )}
 
             <section className="bg-white rounded-3xl shadow-sm p-4">
-              <p className="text-sm font-semibold text-neutral-700">{isEvent ? 'Rappels' : 'Rythme'}</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {frequences.map((f) => (
-                  <button key={f} aria-pressed={frequence === f} onClick={() => setFrequence(f)}
-                    className={clsx('h-11 px-4 rounded-full text-sm font-semibold', frequence === f ? 'bg-primary-700 text-white' : 'bg-neutral-100 text-neutral-700')}>
-                    {capital(rythmeCourt(f))}
-                  </button>
-                ))}
-              </div>
+              <RythmeSlider
+                value={frequence}
+                onChange={setFrequence}
+                disponibles={frequences}
+                isEvent={isEvent}
+                montant={montant}
+                montantLibre={montantLibre}
+                dateDebut={dateDebut}
+                dateEvenement={dateEvenement}
+              />
             </section>
 
             {isEvent && (
@@ -430,12 +432,12 @@ export function CreerTontinePage() {
               <p className="text-[17px] leading-relaxed text-neutral-900">
                 {isEvent ? (
                   <>
-                    Chacun cotise <b>{montantLibre ? (Number(minimum) > 0 ? `librement (minimum ${formatF(Number(minimum))})` : 'librement') : `${formatF(montant)} par ${rythme}`}</b> jusqu'au <b>{formatDateCourte(dateEvenement)}</b>.
+                    Chacun cotise <b>{montantLibre ? (Number(minimum) > 0 ? `librement (minimum ${formatF(Number(minimum))})` : 'librement') : `${formatF(montant)} ${rythmeTexte}`}</b> jusqu'au <b>{formatDateCourte(dateEvenement)}</b>.
                     La cagnotte est partagée entre tous à la fin.
                   </>
                 ) : (
                   <>
-                    <b>{membres} membres</b> cotisent <b>{formatF(montant)}</b> par {rythme}. Chaque {rythme}, <b>{gagnants} membre{gagnants > 1 ? 's' : ''}</b> reçoi{gagnants > 1 ? 'vent' : 't'} <b>{formatF(jackpot)}</b>.
+                    <b>{membres} membres</b> cotisent <b>{formatF(montant)}</b> {rythmeTexte}. {capital(rythmeTexte)}, <b>{gagnants} membre{gagnants > 1 ? 's' : ''}</b> reçoi{gagnants > 1 ? 'vent' : 't'} <b>{formatF(jackpot)}</b>.
                   </>
                 )}
               </p>
