@@ -59,5 +59,54 @@
 - `GET /v1/public/config` au démarrage : écran « Mise à jour requise » si `versionMinimaleApp` > version ; support WhatsApp / email dans Paramètres.
 - Recherches serveur : `q` sur tontines, membres, cotisations ; console (`q`, `role`, `accountStatus`) ; suppression de valeur de liste (`CODE_LIST_SYSTEM_VALUE`).
 
+## État des lots
+
+| Lot | Commit | Statut |
+|---|---|---|
+| 1 — Conventions, codes d'erreur, types | `a0574f1` | Fait |
+| 2 — Couche « moi » + QR / invitations | `ad5eabc` | Fait |
+| 3 — Refus et validation groupée | `b8cef79` | Fait |
+| 4 — Authentification et sécurité | `268074a` | Fait |
+| 5 — Demandes d'adhésion, alertes précises | `7eb9bf3` | Fait |
+| 6 — Préférences, configuration, exports, console | `8fa3ccc` | Fait |
+
+Vérification : compilation TypeScript et build de production à chaque lot. **Aucun test de bout en
+bout avec l'API n'a encore été fait** (à mener avant la PR, voir « Comment tester »).
+
+## Comment tester (par lot)
+1. **Erreurs** : mauvais mot de passe → « Numéro ou mot de passe incorrect » ; PIN faux ×N → message de
+   verrouillage avec délai ; compte créé par un gestionnaire → écran « Activer mon compte ».
+2. **Accueil** : comparer bandeau / carte d'action / fil avec `/me/summary`, `/admin/my-dashboard`,
+   `/me/activite` ; bascule Je cotise / Je gère ; QR membre = jeton `m_…` (aucun numéro).
+3. **Paiements** : refuser une déclaration (motif) → le membre voit le motif sur Payer et peut
+   redéclarer ; « Tout valider » avec un paiement déjà traité → bilan.
+4. **Compte** : inscription → création du code secret sans reconnexion ; changer de mot de passe
+   avec « déconnecter mes autres appareils » ; révoquer une session.
+5. **Invitations** : Réglages → QR / code ; ouvrir `/q/t/{code}` déconnecté → créer un compte →
+   retour à l'invitation → « Demander à rejoindre » ; côté gestionnaire, accepter dans À valider.
+6. **Préférences** : changer de mode / favoris sur un appareil → retrouvés sur un autre ; export CSV
+   ouvert dans Excel.
+
 ## Questions pour le backend
-_(complétées au fil de l'intégration — voir section en fin de document)_
+1. **Jackpots par tontine dans `/me/summary`** : `TontineCotisant` n'a pas de total des jackpots reçus.
+   Le front appelle `/me/jackpots` en plus et additionne. Ajouter `totalJackpotsRecus` par tontine ?
+2. **QR membre d'une personne absente de mes tontines** : `/qr/{token}` ne renvoie pas le téléphone
+   (normal), mais l'ajout d'un membre exige un numéro. Le front propose d'envoyer l'invitation de la
+   tontine. Faut-il un ajout par `userId` / `qrToken` (ex. `POST /tontines/{id}/membres` avec `userId`) ?
+3. **Aperçu d'invitation pour un utilisateur déjà membre** : `InvitationApercuResponse` n'a ni
+   `tontineId` ni indicateur « déjà membre ». On ne le découvre qu'en recevant
+   `MEMBER_ALREADY_IN_TONTINE` à la demande, sans pouvoir ouvrir la fiche. Ajouter `tontineId`
+   (si l'appelant est membre) ou `dejaMembre` quand un JWT est fourni ?
+4. **Filtre `type` de `/me/activite`** : valeur unique. Pour « Paiements seulement » (tout sauf
+   `JACKPOT_RECU`), le front filtre localement. Accepter plusieurs `type` ou un filtre `sens` ?
+5. **Domaine de `url` dans `/me/qr` et `/tontines/{id}/invitation`** : l'URL doit pointer vers le
+   front (`/q/{token}`, `/q/t/{code}`) pour fonctionner avec l'appareil photo. Quelle configuration
+   par environnement ?
+6. **`versionMinimaleApp`** : comparée à la version du `package.json` du front (aujourd'hui `0.0.1`).
+   Confirmer le schéma de version attendu avant de renseigner cette valeur en production.
+7. **`PIN_NOT_CONFIGURED` au login PIN** : le front renvoie vers la connexion par mot de passe (le PIN
+   sera proposé ensuite). Est-ce le comportement voulu, ou faut-il aller directement à la création ?
+8. **Notifications `DEMANDE_ADHESION` / `ADHESION_REFUSEE`** : portent-elles toujours `tontineId` ?
+   Le front en a besoin pour ouvrir la bonne file.
+9. **Badge « À valider »** : le compteur de l'accueil (`totalCotisationsEnAttente`) n'inclut pas les
+   demandes d'adhésion en attente. Prévoir `totalDemandesEnAttente` dans `my-dashboard` ?
