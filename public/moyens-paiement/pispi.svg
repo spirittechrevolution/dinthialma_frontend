@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 88" role="img" aria-labelledby="title">
+<title id="title">PI-SPI</title>
+<rect x="4" y="4" width="80" height="80" rx="18" fill="#123B67"/>
+<path d="M23 30h42M23 44h42M23 58h27" stroke="#fff" stroke-width="7" stroke-linecap="round"/>
+<circle cx="63" cy="58" r="7" fill="#39B6A5"/>
+<text x="101" y="57" font-family="Arial, Helvetica, sans-serif" font-size="43" font-weight="700" letter-spacing="-1.5" fill="#123B67">PI-SPI</text>
+</svg>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 88" role="img" aria-labelledby="title">
+<title id="title">Paiement en espèces</title>
+<rect x="4" y="4" width="80" height="80" rx="18" fill="#16834A"/>
+<rect x="19" y="25" width="50" height="36" rx="5" fill="none" stroke="#fff" stroke-width="4"/>
+<circle cx="44" cy="43" r="9" fill="none" stroke="#fff" stroke-width="4"/>
+<path d="M25 32h5M58 54h5" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+<text x="101" y="56" font-family="Arial, Helvetica, sans-serif" font-size="35" font-weight="700" fill="#16834A">Espèces</text>
+</svg>

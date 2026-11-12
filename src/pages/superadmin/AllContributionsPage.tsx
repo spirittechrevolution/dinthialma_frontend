@@ -24,7 +24,7 @@ const STATUT_TABS: { label: string; value: CotisationStatut | '' }[] = [
 const METHODE_LABELS: Record<string, string> = {
   ORANGE_MONEY: 'Orange Money',
   WAVE: 'Wave',
-  PISPI: 'PI-SPI',
+  PI_SPI: 'PI-SPI',
   FREE_MONEY: 'Free Money',
   MTN_MOMO: 'MTN MoMo',
   CASH: 'Espèces',

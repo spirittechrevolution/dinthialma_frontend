@@ -5,7 +5,7 @@
 export const PAYMENT_METHODS = [
   { value: 'WAVE', label: 'Wave', mobileMoney: true },
   { value: 'ORANGE_MONEY', label: 'Orange Money', mobileMoney: true },
-  { value: 'PISPI', label: 'PI-SPI', mobileMoney: true },
+  { value: 'PI_SPI', label: 'PI-SPI', mobileMoney: true },
   { value: 'CASH', label: 'Espèces', mobileMoney: false },
 ] as const
 
@@ -26,7 +26,7 @@ export const METHODES_RETIREES = ['FREE_MONEY']
 const LABELS: Record<string, string> = {
   WAVE: 'Wave',
   ORANGE_MONEY: 'Orange Money',
-  PISPI: 'PI-SPI',
+  PI_SPI: 'PI-SPI',
   CASH: 'Espèces',
   FREE_MONEY: 'Free Money',
   VIREMENT: 'Virement',
@@ -40,7 +40,8 @@ const LABELS: Record<string, string> = {
 export const PAYMENT_LOGOS: Record<string, string> = {
   WAVE: '/moyens-paiement/wave.svg',
   ORANGE_MONEY: '/moyens-paiement/orange-money.svg',
-  PISPI: '/moyens-paiement/pispi.svg',
+  PI_SPI: '/moyens-paiement/pispi.svg',
+  CASH: '/moyens-paiement/cash.svg',
 }
 
 export function paymentMethodLabel(value: string | null | undefined): string {
