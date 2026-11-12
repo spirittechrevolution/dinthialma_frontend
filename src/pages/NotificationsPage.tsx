@@ -23,9 +23,12 @@ function categorie(type: NotificationType): Categorie {
     case NotificationType.COTISATION_SOUMISE: return 'paiement'
     case NotificationType.COTISATION_VALIDEE: return 'validation'
     case NotificationType.PAIEMENT_EN_RETARD:
-    case NotificationType.RAPPEL_COTISATION: return 'retard'
+    case NotificationType.RAPPEL_COTISATION:
+    case NotificationType.COTISATION_REFUSEE: return 'retard'
     case NotificationType.INVITATION_TONTINE:
-    case NotificationType.STATUT_MEMBRE: return 'membre'
+    case NotificationType.STATUT_MEMBRE:
+    case NotificationType.DEMANDE_ADHESION:
+    case NotificationType.ADHESION_REFUSEE: return 'membre'
     default: return 'tour'
   }
 }
@@ -53,31 +56,40 @@ function dateRelative(iso: string): string {
   return `${d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} ${heure}`
 }
 
-/** Écran à ouvrir selon le type d'alerte et mon rôle dans la tontine */
+/**
+ * Écran le plus précis disponible (§7 de PROMPT_ALIGNEMENT_FRONT) : la notification peut porter
+ * tontineId, cycleId, cotisationId, membreId (absents si non pertinents).
+ */
 function destination(n: NotificationItem, t: MaTontine | undefined): string | null {
-  if (!n.tontineId) return null
-  const fiche = `/tontine/${n.tontineId}`
+  const tid = n.tontineId
+  const recu = tid && n.cotisationId ? `/recu/${tid}/${n.cotisationId}` : null
+  const tour = tid && n.cycleId ? `/tontine/${tid}/tours/${n.cycleId}` : tid ? `/tontine/${tid}/tours` : null
   const gere = !!t && jeGere(t)
   switch (n.type) {
-    case NotificationType.PAIEMENT_RECU:
     case NotificationType.COTISATION_SOUMISE:
-      return gere ? `/a-valider?tontine=${n.tontineId}` : `/historique?mode=COTISE&tontine=${n.tontineId}`
+    case NotificationType.PAIEMENT_RECU:
+      return recu ?? (tid ? (gere ? `/a-valider?tontine=${tid}` : `/historique?mode=COTISE&tontine=${tid}`) : null)
     case NotificationType.COTISATION_VALIDEE:
-      return `/historique?mode=COTISE&tontine=${n.tontineId}`
+    case NotificationType.COTISATION_REFUSEE:
     case NotificationType.PAIEMENT_EN_RETARD:
+      return recu ?? (tid ? `/historique?mode=COTISE&tontine=${tid}` : null)
     case NotificationType.RAPPEL_COTISATION:
-      return gere && !jeCotise(t!) ? `${fiche}/tours` : `/payer/${n.tontineId}`
+      return recu ?? (tid ? `/payer/${tid}` : null)
+    case NotificationType.CYCLE_OUVERT:
+    case NotificationType.CYCLE_BIENTOT_CLOTURE:
+    case NotificationType.TOUR_PROCHE:
     case NotificationType.JACKPOT_DISTRIBUE:
     case NotificationType.DISTRIBUTION_FINALE:
-    case NotificationType.TOUR_PROCHE:
-    case NotificationType.CYCLE_BIENTOT_CLOTURE:
-    case NotificationType.CYCLE_OUVERT:
-      return `${fiche}/tours`
+      return tour
     case NotificationType.INVITATION_TONTINE:
     case NotificationType.STATUT_MEMBRE:
-      return gere ? `${fiche}/membres` : fiche
+      return tid ? (gere && n.membreId ? `/tontine/${tid}/membres/${n.membreId}` : `/tontine/${tid}`) : null
+    case NotificationType.DEMANDE_ADHESION:
+      return tid ? `/a-valider?tontine=${tid}` : '/a-valider'
+    case NotificationType.ADHESION_REFUSEE:
+      return '/tontines'
     default:
-      return fiche
+      return tid ? `/tontine/${tid}` : null
   }
 }
 
@@ -116,7 +128,7 @@ export function NotificationsPage() {
     const cat = ICONES[categorie(n.type)]
     const t = tontine(n.tontineId)
     const cible = destination(n, t)
-    const rappel = (n.type === NotificationType.RAPPEL_COTISATION || n.type === NotificationType.PAIEMENT_EN_RETARD) && !!t && jeCotise(t)
+    const rappel = n.type === NotificationType.RAPPEL_COTISATION && !n.cotisationId && !!t && jeCotise(t)
     return (
       <li key={n.id} className={clsx('flex items-start gap-3 px-4 py-3', !n.read && 'bg-primary-50/50')}>
         <button onClick={() => ouvrir(n, cible)} className="flex flex-1 min-w-0 items-start gap-3 text-left">

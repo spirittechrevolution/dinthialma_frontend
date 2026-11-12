@@ -11,6 +11,7 @@ import { ScreenHeader } from '@/components/layout/ScreenHeader'
 import { InitialsAvatar } from '@/components/ui/Section'
 import { useMesTontines, useGestionSummary, useCotisantSummary } from '@/hooks/useMe'
 import { useFavoris } from '@/hooks/useFavoris'
+import { useMesDemandes } from '@/hooks/useQr'
 import { formatF } from '@/lib/format'
 import { rythmeCourt } from '@/lib/tontineLabels'
 import { TontineStatut } from '@/types/common'
@@ -33,6 +34,8 @@ export function MesTontinesPage() {
   const gestion = useGestionSummary(tontines.some(jeGere))
   const cotisant = useCotisantSummary(tontines.some(jeCotise))
   const { favoris, estFavori, basculer } = useFavoris()
+  const { data: mesDemandes } = useMesDemandes()
+  const demandesVisibles = (mesDemandes ?? []).filter((d) => d.statut !== 'ACCEPTEE')
   const [q, setQ] = useState('')
   const [terminéesOuvertes, setTerminéesOuvertes] = useState(false)
 
@@ -104,6 +107,26 @@ export function MesTontinesPage() {
             <PartyPopper size={22} className="text-primary-700 flex-shrink-0" />
             <p className="text-primary-900"><b>Votre compte est activé !</b><br />Vous êtes déjà membre d'une tontine.</p>
           </div>
+        )}
+
+        {demandesVisibles.length > 0 && (
+          <section>
+            <h2 className="px-1 mb-2 text-sm font-semibold text-neutral-500">Mes demandes</h2>
+            <ul className="bg-white rounded-3xl shadow-sm divide-y divide-neutral-100">
+              {demandesVisibles.map((d) => (
+                <li key={d.id} className="flex items-center gap-3 px-4 py-3 min-h-[60px]">
+                  <InitialsAvatar name={d.tontineNom} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-semibold text-neutral-900 truncate">{d.tontineNom}</span>
+                    {d.statut === 'REFUSEE' && d.motifRefus && <span className="block text-sm text-neutral-500 truncate">{d.motifRefus}</span>}
+                  </span>
+                  <span className={clsx('rounded-full px-2 py-0.5 text-[11px] font-semibold', d.statut === 'REFUSEE' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-800')}>
+                    {d.statut === 'REFUSEE' ? 'Refusée' : 'En attente'}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
 
         {tontines.length > 6 && (

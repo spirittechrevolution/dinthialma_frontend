@@ -14,6 +14,7 @@ import { ScreenHeader } from '@/components/layout/ScreenHeader'
 import { InitialsAvatar } from '@/components/ui/Section'
 import { Modal } from '@/components/ui/Modal'
 import { RefusSheet } from '@/components/pay/RefusSheet'
+import { DemandesAdhesion } from '@/components/gestion/DemandesAdhesion'
 import { useCotisationsAValider } from '@/hooks/useMe'
 import { useOnline } from '@/hooks/useOnline'
 import { validationService } from '@/services/validationService'
@@ -166,6 +167,8 @@ export function AValiderPage() {
           <WifiOff size={16} /> Hors connexion · validation impossible
         </p>
       )}
+
+      <DemandesAdhesion tontineId={tontineId} online={online} />
 
       {isLoading ? (
         <div className="space-y-3" aria-busy="true">
