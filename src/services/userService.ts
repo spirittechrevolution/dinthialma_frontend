@@ -37,11 +37,19 @@ export const userService = {
   listUsers: async (
     page = 0,
     size = 20,
-    accountStatus?: 'ACTIVE' | 'PRE_ENROLLED' | ''
+    accountStatus?: 'ACTIVE' | 'PRE_ENROLLED' | '',
+    filtres: { q?: string; role?: string } = {}
   ): Promise<PageResponse<AdminUserResponse>> => {
     const response = await api.get<CustomResponse<RawPage<AdminUserResponse>>>(
       '/v1/admin/dashboard/users',
-      { params: { page, size, sort: 'createdAt,desc', ...(accountStatus ? { accountStatus } : {}) } }
+      {
+        params: {
+          page, size, sort: 'createdAt,desc',
+          ...(accountStatus ? { accountStatus } : {}),
+          ...(filtres.q ? { q: filtres.q } : {}),
+          ...(filtres.role ? { role: filtres.role } : {}),
+        },
+      }
     )
     return toPage(response.data.data)
   },

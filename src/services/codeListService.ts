@@ -54,4 +54,9 @@ export const codeListService = {
     const response = await api.put<CustomResponse<CodeListItem>>(`/v1/code-list/${id}`, request)
     return response.data.data
   },
+
+  /** Valeur système → erreur CODE_LIST_SYSTEM_VALUE */
+  remove: async (id: string): Promise<void> => {
+    await api.delete(`/v1/code-list/${id}`)
+  },
 }

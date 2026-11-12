@@ -8,7 +8,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { clsx } from 'clsx'
 import {
-  User, Phone, Users2, Share2, HelpCircle, KeyRound, Lock, EyeOff, Download, LogOut, ChevronRight, ShieldCheck, Smartphone, QrCode,
+  User, Phone, Users2, Share2, HelpCircle, KeyRound, Lock, EyeOff, Download, LogOut, ChevronRight, ShieldCheck, Smartphone, QrCode, MessageCircle, Mail,
 } from 'lucide-react'
 import { ScreenHeader } from '@/components/layout/ScreenHeader'
 import { InitialsAvatar } from '@/components/ui/Section'
@@ -21,6 +21,7 @@ import { usePWA } from '@/hooks/usePWA'
 import { userService } from '@/services/userService'
 import { securiteService } from '@/services/securiteService'
 import { useRegenererMonQr } from '@/hooks/useQr'
+import { usePublicConfig } from '@/hooks/usePublicConfig'
 import { formatDateHeure } from '@/lib/format'
 import { clearAll } from '@/lib/tokenStorage'
 import { formatPhoneLocal, toLocalPhone } from '@/lib/phone'
@@ -39,6 +40,7 @@ export function ParametresPage() {
   const [hiddenPref, setHiddenPref] = useLocalPreference<'0' | '1'>('dinthialma_hide_amount', '0', ['0', '1'] as const)
   const [feuille, setFeuille] = useState<Feuille>(null)
   const { mutate: regenererQr, isPending: regenerationQr } = useRegenererMonQr()
+  const { data: config } = usePublicConfig()
   const { data: profil, isLoading } = useQuery({ queryKey: ['profile'], queryFn: () => userService.getProfile() })
 
   const nom = profil ? `${profil.firstName} ${profil.lastName}`.trim() : ''
@@ -83,6 +85,14 @@ export function ParametresPage() {
 
         <Section titre="Aide">
           <Ligne icon={<HelpCircle size={20} />} label="Comment ça marche" onClick={() => setFeuille('aide')} />
+          {config?.supportWhatsapp && (
+            <Ligne icon={<MessageCircle size={20} />} label="Contacter l'assistance sur WhatsApp"
+              onClick={() => window.open(`https://wa.me/${config.supportWhatsapp!.replace(/\D/g, '')}`, '_blank', 'noopener')} />
+          )}
+          {config?.supportEmail && (
+            <Ligne icon={<Mail size={20} />} label="Écrire à l'assistance" valeur={config.supportEmail}
+              onClick={() => { window.location.href = `mailto:${config.supportEmail}` }} />
+          )}
         </Section>
 
         <Section titre="Sécurité">

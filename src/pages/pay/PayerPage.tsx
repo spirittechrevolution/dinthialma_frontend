@@ -22,6 +22,7 @@ import { useOnline } from '@/hooks/useOnline'
 import { formatF, formatDateCourte, safeGet, safeSet } from '@/lib/format'
 import { formatPhoneLocal } from '@/lib/phone'
 import { isMobileMoney, LAST_METHOD_KEY } from '@/lib/paymentMethods'
+import { synchroniserPreferences } from '@/lib/preferences'
 import { messageErreur } from '@/lib/apiError'
 import type { CotisantTontineSummary } from '@/types/me'
 
@@ -175,6 +176,7 @@ function DeclarerPaiement({ ligne }: { ligne: CotisantTontineSummary }) {
       {
         onSuccess: (cotisation) => {
           safeSet(LAST_METHOD_KEY, methode)
+          synchroniserPreferences()
           navigate(`/recu/${ligne.tontineId}/${cotisation.id}`, { replace: true, state: { justCreated: true } })
         },
         onError: (err) => {

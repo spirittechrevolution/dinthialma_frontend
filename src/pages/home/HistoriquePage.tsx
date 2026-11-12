@@ -6,7 +6,10 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { clsx } from 'clsx'
-import { ChevronDown, RotateCw } from 'lucide-react'
+import { ChevronDown, RotateCw, Download } from 'lucide-react'
+import { toast } from 'sonner'
+import { telechargerCsv } from '@/lib/exportCsv'
+import { messageErreur } from '@/lib/apiError'
 import { ScreenHeader } from '@/components/layout/ScreenHeader'
 import { ActiviteRow } from '@/components/home/ActivityFeed'
 import { TontinePickerSheet } from '@/components/home/HomeSheets'
@@ -37,6 +40,7 @@ export function HistoriquePage() {
   const [type, setType] = useState<'tout' | 'paiements' | 'jackpots'>('tout')
   const [limite, setLimite] = useState(60)
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [exportEnCours, setExportEnCours] = useState(false)
 
   const activite = useActivite(mode, { tontineId, limit: 1000 })
   const cotisant = useCotisantSummary(mode === 'COTISE' && roles.cotise)
@@ -86,13 +90,34 @@ export function HistoriquePage() {
     else next.delete(k)
     setParams(next, { replace: true })
   }
+  const exporter = async () => {
+    setExportEnCours(true)
+    try {
+      await telechargerCsv('/v1/me/activite/export', {
+        mode,
+        ...(tontineId ? { tontineId } : {}),
+        ...(filtreStatut ? { statut: filtreStatut } : {}),
+      }, 'historique-dinthialma.csv')
+    } catch (err) {
+      toast.error(messageErreur(err, "L'export a échoué. Réessayez."))
+    } finally {
+      setExportEnCours(false)
+    }
+  }
   const ouvrir = (it: ActiviteItem) => navigate(it.cotisationId ? `/recu/${it.tontineId}/${it.cotisationId}` : `/tontine/${it.tontineId}`)
 
   const chip = (actif: boolean) => clsx('h-9 px-4 rounded-full text-sm font-medium whitespace-nowrap', actif ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-700 shadow-sm')
 
   return (
     <div className="min-h-[100dvh] bg-[#f2f3f5]">
-      <ScreenHeader title="Historique" />
+      <ScreenHeader
+        title="Historique"
+        right={
+          <button onClick={exporter} disabled={exportEnCours} className="h-11 px-3 mr-1 rounded-full text-sm font-semibold text-primary-800 hover:bg-primary-50 inline-flex items-center gap-1.5 disabled:opacity-50">
+            <Download size={16} /> {exportEnCours ? '…' : 'Exporter'}
+          </button>
+        }
+      />
       <main className="px-4 pb-10 max-w-lg mx-auto md:max-w-3xl space-y-4">
         {roles.deuxModes && (
           <div role="tablist" aria-label="Mode" className="mx-auto flex max-w-[16rem] rounded-full bg-white p-1 shadow-sm">
