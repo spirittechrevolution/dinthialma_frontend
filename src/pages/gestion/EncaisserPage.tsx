@@ -12,6 +12,7 @@ import { ChevronDown, ChevronRight, Search, PartyPopper, CalendarX, RotateCw, Pe
 import { ScreenHeader } from '@/components/layout/ScreenHeader'
 import { InitialsAvatar } from '@/components/ui/Section'
 import { PaymentMethodTiles } from '@/components/pay/PaymentMethodTiles'
+import { METHODE_PAR_DEFAUT } from '@/lib/paymentMethods'
 import { AmountPad, BigAmount } from '@/components/pay/AmountPad'
 import { useGestionSummary } from '@/hooks/useMe'
 import { useTontine } from '@/hooks/useTontines'
@@ -240,7 +241,7 @@ function Montant({ tontineId, tontineNom, cycleId, numeroCycle, montantDefaut, m
   const { mutate: encaisser, isPending } = useAdminRecordCotisation()
   const [montant, setMontant] = useState(montantDefaut)
   const [editMontant, setEditMontant] = useState(montantDefaut === 0)
-  const [methode, setMethode] = useState('CASH')
+  const [methode, setMethode] = useState(METHODE_PAR_DEFAUT)
   const [plusOpen, setPlusOpen] = useState(false)
   const [reference, setReference] = useState('')
   const [note, setNote] = useState('')

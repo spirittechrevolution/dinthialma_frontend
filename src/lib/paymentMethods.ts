@@ -9,6 +9,17 @@ export const PAYMENT_METHODS = [
   { value: 'CASH', label: 'Espèces', mobileMoney: false },
 ] as const
 
+/**
+ * Seuls moyens utilisables aujourd'hui. Les autres sont affichés grisés (« Bientôt »).
+ * Pour en ouvrir un, l'ajouter ici.
+ */
+export const METHODES_DISPONIBLES = ['CASH']
+export const METHODE_PAR_DEFAUT = 'CASH'
+
+export function estDisponible(value: string | null | undefined): boolean {
+  return !!value && METHODES_DISPONIBLES.includes(value)
+}
+
 /** Plus proposés au paiement (même si le référentiel les renvoie encore) ; libellé gardé pour l'historique */
 export const METHODES_RETIREES = ['FREE_MONEY']
 

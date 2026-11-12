@@ -21,7 +21,7 @@ import { useRecordCotisation } from '@/hooks/useCotisations'
 import { useOnline } from '@/hooks/useOnline'
 import { formatF, formatDateCourte, safeGet, safeSet } from '@/lib/format'
 import { formatPhoneLocal } from '@/lib/phone'
-import { isMobileMoney, LAST_METHOD_KEY, METHODES_RETIREES } from '@/lib/paymentMethods'
+import { isMobileMoney, LAST_METHOD_KEY, METHODE_PAR_DEFAUT, estDisponible } from '@/lib/paymentMethods'
 import { synchroniserPreferences } from '@/lib/preferences'
 import { messageErreur } from '@/lib/apiError'
 import type { CotisantTontineSummary } from '@/types/me'
@@ -108,10 +108,10 @@ function DeclarerPaiement({ ligne }: { ligne: CotisantTontineSummary }) {
   const due = ligne.cotisationDue
   const { mutate: record, isPending } = useRecordCotisation()
 
-  // Un moyen retiré (Free Money) mémorisé auparavant n'est plus présélectionné
+  // Dernier moyen utilisé s'il est disponible, sinon Espèces (seul moyen ouvert pour l'instant)
   const [methode, setMethode] = useState(() => {
     const dernier = safeGet(LAST_METHOD_KEY) ?? ''
-    return METHODES_RETIREES.includes(dernier) ? '' : dernier
+    return estDisponible(dernier) ? dernier : METHODE_PAR_DEFAUT
   })
   const [montantLibre, setMontantLibre] = useState(0)
   const [refOpen, setRefOpen] = useState(false)
