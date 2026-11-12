@@ -6,7 +6,7 @@
  * Les écrans pas encore refaits (listes de tontines, historique…) ouvrent provisoirement
  * les écrans existants ; il suffira de changer la destination dans `services`.
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Send, Wallet, Trophy, History, Plus, Share2, Bell, MoreHorizontal, CreditCard,
@@ -30,7 +30,7 @@ import { INVITATION_EN_ATTENTE_KEY } from '@/lib/share'
 import { useMonQr, useInvitationTontine } from '@/hooks/useQr'
 import { parseApiError } from '@/lib/apiError'
 import { TontineStatut } from '@/types/common'
-import { PREF_KEYS_LOCALES } from '@/lib/preferences'
+import { PREF_KEYS } from '@/lib/preferences'
 import { jeCotise, jeGere, type ActiviteItem, type ModeAccueil } from '@/types/me'
 
 const MODES = ['COTISE', 'GERE'] as const
@@ -46,8 +46,8 @@ export function HomePage() {
   const roles = useMesRoles()
   const [savedMode, setSavedMode] = useLocalPreference<ModeAccueil>('dinthialma_home_mode', 'COTISE', MODES)
   const [hiddenPref, setHiddenPref] = useLocalPreference<'0' | '1'>('dinthialma_hide_amount', '0', ['0', '1'] as const)
-  // Dernière tontine choisie côté Gestionnaire (mémorisée sur l'appareil ; synchronisation prévue par B22)
-  const [derniereGeree, setDerniereGeree] = useLocalPreference<string>(PREF_KEYS_LOCALES.derniereTontineGeree, '')
+  // Dernière tontine choisie côté Gestionnaire (préférence synchronisée avec le serveur, B22)
+  const [derniereGeree, setDerniereGeree] = useLocalPreference<string>(PREF_KEYS.derniereTontineGeree, '')
   const hidden = hiddenPref === '1'
 
   // Mode effectif : on respecte le choix mémorisé seulement s'il est possible
@@ -82,6 +82,13 @@ export function HomePage() {
   useEffect(() => {
     if (mode === 'GERE' && !tontineChoisie && tontineGereeParDefaut) setTontineId(tontineGereeParDefaut.id)
   }, [mode, tontineChoisie, tontineGereeParDefaut])
+  // Préférence arrivée du serveur après l'affichage (autre appareil) : on la suit,
+  // sauf si l'utilisateur a déjà choisi une tontine lui-même pendant cette visite
+  const choixManuel = useRef(false)
+  useEffect(() => {
+    if (mode !== 'GERE' || choixManuel.current || !derniereGeree || derniereGeree === tontineId) return
+    if (tontinesDuMode.some((t) => t.id === derniereGeree)) setTontineId(derniereGeree)
+  }, [mode, derniereGeree, tontineId, tontinesDuMode])
   const nouvelInscrit = !roles.isLoading && roles.tontines.length === 0
 
   // ─── Feuilles et modales ─────────────────────────────────────────────────
@@ -355,7 +362,7 @@ export function HomePage() {
         selectedId={tontineId}
         onSelect={(id) => {
           setTontineId(id)
-          if (mode === 'GERE' && id) setDerniereGeree(id)
+          if (mode === 'GERE' && id) { choixManuel.current = true; setDerniereGeree(id) }
         }}
       />
       <TontinePickerSheet
