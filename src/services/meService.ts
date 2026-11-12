@@ -52,6 +52,7 @@ interface RawCotisantTontine {
   frequence?: string; monMembreId?: string; monStatutMembre?: CotisantTontineSummary['monStatutMembre']
   ordreJackpot?: number; aRecuJackpot?: boolean
   totalCotiseValide?: number; totalEnAttente?: number; toursPayes?: number; toursTotal?: number
+  totalJackpotsRecus?: number; nombreJackpotsRecus?: number
   cycleEnCours?: { cycleId: string; numeroCycle: number; dateDebut: string; dateFin: string }
   cotisationDue?: {
     montant?: number; montantLibre?: boolean; montantMinimum?: number; dateLimite: string
@@ -91,13 +92,8 @@ export const meService = {
 
   /** B04 — résumé « Je cotise » : `GET /v1/me/summary` (+ jackpots par tontine). */
   async getCotisantSummary(): Promise<CotisantSummary> {
-    const [{ data }, jackpots] = await Promise.all([
-      api.get<CustomResponse<RawSummary>>('/v1/me/summary'),
-      meService.getMesJackpots(),
-    ])
+    const { data } = await api.get<CustomResponse<RawSummary>>('/v1/me/summary')
     const raw = data.data ?? {}
-    const jackpotsParTontine = new Map<string, number>()
-    for (const r of jackpots.recus) jackpotsParTontine.set(r.tontineId, (jackpotsParTontine.get(r.tontineId) ?? 0) + r.montantRecu)
 
     const tontines: CotisantTontineSummary[] = (raw.tontines ?? []).map((t) => ({
       tontineId: t.tontineId,
@@ -113,7 +109,9 @@ export const meService = {
       totalEnAttente: num(t.totalEnAttente),
       toursPayes: num(t.toursPayes),
       toursTotal: num(t.toursTotal),
-      totalJackpotsRecus: jackpotsParTontine.get(t.tontineId) ?? 0,
+      // Toujours 0 pour une tontine événementielle (pas de jackpot)
+      totalJackpotsRecus: num(t.totalJackpotsRecus),
+      nombreJackpotsRecus: num(t.nombreJackpotsRecus),
       cycleEnCours: t.cycleEnCours ?? null,
       cotisationDue: t.cotisationDue && t.cycleEnCours ? {
         cycleId: t.cycleEnCours.cycleId,
@@ -165,6 +163,7 @@ export const meService = {
         montantLibre: !!s.montantLibre,
         cotisationsEnAttente: num(s.cotisationsEnAttente),
         cotisationsEnRetard: num(s.cotisationsEnRetard),
+        demandesEnAttente: num(s.demandesEnAttente),
         montantTotalValide: num(s.montantTotalValide),
         gagnantsADesigner: !!s.gagnantsADesigner,
         cycleEnCours: c ? {
@@ -186,6 +185,7 @@ export const meService = {
       totalAttenduToursEnCours: premiere.totalAttenduToursEnCours,
       totalCotisationsEnAttente: num(premiere.totalCotisationsEnAttente),
       totalCotisationsEnRetard: num(premiere.totalCotisationsEnRetard),
+      totalDemandesEnAttente: num(premiere.totalDemandesEnAttente),
       tontines,
     }
   },
@@ -215,7 +215,8 @@ export const meService = {
   /** B09 — fil d'activité (tri imposé : plus récent d'abord). */
   async listActivite(
     mode: ModeAccueil,
-    opts: { tontineId?: string; statut?: CotisationStatut; type?: ActiviteType; limit?: number } = {},
+    /** `type` répétable (OU logique, filtré côté serveur) */
+    opts: { tontineId?: string; statut?: CotisationStatut; type?: ActiviteType | ActiviteType[]; limit?: number } = {},
   ): Promise<ActiviteItem[]> {
     const limite = opts.limit ?? 50
     const items = await collectAll(async (page) => {

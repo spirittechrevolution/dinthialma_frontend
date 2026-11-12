@@ -57,6 +57,7 @@ export interface CotisantTontineSummary {
   toursTotal: number
   /** Total des jackpots reçus dans cette tontine (déduit de /me/jackpots) */
   totalJackpotsRecus: number
+  nombreJackpotsRecus: number
   cycleEnCours: { cycleId: string; numeroCycle: number; dateDebut: string; dateFin: string } | null
   /** null : tontine non active, pas de tour en cours ou membership non actif (rien à payer) */
   cotisationDue: CotisationDue | null
@@ -83,6 +84,8 @@ export interface GestionTontineSummary {
   montantLibre: boolean
   cotisationsEnAttente: number
   cotisationsEnRetard: number
+  /** Demandes d'adhésion en attente */
+  demandesEnAttente: number
   montantTotalValide: number
   /** ROTATIVE à ordre MANUEL avec un tour terminé sans gagnant */
   gagnantsADesigner: boolean
@@ -107,6 +110,7 @@ export interface GestionSummary {
   totalAttenduToursEnCours: number | null
   totalCotisationsEnAttente: number
   totalCotisationsEnRetard: number
+  totalDemandesEnAttente: number
   tontines: GestionTontineSummary[]
 }
 

@@ -48,6 +48,8 @@ export interface MyDashboardResponse {
   totalMembres: number
   totalCotisationsEnAttente: number
   totalCotisationsEnRetard: number
+  /** Demandes d'adhésion EN_ATTENTE (toujours présent, 0 si aucune) */
+  totalDemandesEnAttente?: number
   /** Somme des cotisations VALIDÉES des tours en cours */
   totalCollecteToursEnCours: number
   /** Absent si aucun montant attendu calculable (montants libres) */
@@ -64,6 +66,7 @@ export interface TontineStats {
   nombreMembres: number
   cotisationsEnAttente: number
   cotisationsEnRetard: number
+  demandesEnAttente?: number
   montantTotalValide: number
   tontineType: 'ROTATIVE' | 'EVENEMENTIELLE'
   /** null si événementielle à montant libre */

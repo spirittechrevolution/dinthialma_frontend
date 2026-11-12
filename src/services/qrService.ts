@@ -41,6 +41,12 @@ export interface InvitationApercu {
   gestionnairePrenom: string | null
   /** false : complète, suspendue ou terminée → pas de bouton « Rejoindre » */
   ouverte: boolean
+  // Renseignés seulement si un JWT valide est envoyé (sinon null)
+  dejaMembre: boolean | null
+  estGestionnaire: boolean | null
+  demandeEnAttente: boolean | null
+  /** Seulement si l'appelant est membre ou gestionnaire */
+  tontineId: string | null
 }
 
 export type StatutDemande = 'EN_ATTENTE' | 'ACCEPTEE' | 'REFUSEE'
@@ -116,6 +122,10 @@ export const qrService = {
       dateEcheance: ouNull(a.dateEcheance),
       dateDebut: ouNull(a.dateDebut),
       placesRestantes: ouNull(a.placesRestantes),
+      dejaMembre: ouNull(a.dejaMembre),
+      estGestionnaire: ouNull(a.estGestionnaire),
+      demandeEnAttente: ouNull(a.demandeEnAttente),
+      tontineId: ouNull(a.tontineId),
       gestionnairePrenom: ouNull(a.gestionnairePrenom),
       ouverte: !!a.ouverte,
     }

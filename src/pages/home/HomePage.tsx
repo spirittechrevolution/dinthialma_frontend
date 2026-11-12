@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Send, Wallet, Trophy, History, Plus, Share2, Bell, MoreHorizontal, CreditCard,
   CheckCircle2, Users, RefreshCw, Clock, PartyPopper, UserCircle, Download, ListChecks, WifiOff,
+  UserPlus,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useMesRoles, useCotisantSummary, useGestionSummary, useActivite } from '@/hooks/useMe'
@@ -94,7 +95,7 @@ export function HomePage() {
   }, [mode, tontineId, gestion.data, gestion.isLoading, cotisant.data, cotisant.isLoading, roles.cotise, roles.isLoading])
 
   // Pastilles de la bascule : ce qui attend dans l'autre mode
-  const aValiderTotal = gestion.data?.totalCotisationsEnAttente ?? 0
+  const aValiderTotal = (gestion.data?.totalCotisationsEnAttente ?? 0) + (gestion.data?.totalDemandesEnAttente ?? 0)
   const aPayerTotal = cotisant.data?.aPayer.length ?? 0
 
   // ─── Carte d'action (une seule, la plus urgente) ─────────────────────────
@@ -121,6 +122,8 @@ export function HomePage() {
       .filter((x) => x.manquants > 0)
       .sort((a, b) => b.manquants - a.manquants)[0]
 
+    const demandes = lignes.reduce((s, t) => s + t.demandesEnAttente, 0)
+
     if (aValider > 0) {
       const cible = lignes.filter((t) => t.cotisationsEnAttente > 0)
       actionCard = (
@@ -129,6 +132,18 @@ export function HomePage() {
           title={`${aValider} paiement${aValider > 1 ? 's' : ''} à valider`}
           subtitle={cible.length === 1 ? cible[0].nom : `${cible.length} tontines`}
           actionLabel="Valider"
+          onAction={() => navigate(cible.length === 1 ? `/a-valider?tontine=${cible[0].tontineId}` : '/a-valider')}
+          disabled={!online} disabledReason={offlineReason}
+        />
+      )
+    } else if (demandes > 0) {
+      const cible = lignes.filter((t) => t.demandesEnAttente > 0)
+      actionCard = (
+        <ActionCard
+          icon={<UserPlus size={22} />} tone="urgent"
+          title={`${demandes} demande${demandes > 1 ? 's' : ''} d'adhésion`}
+          subtitle={cible.length === 1 ? cible[0].nom : `${cible.length} tontines`}
+          actionLabel="Voir"
           onAction={() => navigate(cible.length === 1 ? `/a-valider?tontine=${cible[0].tontineId}` : '/a-valider')}
           disabled={!online} disabledReason={offlineReason}
         />

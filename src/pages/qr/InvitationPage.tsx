@@ -1,14 +1,15 @@
 /**
  * T10 — Invitation à une tontine (/q/t/:code), ouverte par un QR ou un lien, même sans compte.
  *
- * Aperçu public : `GET /v1/public/invitations/{code}` (sans JWT ; code insensible à la casse).
+ * Aperçu public : `GET /v1/public/invitations/{code}` (code insensible à la casse). Le JWT est envoyé
+ * s'il existe : on sait alors si je suis déjà membre / gestionnaire, ou si ma demande est en attente.
  * « Demander à rejoindre » : `POST /v1/invitations/{code}/demandes` (connexion requise).
  * Sans compte : l'invitation est mémorisée et rouverte après connexion / inscription.
  */
 import { useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { Users, LogIn, UserPlus, CheckCircle2, RotateCw, Calendar } from 'lucide-react'
+import { Users, LogIn, UserPlus, CheckCircle2, RotateCw, Calendar, Clock } from 'lucide-react'
 import { InitialsAvatar } from '@/components/ui/Section'
 import { LogoIcon } from '@/components/ui/LogoIcon'
 import { qrService } from '@/services/qrService'
@@ -27,7 +28,7 @@ export function InvitationPage() {
   const [message, setMessage] = useState('')
 
   const apercu = useQuery({
-    queryKey: ['invitation-apercu', code],
+    queryKey: ['invitation-apercu', code, connecte],
     queryFn: () => qrService.apercuInvitation(code),
     enabled: !!code,
     retry: false,
@@ -38,6 +39,7 @@ export function InvitationPage() {
   const a = apercu.data
   const codeErreurApercu = apercu.isError ? parseApiError(apercu.error).code : null
   const dejaMembre = demande.isError && parseApiError(demande.error).code === 'MEMBER_ALREADY_IN_TONTINE'
+  const dejaDemande = demande.isError && parseApiError(demande.error).code === 'DEMANDE_DEJA_EN_ATTENTE'
 
   return (
     <div className="min-h-[100dvh] bg-[#f2f3f5] px-4 pt-[max(1.5rem,env(safe-area-inset-top))] pb-8">
@@ -77,14 +79,27 @@ export function InvitationPage() {
                 {a.dateEcheance && <span className="inline-flex items-center gap-1.5"><Calendar size={15} /> {a.nomEvenement ?? 'Événement'} le {formatDateCourte(a.dateEcheance)}</span>}
                 {a.placesRestantes != null && <span>{a.placesRestantes} place{a.placesRestantes > 1 ? 's' : ''} restante{a.placesRestantes > 1 ? 's' : ''}</span>}
               </div>
-              {!a.ouverte && (
+              {!a.ouverte && !a.tontineId && (
                 <p className="mt-4 rounded-2xl bg-amber-50 px-3 py-2 text-sm text-amber-800">
                   Cette tontine n'accepte pas de nouveaux membres pour le moment.
                 </p>
               )}
             </section>
 
-            {demande.isSuccess ? (
+            {connecte && a.tontineId ? (
+              <section className="mt-4 bg-white rounded-3xl shadow-sm p-6 text-center">
+                <span className="mx-auto w-16 h-16 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center"><CheckCircle2 size={32} /></span>
+                <p className="mt-3 text-lg font-bold text-neutral-900">{a.estGestionnaire ? 'Vous gérez cette tontine' : 'Vous êtes déjà membre'}</p>
+                <button onClick={() => navigate(`/tontine/${a.tontineId}`, { replace: true })} className="mt-5 w-full h-14 rounded-full bg-primary-700 text-white text-[17px] font-bold">Ouvrir la tontine</button>
+              </section>
+            ) : connecte && (a.demandeEnAttente || dejaDemande) && !demande.isSuccess ? (
+              <section className="mt-4 bg-white rounded-3xl shadow-sm p-6 text-center">
+                <span className="mx-auto w-16 h-16 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center"><Clock size={30} /></span>
+                <p className="mt-3 text-lg font-bold text-neutral-900">Demande déjà envoyée</p>
+                <p className="mt-1 text-sm text-neutral-500">Le gestionnaire ne l'a pas encore examinée. Vous serez prévenu dans vos alertes.</p>
+                <button onClick={() => navigate('/tontines', { replace: true })} className="mt-5 w-full h-12 rounded-full bg-neutral-100 font-semibold text-neutral-800">Voir mes demandes</button>
+              </section>
+            ) : demande.isSuccess ? (
               <section className="mt-4 bg-white rounded-3xl shadow-sm p-6 text-center">
                 <span className="mx-auto w-16 h-16 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center animate-pop"><CheckCircle2 size={32} /></span>
                 <p className="mt-3 text-lg font-bold text-neutral-900">Demande envoyée</p>

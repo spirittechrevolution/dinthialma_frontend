@@ -85,9 +85,9 @@ function destination(n: NotificationItem, t: MaTontine | undefined): string | nu
     case NotificationType.STATUT_MEMBRE:
       return tid ? (gere && n.membreId ? `/tontine/${tid}/membres/${n.membreId}` : `/tontine/${tid}`) : null
     case NotificationType.DEMANDE_ADHESION:
-      return tid ? `/a-valider?tontine=${tid}` : '/a-valider'
+      return tid ? `/a-valider?tontine=${tid}${n.demandeId ? `&demande=${n.demandeId}` : ''}` : '/a-valider'
     case NotificationType.ADHESION_REFUSEE:
-      return '/tontines'
+      return n.demandeId ? `/tontines?demande=${n.demandeId}` : '/tontines'
     default:
       return tid ? `/tontine/${tid}` : null
   }

@@ -27,5 +27,7 @@ export interface NotificationItem {
   cycleId?: string | null
   cotisationId?: string | null
   membreId?: string | null
+  /** DEMANDE_ADHESION / ADHESION_REFUSEE uniquement (absent sur les notifications antérieures) */
+  demandeId?: string | null
   createdAt: string
 }

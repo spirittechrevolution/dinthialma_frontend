@@ -87,26 +87,20 @@ bout avec l'API n'a encore été fait** (à mener avant la PR, voir « Comment t
 6. **Préférences** : changer de mode / favoris sur un appareil → retrouvés sur un autre ; export CSV
    ouvert dans Excel.
 
-## Questions pour le backend
-1. **Jackpots par tontine dans `/me/summary`** : `TontineCotisant` n'a pas de total des jackpots reçus.
-   Le front appelle `/me/jackpots` en plus et additionne. Ajouter `totalJackpotsRecus` par tontine ?
-2. ~~QR membre d'une personne absente de mes tontines~~ — **Répondu** : `POST …/membres { qrToken }`
-   (sans numéro). Intégré : « Ajouter à une de vos tontines » sur `/q/{token}`.
-3. **Aperçu d'invitation pour un utilisateur déjà membre** : `InvitationApercuResponse` n'a ni
-   `tontineId` ni indicateur « déjà membre ». On ne le découvre qu'en recevant
-   `MEMBER_ALREADY_IN_TONTINE` à la demande, sans pouvoir ouvrir la fiche. Ajouter `tontineId`
-   (si l'appelant est membre) ou `dejaMembre` quand un JWT est fourni ?
-4. **Filtre `type` de `/me/activite`** : valeur unique. Pour « Paiements seulement » (tout sauf
-   `JACKPOT_RECU`), le front filtre localement. Accepter plusieurs `type` ou un filtre `sens` ?
-5. ~~Domaine des liens~~ — **Répondu** : le backend génère `{FRONT}/q/{m_…}` et `{FRONT}/q/t/{code}`
-   (local `http://localhost:4200`, prod `https://www.dinthialma.com`). Le front n'utilise que le champ
-   `url`. Test sur téléphone : demander au backend de mettre `APP_URL` sur l'IP locale du poste.
-6. ~~`versionMinimaleApp`~~ — **Répondu** : SemVer strict ; `versionMinimaleApp` → écran bloquant,
-   `versionRecommandeeApp` → bandeau refermable ; en cas de doute, aucun blocage. **À faire à la mise
-   en production : passer `package.json` à `1.0.0`.**
-7. **`PIN_NOT_CONFIGURED` au login PIN** : le front renvoie vers la connexion par mot de passe (le PIN
-   sera proposé ensuite). Est-ce le comportement voulu, ou faut-il aller directement à la création ?
-8. **Notifications `DEMANDE_ADHESION` / `ADHESION_REFUSEE`** : portent-elles toujours `tontineId` ?
-   Le front en a besoin pour ouvrir la bonne file.
-9. **Badge « À valider »** : le compteur de l'accueil (`totalCotisationsEnAttente`) n'inclut pas les
-   demandes d'adhésion en attente. Prévoir `totalDemandesEnAttente` dans `my-dashboard` ?
+## Questions pour le backend — toutes répondues
+
+| # | Sujet | Réponse backend | Intégration front |
+|---|---|---|---|
+| 1 | Jackpots par tontine | `totalJackpotsRecus`, `nombreJackpotsRecus` dans `/me/summary` (0 pour une événementielle) | Second appel à `/me/jackpots` supprimé sur l'accueil |
+| 2 | Ajout par QR | `POST …/membres { qrToken }` | « Ajouter à une de vos tontines » sur `/q/{token}` |
+| 3 | Aperçu d'invitation connecté | `dejaMembre`, `estGestionnaire`, `demandeEnAttente`, `tontineId` (JWT facultatif, jamais de 401) | « Ouvrir la tontine » / « Demande déjà envoyée » / « Demander à rejoindre » |
+| 4 | Filtre `type` de l'activité | `type` répétable (OU), côté serveur, export compris | Historique « Paiements / Jackpots » filtré par le serveur (pagination juste), même filtre à l'export |
+| 5 | Domaine des liens | `{FRONT}/q/{m_…}`, `{FRONT}/q/t/{code}` (local `http://localhost:4200`, prod `https://www.dinthialma.com`) | Seul le champ `url` est utilisé ; test téléphone : `APP_URL` = IP locale |
+| 6 | Versions | SemVer ; `versionMinimaleApp` bloquant, `versionRecommandeeApp` bandeau | En place. **Mise en prod : `package.json` → `1.0.0`** |
+| 7 | `PIN_NOT_CONFIGURED` | Comportement voulu | Inchangé (connexion par mot de passe puis création du code) |
+| 8 | Notifications d'adhésion | `tontineId` toujours, `demandeId` nouveau (absent sur les anciennes) | Ouvre la file de la tontine et met la demande en évidence |
+| 9 | Demandes dans my-dashboard | `totalDemandesEnAttente`, `demandesEnAttente` par tontine | Badge « À valider » = paiements + demandes ; carte « N demandes d'adhésion » ; compteur dans Mes tontines |
+
+Disponible côté backend après fusion de `feature/refactor-mapstruct-tests` (98a1d91) et migration V033.
+Limite connue : le montant de la distribution finale d'une tontine événementielle n'est pas enregistré par
+membre (évolution backend à demander si on veut l'afficher).

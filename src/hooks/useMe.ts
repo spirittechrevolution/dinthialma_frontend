@@ -91,11 +91,11 @@ export function useCotisationsParStatut(
 /** B09 — fil d'activité */
 export function useActivite(
   mode: ModeAccueil,
-  opts: { tontineId?: string; statut?: CotisationStatut; type?: ActiviteType; limit?: number } = {},
+  opts: { tontineId?: string; statut?: CotisationStatut; type?: ActiviteType | ActiviteType[]; limit?: number } = {},
   enabled = true,
 ) {
   return useQuery({
-    queryKey: ['me', 'activite', mode, opts.tontineId ?? 'toutes', opts.statut ?? 'tous', opts.type ?? 'tous', opts.limit ?? 50],
+    queryKey: ['me', 'activite', mode, opts.tontineId ?? 'toutes', opts.statut ?? 'tous', [opts.type ?? 'tous'].flat().join(','), opts.limit ?? 50],
     queryFn: () => meService.listActivite(mode, opts),
     enabled,
     staleTime: STALE_MS,

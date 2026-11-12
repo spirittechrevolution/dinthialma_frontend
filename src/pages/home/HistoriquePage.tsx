@@ -17,7 +17,7 @@ import { useActivite, useCotisantSummary, useGestionSummary, useMesRoles } from 
 import { useLocalPreference } from '@/hooks/useLocalPreference'
 import { formatF } from '@/lib/format'
 import { CotisationStatut } from '@/types/common'
-import { jeCotise, jeGere, type ActiviteItem, type ModeAccueil } from '@/types/me'
+import { jeCotise, jeGere, type ActiviteItem, type ActiviteType, type ModeAccueil } from '@/types/me'
 
 const STATUTS: { id: string; label: string; statut: CotisationStatut | null }[] = [
   { id: 'tous', label: 'Tous', statut: null },
@@ -25,6 +25,13 @@ const STATUTS: { id: string; label: string; statut: CotisationStatut | null }[] 
   { id: 'valides', label: 'Validés', statut: CotisationStatut.VALIDE },
   { id: 'retard', label: 'En retard', statut: CotisationStatut.EN_RETARD },
 ]
+
+/** Filtre « type » envoyé au serveur (paramètre répétable, OU logique) */
+const TYPES_FILTRE: Record<'tout' | 'paiements' | 'jackpots', ActiviteType[] | undefined> = {
+  tout: undefined,
+  paiements: ['COTISATION_DECLAREE', 'COTISATION_VALIDEE', 'COTISATION_ENCAISSEE', 'COTISATION_EN_RETARD', 'COTISATION_REFUSEE'],
+  jackpots: ['JACKPOT_RECU'],
+}
 
 export function HistoriquePage() {
   const navigate = useNavigate()
@@ -42,7 +49,7 @@ export function HistoriquePage() {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [exportEnCours, setExportEnCours] = useState(false)
 
-  const activite = useActivite(mode, { tontineId, limit: 1000 })
+  const activite = useActivite(mode, { tontineId, type: TYPES_FILTRE[type], limit: 1000 })
   const cotisant = useCotisantSummary(mode === 'COTISE' && roles.cotise)
   const gestion = useGestionSummary(mode === 'GERE' && roles.gere)
 
@@ -68,8 +75,6 @@ export function HistoriquePage() {
 
   const filtreStatut = STATUTS.find((s) => s.id === statut)?.statut ?? null
   const items = (activite.data ?? []).filter((it) => {
-    if (type === 'paiements' && it.sens !== 'EPARGNE') return false
-    if (type === 'jackpots' && it.sens !== 'GAIN') return false
     if (filtreStatut && it.statut !== filtreStatut) return false
     return true
   })
@@ -97,6 +102,7 @@ export function HistoriquePage() {
         mode,
         ...(tontineId ? { tontineId } : {}),
         ...(filtreStatut ? { statut: filtreStatut } : {}),
+        ...(TYPES_FILTRE[type] ? { type: TYPES_FILTRE[type] } : {}),
       }, 'historique-dinthialma.csv')
     } catch (err) {
       toast.error(messageErreur(err, "L'export a échoué. Réessayez."))

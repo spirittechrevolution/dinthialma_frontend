@@ -3,6 +3,8 @@
  * Accepter = ajout de membre classique ; Refuser avec un motif facultatif.
  */
 import { useState } from 'react'
+import { clsx } from 'clsx'
+import { useDemandeCiblee } from '@/hooks/useDemandeCiblee'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { UserPlus } from 'lucide-react'
@@ -36,6 +38,7 @@ export function DemandesAdhesion({ tontineId, online }: { tontineId?: string; on
   })
 
   const demandes = data ?? []
+  const cible = useDemandeCiblee(demandes.length > 0)
   if (demandes.length === 0) return null
 
   return (
@@ -48,7 +51,7 @@ export function DemandesAdhesion({ tontineId, online }: { tontineId?: string; on
           const nom = `${d.firstName} ${d.lastName}`.trim()
           const occupe = (accepter.isPending && accepter.variables?.id === d.id) || (refuser.isPending && refuser.variables?.d.id === d.id)
           return (
-            <li key={d.id} className="px-4 py-3">
+            <li key={d.id} id={`demande-${d.id}`} className={clsx('px-4 py-3', cible === d.id && 'bg-primary-50')}>
               <div className="flex items-start gap-3">
                 <InitialsAvatar name={nom || '?'} />
                 <div className="min-w-0 flex-1">
