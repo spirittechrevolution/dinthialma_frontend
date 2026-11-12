@@ -250,8 +250,8 @@ export function FicheTontinePage() {
               )}
             </div>
             {v.deuxVues && (
-              <div role="tablist" aria-label="Vue" className="mt-3 mx-auto flex max-w-[15rem] rounded-full bg-white p-1 shadow-sm">
-                {(['GERE', 'COTISE'] as const).map((m) => (
+              <div role="tablist" aria-label="Vue" className="mt-3 mx-auto flex max-w-[17rem] rounded-full bg-white p-1 shadow-sm">
+                {(['COTISE', 'GERE'] as const).map((m) => (
                   <button
                     key={m}
                     role="tab"
@@ -259,7 +259,7 @@ export function FicheTontinePage() {
                     onClick={() => v.setVue(m)}
                     className={clsx('flex-1 h-9 rounded-full text-sm font-semibold', v.vue === m ? 'bg-primary-700 text-white' : 'text-neutral-600')}
                   >
-                    {m === 'GERE' ? 'Je gère' : 'Je cotise'}
+                    {m === 'GERE' ? 'Gestionnaire' : 'Membre'}
                   </button>
                 ))}
               </div>

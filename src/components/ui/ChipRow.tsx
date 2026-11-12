@@ -63,7 +63,7 @@ interface FilterChipProps {
 
 /**
  * Pastille de filtre, style unique de l'app (simplicité Wave) :
- * - active : fond vert clair, texte vert foncé (le vert plein reste réservé au niveau principal, ex. Je cotise / Je gère) ;
+ * - active : fond vert clair, texte vert foncé (le vert plein reste réservé au niveau principal, ex. la bascule Membre / Gestionnaire) ;
  * - inactive : simple texte gris, sans fond ni ombre ;
  * - compteur en gris discret ; point rouge seulement quand il faut agir.
  */

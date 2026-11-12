@@ -129,12 +129,12 @@ export function HistoriquePage() {
       />
       <main className="px-4 pb-10 max-w-lg mx-auto md:max-w-3xl space-y-4">
         {roles.deuxModes && (
-          <div role="tablist" aria-label="Mode" className="mx-auto flex max-w-[16rem] rounded-full bg-white p-1 shadow-sm">
+          <div role="tablist" aria-label="Mode" className="mx-auto flex max-w-[17rem] rounded-full bg-white p-1 shadow-sm">
             {(['COTISE', 'GERE'] as const).map((m) => (
               <button key={m} role="tab" aria-selected={mode === m}
                 onClick={() => { setSavedMode(m); setParams({ mode: m }, { replace: true }); if (m === 'GERE' && statut === 'jackpots') setStatut('tous') }}
                 className={clsx('flex-1 h-9 rounded-full text-sm font-semibold', mode === m ? 'bg-primary-700 text-white' : 'text-neutral-600')}>
-                {m === 'GERE' ? 'Je gère' : 'Je cotise'}
+                {m === 'GERE' ? 'Gestionnaire' : 'Membre'}
               </button>
             ))}
           </div>
