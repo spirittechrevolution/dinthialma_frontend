@@ -1,18 +1,23 @@
 /**
- * G1 — Mes jackpots (gabarit « Gains » de Wave) : total reçu, prochain tour, à venir, reçus.
+ * G1 — Mes jackpots (gabarit « Gains » de Wave) : total reçu, prochain jackpot mis en avant,
+ * autres jackpots à venir (sans répéter le prochain), jackpots reçus.
  */
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Info, Trophy, CalendarClock, RotateCw } from 'lucide-react'
+import { ArrowLeft, Trophy, CalendarClock, RotateCw, ChevronRight } from 'lucide-react'
 import { useMesJackpots } from '@/hooks/useMe'
 import { InitialsAvatar } from '@/components/ui/Section'
 import { formatF, formatDateCourte } from '@/lib/format'
 import type { JackpotAVenir } from '@/types/me'
 
+/** Quand / comment le jackpot arrive, en clair */
 function quandAVenir(j: JackpotAVenir): string {
-  if (j.modeAttribution === 'TIRAGE') return 'Tirage au sort'
-  if (j.modeAttribution === 'CHOIX') return 'Choisi par le gestionnaire'
-  if (j.dateEstimee) return `Vers le ${formatDateCourte(j.dateEstimee)}`
-  if (j.numeroCycleEstime) return `Tour ${j.numeroCycleEstime}`
+  if (j.modeAttribution === 'TIRAGE') return 'Gagnant tiré au sort à chaque tour'
+  if (j.modeAttribution === 'CHOIX') return 'Le gestionnaire désigne le gagnant'
+  const tour = j.numeroCycleEstime ? `Tour ${j.numeroCycleEstime}` : null
+  const date = j.dateEstimee ? `vers le ${formatDateCourte(j.dateEstimee)}` : null
+  if (tour && date) return `${tour} · ${date}`
+  if (tour) return tour
+  if (date) return date.charAt(0).toUpperCase() + date.slice(1)
   return 'Date à venir'
 }
 
@@ -20,6 +25,8 @@ export function MesJackpotsPage() {
   const navigate = useNavigate()
   const { data, isLoading, isError, refetch } = useMesJackpots()
   const prochain = data?.aVenir[0]
+  const autres = data?.aVenir.slice(1) ?? []
+  const nbRecus = data?.recus.length ?? 0
 
   return (
     <div className="min-h-[100dvh] bg-[#f2f3f5] pb-[max(1.5rem,env(safe-area-inset-bottom))]">
@@ -36,12 +43,17 @@ export function MesJackpotsPage() {
           {isLoading ? (
             <span className="mt-2 inline-block h-11 w-44 rounded-xl bg-yellow-100 animate-pulse" />
           ) : (
-            <p className="mt-1 text-[44px] leading-none font-extrabold tabular-nums text-neutral-900">{formatF(data?.totalRecu)}</p>
+            <>
+              <p className="mt-1 text-[44px] leading-none font-extrabold tabular-nums text-neutral-900">{formatF(data?.totalRecu)}</p>
+              <p className="mt-2 text-sm text-yellow-900/80">
+                {nbRecus ? `${nbRecus} jackpot${nbRecus > 1 ? 's' : ''} reçu${nbRecus > 1 ? 's' : ''}` : 'Aucun jackpot reçu pour le moment'}
+              </p>
+            </>
           )}
         </div>
       </header>
 
-      <main className="px-4 -mt-8 space-y-4 max-w-2xl mx-auto">
+      <main className="relative z-10 px-4 -mt-8 space-y-4 max-w-2xl mx-auto">
         {isError ? (
           <section className="bg-white rounded-3xl shadow-sm p-6 text-center">
             <p className="text-sm text-neutral-600">Impossible de charger vos jackpots.</p>
@@ -51,26 +63,50 @@ export function MesJackpotsPage() {
           </section>
         ) : (
           <>
-            {prochain && (
-              <div role="status" className="rounded-3xl bg-amber-100 p-4 flex gap-3">
-                <Info size={22} className="text-amber-800 flex-shrink-0 mt-0.5" />
-                <p className="text-amber-900">
-                  <b>Votre prochain tour : {quandAVenir(prochain).toLowerCase()}</b>
-                  <br />
-                  {prochain.tontineNom}{prochain.montantEstime ? ` · environ ${formatF(prochain.montantEstime)}` : ''}
-                </p>
-              </div>
+            {isLoading ? (
+              <section className="bg-white rounded-3xl shadow-sm p-4" aria-busy="true">
+                <span className="block h-24 rounded-2xl bg-neutral-100 animate-pulse" />
+              </section>
+            ) : prochain ? (
+              <button
+                onClick={() => navigate(`/tontine/${prochain.tontineId}`)}
+                className="w-full bg-white rounded-3xl shadow-sm p-4 text-left flex items-center gap-4 hover:bg-neutral-50"
+              >
+                <span className="w-14 h-14 rounded-2xl bg-yellow-100 text-yellow-700 flex items-center justify-center flex-shrink-0">
+                  <Trophy size={28} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-xs font-semibold tracking-[0.12em] uppercase text-neutral-500">Prochain jackpot</span>
+                  <span className="block mt-0.5 font-bold text-neutral-900 truncate">{prochain.tontineNom}</span>
+                  <span className="block text-sm text-neutral-500">
+                    {prochain.position ? `Position ${prochain.position} · ` : ''}{quandAVenir(prochain)}
+                  </span>
+                </span>
+                <span className="text-right flex-shrink-0">
+                  {prochain.montantEstime ? (
+                    <>
+                      <span className="block text-[11px] text-neutral-500">environ</span>
+                      <span className="block text-lg font-extrabold tabular-nums text-neutral-900">{formatF(prochain.montantEstime)}</span>
+                    </>
+                  ) : (
+                    <ChevronRight size={20} className="text-neutral-400" />
+                  )}
+                </span>
+              </button>
+            ) : (
+              <section className="bg-white rounded-3xl shadow-sm p-4 flex items-center gap-4">
+                <span className="w-14 h-14 rounded-2xl bg-neutral-100 text-neutral-500 flex items-center justify-center flex-shrink-0">
+                  <CalendarClock size={26} />
+                </span>
+                <p className="text-sm text-neutral-600">Aucun jackpot à venir pour l'instant. Rejoignez ou créez une tontine pour en recevoir.</p>
+              </section>
             )}
 
+            {autres.length > 0 && (
             <section className="bg-white rounded-3xl shadow-sm">
-              <h2 className="px-4 pt-4 pb-1 text-[17px] font-semibold text-neutral-900">À venir</h2>
-              {isLoading ? (
-                <div className="px-4 py-6"><span className="block h-12 rounded-2xl bg-neutral-100 animate-pulse" /></div>
-              ) : !data?.aVenir.length ? (
-                <p className="px-4 py-6 text-sm text-neutral-500">Aucun tour à venir pour l'instant.</p>
-              ) : (
+              <h2 className="px-4 pt-4 pb-1 text-[17px] font-semibold text-neutral-900">Ensuite</h2>
                 <ul className="divide-y divide-neutral-100">
-                  {data.aVenir.map((j) => (
+                  {autres.map((j) => (
                     <li key={j.tontineId}>
                       <button onClick={() => navigate(`/tontine/${j.tontineId}`)} className="w-full flex items-center gap-3 px-4 py-3 min-h-[64px] text-left hover:bg-neutral-50">
                         <InitialsAvatar name={j.tontineNom} />
@@ -88,15 +124,15 @@ export function MesJackpotsPage() {
                     </li>
                   ))}
                 </ul>
-              )}
             </section>
+            )}
 
             <section className="bg-white rounded-3xl shadow-sm">
               <h2 className="px-4 pt-4 pb-1 text-[17px] font-semibold text-neutral-900">Reçus</h2>
               {isLoading ? (
                 <div className="px-4 py-6"><span className="block h-12 rounded-2xl bg-neutral-100 animate-pulse" /></div>
               ) : !data?.recus.length ? (
-                <p className="px-4 py-6 text-sm text-neutral-500">Pas encore de jackpot.</p>
+                <p className="px-4 py-6 text-sm text-neutral-500">Vos jackpots apparaîtront ici dès que vous en recevrez un.</p>
               ) : (
                 <ul className="grid grid-cols-2 gap-3 p-4">
                   {data.recus.map((r) => (
