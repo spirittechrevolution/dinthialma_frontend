@@ -30,6 +30,11 @@ export interface Tontine {
   montantLibre?: boolean | null
   montantMinimum?: number | null
   creePar: CreateurInfo
+  /** B01 — mon rôle dans cette tontine (fourni par le backend sur chaque TontineResponse) */
+  monRole?: 'GESTIONNAIRE' | 'MEMBRE' | 'GESTIONNAIRE_ET_MEMBRE' | 'LECTURE'
+  /** Absent si je ne cotise pas dans cette tontine */
+  monMembreId?: string
+  monStatutMembre?: 'ACTIF' | 'SUSPENDU' | 'SORTI'
   createdAt: string
   updatedAt: string
 }

@@ -14,7 +14,7 @@ import { useCycles, useOpenCycle } from '@/hooks/useCycles'
 import { useOnline } from '@/hooks/useOnline'
 import { formatF, formatDateCourte } from '@/lib/format'
 import { TOUR_STATUT, datesTourSuggerees } from '@/lib/tontineLabels'
-import { parseApiError } from '@/lib/apiError'
+import { messageErreur } from '@/lib/apiError'
 import { CycleStatut, ModeCycle, TontineStatut } from '@/types/common'
 import { TontineType } from '@/types/tontine'
 import type { Cycle } from '@/types/cycle'
@@ -136,8 +136,7 @@ export function DemarrerTourSheet({ isOpen, onClose, tontineId, frequence }: { i
     {
       onSuccess: () => { toast.success('Tour démarré'); onClose() },
       onError: (err) => {
-        const { serverMessage } = parseApiError(err)
-        toast.error(serverMessage || 'Le tour n\'a pas pu être démarré.')
+        toast.error(messageErreur(err, "Le tour n'a pas pu être démarré."))
       },
     },
   )

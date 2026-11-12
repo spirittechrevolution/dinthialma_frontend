@@ -8,7 +8,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { clsx } from 'clsx'
 import {
-  User, Phone, Users2, Share2, HelpCircle, KeyRound, Lock, EyeOff, Download, LogOut, ChevronRight, ShieldCheck,
+  User, Phone, Users2, Share2, HelpCircle, KeyRound, Lock, EyeOff, Download, LogOut, ChevronRight, ShieldCheck, Smartphone, QrCode, MessageCircle, Mail,
 } from 'lucide-react'
 import { ScreenHeader } from '@/components/layout/ScreenHeader'
 import { InitialsAvatar } from '@/components/ui/Section'
@@ -19,14 +19,17 @@ import { useLocalPreference } from '@/hooks/useLocalPreference'
 import { useOnline } from '@/hooks/useOnline'
 import { usePWA } from '@/hooks/usePWA'
 import { userService } from '@/services/userService'
-import { authService } from '@/services/authService'
+import { securiteService } from '@/services/securiteService'
+import { useRegenererMonQr } from '@/hooks/useQr'
+import { usePublicConfig } from '@/hooks/usePublicConfig'
+import { formatDateHeure } from '@/lib/format'
 import { clearAll } from '@/lib/tokenStorage'
 import { formatPhoneLocal, toLocalPhone } from '@/lib/phone'
-import { parseApiError } from '@/lib/apiError'
+import { messageErreur } from '@/lib/apiError'
 import { jeCotise, jeGere } from '@/types/me'
 import pkg from '../../../package.json'
 
-type Feuille = 'infos' | 'numero' | 'motdepasse' | 'aide' | 'deconnexion' | 'changer' | 'ios' | null
+type Feuille = 'infos' | 'numero' | 'motdepasse' | 'sessions' | 'qr' | 'aide' | 'deconnexion' | 'changer' | 'ios' | null
 
 export function ParametresPage() {
   const navigate = useNavigate()
@@ -36,6 +39,8 @@ export function ParametresPage() {
   const { canInstall, triggerInstall, isIOS, isInstalled } = usePWA()
   const [hiddenPref, setHiddenPref] = useLocalPreference<'0' | '1'>('dinthialma_hide_amount', '0', ['0', '1'] as const)
   const [feuille, setFeuille] = useState<Feuille>(null)
+  const { mutate: regenererQr, isPending: regenerationQr } = useRegenererMonQr()
+  const { data: config } = usePublicConfig()
   const { data: profil, isLoading } = useQuery({ queryKey: ['profile'], queryFn: () => userService.getProfile() })
 
   const nom = profil ? `${profil.firstName} ${profil.lastName}`.trim() : ''
@@ -80,11 +85,21 @@ export function ParametresPage() {
 
         <Section titre="Aide">
           <Ligne icon={<HelpCircle size={20} />} label="Comment ça marche" onClick={() => setFeuille('aide')} />
+          {config?.supportWhatsapp && (
+            <Ligne icon={<MessageCircle size={20} />} label="Contacter l'assistance sur WhatsApp"
+              onClick={() => window.open(`https://wa.me/${config.supportWhatsapp!.replace(/\D/g, '')}`, '_blank', 'noopener')} />
+          )}
+          {config?.supportEmail && (
+            <Ligne icon={<Mail size={20} />} label="Écrire à l'assistance" valeur={config.supportEmail}
+              onClick={() => { window.location.href = `mailto:${config.supportEmail}` }} />
+          )}
         </Section>
 
         <Section titre="Sécurité">
           <Ligne icon={<KeyRound size={20} />} label={profil?.pinConfigured ? 'Modifier mon code secret' : 'Créer mon code secret'} onClick={() => navigate('/pin/setup')} />
           <Ligne icon={<Lock size={20} />} label="Modifier mon mot de passe" onClick={() => setFeuille('motdepasse')} />
+          <Ligne icon={<Smartphone size={20} />} label="Appareils connectés" onClick={() => setFeuille('sessions')} />
+          <Ligne icon={<QrCode size={20} />} label="Régénérer mon QR membre" onClick={() => setFeuille('qr')} />
         </Section>
 
         <Section titre="Application">
@@ -116,7 +131,8 @@ export function ParametresPage() {
         />
       )}
       {feuille === 'numero' && <NumeroSheet onClose={() => setFeuille(null)} online={online} />}
-      {feuille === 'motdepasse' && profil && <MotDePasseSheet phone={profil.phone} onClose={() => setFeuille(null)} online={online} />}
+      {feuille === 'motdepasse' && <MotDePasseSheet onClose={() => setFeuille(null)} online={online} />}
+      {feuille === 'sessions' && <SessionsSheet onClose={() => setFeuille(null)} online={online} />}
 
       <Modal isOpen={feuille === 'aide'} onClose={() => setFeuille(null)} title="Comment ça marche" size="sm">
         <ol className="space-y-4">
@@ -139,6 +155,23 @@ export function ParametresPage() {
           <li>1. Appuyez sur <b>Partager</b> en bas de Safari.</li>
           <li>2. Choisissez <b>Sur l'écran d'accueil</b>.</li>
         </ol>
+      </Modal>
+
+      <Modal isOpen={feuille === 'qr'} onClose={() => setFeuille(null)} title="Régénérer mon QR ?" size="sm">
+        <p className="text-neutral-600">Utile si une photo de votre QR a circulé : l'ancien QR ne fonctionnera plus.</p>
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <button onClick={() => setFeuille(null)} className="h-12 rounded-full bg-neutral-100 font-semibold">Annuler</button>
+          <button
+            onClick={() => regenererQr(undefined, {
+              onSuccess: () => { toast.success('Nouveau QR créé'); setFeuille(null) },
+              onError: (err) => toast.error(messageErreur(err, 'La régénération a échoué.')),
+            })}
+            disabled={regenerationQr || !online}
+            className="h-12 rounded-full bg-primary-700 text-white font-bold disabled:opacity-50"
+          >
+            {regenerationQr ? '…' : 'Régénérer'}
+          </button>
+        </div>
       </Modal>
 
       <Modal isOpen={feuille === 'changer'} onClose={() => setFeuille(null)} title="Changer de compte ?" size="sm">
@@ -222,8 +255,7 @@ function NumeroSheet({ onClose, online }: { onClose: () => void; online: boolean
       await userService.requestPhoneChange({ newPhone: e164 })
       setEtape(2)
     } catch (err) {
-      const { code: c } = parseApiError(err, 'register')
-      setErreur(c === 'PHONE_ALREADY_USED' ? 'Ce numéro a déjà un compte.' : "Impossible d'envoyer le code.")
+      setErreur(messageErreur(err, "Impossible d'envoyer le code."))
     } finally { setChargement(false) }
   }
   const verifier = async () => {
@@ -269,57 +301,97 @@ function NumeroSheet({ onClose, online }: { onClose: () => void; online: boolean
   )
 }
 
-function MotDePasseSheet({ phone, onClose, online }: { phone: string; onClose: () => void; online: boolean }) {
-  const e164 = `+221${toLocalPhone(phone)}`
-  const [etape, setEtape] = useState<1 | 2>(1)
-  const [code, setCode] = useState('')
-  const [mdp, setMdp] = useState('')
+function MotDePasseSheet({ onClose, online }: { onClose: () => void; online: boolean }) {
+  const [ancien, setAncien] = useState('')
+  const [nouveau, setNouveau] = useState('')
+  const [autres, setAutres] = useState(true)
   const [voir, setVoir] = useState(false)
   const [chargement, setChargement] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
 
-  const envoyer = async () => {
-    setChargement(true); setErreur(null)
-    try { await authService.sendForgotPasswordOtp({ phone: e164 }) } catch { /* réponse identique (anti-énumération) */ }
-    setChargement(false)
-    setEtape(2)
-  }
   const valider = async () => {
-    if (!/^\d{6}$/.test(code)) { setErreur('Code à 6 chiffres'); return }
-    if (mdp.length < 8) { setErreur('Au moins 8 caractères'); return }
+    if (!ancien) { setErreur('Indiquez votre mot de passe actuel.'); return }
+    if (nouveau.length < 8) { setErreur('Au moins 8 caractères.'); return }
     setChargement(true); setErreur(null)
     try {
-      await authService.verifyForgotPasswordOtp({ phone: e164, code })
-      await authService.resetPassword({ phone: e164, code, newPassword: mdp })
-      toast.success('Mot de passe modifié')
+      await securiteService.changerMotDePasse(ancien, nouveau, autres)
+      toast.success(autres ? 'Mot de passe modifié · autres appareils déconnectés' : 'Mot de passe modifié')
       onClose()
-    } catch {
-      setErreur('Code incorrect ou expiré.')
+    } catch (err) {
+      setErreur(messageErreur(err, "Le mot de passe n'a pas pu être modifié."))
     } finally { setChargement(false) }
   }
 
   return (
     <Modal isOpen onClose={onClose} title="Modifier mon mot de passe" size="sm">
-      {etape === 1 ? (
-        <div className="space-y-3">
-          <p className="text-sm text-neutral-600">Un code sera envoyé par SMS au <b>{formatPhoneLocal(phone)}</b>.</p>
-          <button onClick={envoyer} disabled={chargement || !online} className="w-full h-14 rounded-full bg-primary-700 text-white text-[17px] font-bold disabled:opacity-50">
-            {chargement ? 'Envoi…' : 'Recevoir le code'}
-          </button>
-        </div>
+      <div className="space-y-3">
+        <input value={ancien} onChange={(e) => setAncien(e.target.value)} type={voir ? 'text' : 'password'} autoComplete="current-password" placeholder="Mot de passe actuel" className={champ} aria-label="Mot de passe actuel" />
+        <input value={nouveau} onChange={(e) => setNouveau(e.target.value)} type={voir ? 'text' : 'password'} autoComplete="new-password" placeholder="Nouveau mot de passe (8 caractères min.)" className={champ} aria-label="Nouveau mot de passe" />
+        <label className="flex items-center gap-2 text-sm text-neutral-700">
+          <input type="checkbox" checked={voir} onChange={(e) => setVoir(e.target.checked)} className="w-5 h-5 accent-primary-700" /> Afficher
+        </label>
+        <label className="flex items-start gap-2 text-sm text-neutral-700">
+          <input type="checkbox" checked={autres} onChange={(e) => setAutres(e.target.checked)} className="mt-0.5 w-5 h-5 accent-primary-700" />
+          Déconnecter mes autres appareils
+        </label>
+        {erreur && <p role="alert" className="text-sm text-red-700">{erreur}</p>}
+        <button onClick={valider} disabled={chargement || !online} className="w-full h-14 rounded-full bg-primary-700 text-white text-[17px] font-bold disabled:opacity-50">
+          {chargement ? 'Enregistrement…' : 'Enregistrer'}
+        </button>
+      </div>
+    </Modal>
+  )
+}
+
+function SessionsSheet({ onClose, online }: { onClose: () => void; online: boolean }) {
+  const qc = useQueryClient()
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ['me', 'sessions'], queryFn: () => securiteService.listSessions() })
+  const { mutate: revoquer, isPending, variables } = useMutation({
+    mutationFn: (id: string) => securiteService.revoquerSession(id),
+    onSuccess: (_, id) => {
+      const courante = data?.find((s) => s.id === id)?.courante
+      if (courante) {
+        // Révoquer la session courante = se déconnecter : on vide l'état local
+        clearAll()
+        window.location.href = '/login'
+        return
+      }
+      qc.invalidateQueries({ queryKey: ['me', 'sessions'] })
+      toast.success('Appareil déconnecté')
+    },
+    onError: (err) => toast.error(messageErreur(err, 'La déconnexion a échoué.')),
+  })
+
+  return (
+    <Modal isOpen onClose={onClose} title="Appareils connectés" size="sm">
+      <p className="text-sm text-neutral-600">Une seule session par type d'appareil (web, application) : une nouvelle connexion remplace l'ancienne.</p>
+      {isLoading ? (
+        <div className="mt-3 space-y-2" aria-busy="true">{[0, 1].map((i) => <div key={i} className="h-16 rounded-2xl bg-neutral-100 animate-pulse" />)}</div>
+      ) : isError ? (
+        <button onClick={() => refetch()} className="mt-3 h-11 px-4 rounded-full bg-neutral-100 text-sm font-semibold">Réessayer</button>
       ) : (
-        <div className="space-y-3">
-          <input value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="Code reçu" autoFocus className={clsx(champ, 'text-center tracking-[0.4em] text-xl')} aria-label="Code reçu par SMS" />
-          <div className="relative">
-            <input value={mdp} onChange={(e) => setMdp(e.target.value)} type={voir ? 'text' : 'password'} autoComplete="new-password" placeholder="Nouveau mot de passe" className={champ} aria-label="Nouveau mot de passe" />
-            <button type="button" onClick={() => setVoir((x) => !x)} className="absolute right-3 top-1/2 -translate-y-1/2 mt-0.5 text-sm font-semibold text-neutral-600">{voir ? 'Masquer' : 'Afficher'}</button>
-          </div>
-          {erreur && <p role="alert" className="text-sm text-red-700">{erreur}</p>}
-          <button onClick={valider} disabled={chargement || !online} className="w-full h-14 rounded-full bg-primary-700 text-white text-[17px] font-bold disabled:opacity-50">
-            {chargement ? 'Enregistrement…' : 'Enregistrer'}
-          </button>
-          <button onClick={envoyer} disabled={chargement} className="w-full h-11 text-sm font-semibold text-neutral-600">Renvoyer le code</button>
-        </div>
+        <ul className="mt-3 space-y-2">
+          {(data ?? []).map((s) => (
+            <li key={s.id} className="flex items-center gap-3 rounded-2xl border border-neutral-200 px-3 py-3">
+              <span className="min-w-0 flex-1">
+                <span className="block font-semibold text-neutral-900 truncate">{s.deviceInfo || (s.clientType === 'MOBILE' ? 'Application' : 'Navigateur')}</span>
+                <span className="block text-xs text-neutral-500">
+                  {s.clientType === 'MOBILE' ? 'Application' : 'Web'}
+                  {s.courante ? ' · cet appareil' : ''}
+                  {s.expiree ? ' · expirée' : s.derniereActivite ? ` · actif ${formatDateHeure(s.derniereActivite)}` : ''}
+                </span>
+              </span>
+              <button
+                onClick={() => revoquer(s.id)}
+                disabled={!online || (isPending && variables === s.id)}
+                className="h-9 px-3 rounded-full text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+              >
+                {s.courante ? 'Me déconnecter' : 'Déconnecter'}
+              </button>
+            </li>
+          ))}
+          {(data ?? []).length === 0 && <li className="text-sm text-neutral-500">Aucune session active.</li>}
+        </ul>
       )}
     </Modal>
   )

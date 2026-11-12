@@ -11,7 +11,9 @@ import { Input } from '@/components/ui/Input'
 import { Spinner } from '@/components/ui/Spinner'
 import { codeListService, CodeListRequest } from '@/services/codeListService'
 import { CodeListItem } from '@/types/common'
-import { Plus, Edit2, Lock, Database } from 'lucide-react'
+import { Plus, Edit2, Lock, Database, Trash2 } from 'lucide-react'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { messageErreur } from '@/lib/apiError'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -82,6 +84,17 @@ export function CodeListPage() {
       setEditItem(null)
     },
     onError: () => toast.error('Erreur lors de la mise à jour'),
+  })
+
+  const [aSupprimer, setASupprimer] = useState<CodeListItem | null>(null)
+  const { mutate: removeItem, isPending: isRemoving } = useMutation({
+    mutationFn: (id: string) => codeListService.remove(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['codeLists'] })
+      toast.success('Valeur supprimée')
+      setASupprimer(null)
+    },
+    onError: (err) => toast.error(messageErreur(err, 'Suppression impossible')),
   })
 
   const createForm = useForm<CreateForm>({ resolver: zodResolver(createSchema) })
@@ -194,6 +207,11 @@ export function CodeListPage() {
                 >
                   <Edit2 size={15} />
                 </button>
+                {!item.systemAssign && (
+                  <button onClick={() => setASupprimer(item)} title="Supprimer" className="p-1.5 rounded-lg hover:bg-red-50 text-neutral-400 hover:text-red-600 transition-colors flex-shrink-0">
+                    <Trash2 size={15} />
+                  </button>
+                )}
               </div>
             ))
           )}
@@ -262,6 +280,11 @@ export function CodeListPage() {
                       >
                         <Edit2 size={15} />
                       </button>
+                      {!item.systemAssign && (
+                        <button onClick={() => setASupprimer(item)} title="Supprimer" className="p-1.5 rounded-lg hover:bg-red-50 text-neutral-400 hover:text-red-600 transition-colors">
+                          <Trash2 size={15} />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))
@@ -406,6 +429,16 @@ export function CodeListPage() {
           </div>
         )}
       </Modal>
+      <ConfirmDialog
+        isOpen={!!aSupprimer}
+        onClose={() => setASupprimer(null)}
+        onConfirm={() => { if (aSupprimer) removeItem(aSupprimer.id) }}
+        title="Supprimer cette valeur ?"
+        message={aSupprimer ? `« ${aSupprimer.description} » ne sera plus proposée dans l'application.` : ''}
+        confirmText="Supprimer"
+        isDangerous
+        isLoading={isRemoving}
+      />
     </AppLayout>
   )
 }

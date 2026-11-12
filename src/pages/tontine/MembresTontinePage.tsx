@@ -89,6 +89,7 @@ export function MembresTontinePage() {
               const sit = gerant && cycleEnCours && m.statut === MembreStatut.ACTIF ? situation(m) : undefined
               const paye = sit?.statutCotisation === CotisationStatut.VALIDE
               const declare = sit?.statutCotisation === CotisationStatut.EN_ATTENTE
+              // REFUSE (dernier refus affiché par le récap) = pas encore payé
               const contenu = (
                 <>
                   <span className="w-8 text-center text-sm font-bold text-neutral-400 tabular-nums">{m.ordreJackpot || '—'}</span>

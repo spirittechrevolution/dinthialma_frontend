@@ -12,7 +12,9 @@ export interface EnregistreParInfo {
 export interface Cotisation {
   id: string
   tontineId: string
+  tontineNom?: string
   cycleId: string
+  numeroCycle?: number
   membre: MembreInfo
   montant: number
   methodePaiement: string
@@ -22,6 +24,10 @@ export interface Cotisation {
   dateValidation?: string
   validePar?: ValideurInfo
   enregistrePar?: EnregistreParInfo
+  /** Statut REFUSE : motif, auteur et date du refus */
+  motifRefus?: string
+  refusePar?: ValideurInfo
+  dateRefus?: string
   createdAt: string
   updatedAt: string
 }

@@ -11,6 +11,9 @@ export enum NotificationType {
   CYCLE_OUVERT          = 'CYCLE_OUVERT',
   INVITATION_TONTINE    = 'INVITATION_TONTINE',
   STATUT_MEMBRE         = 'STATUT_MEMBRE',
+  COTISATION_REFUSEE    = 'COTISATION_REFUSEE',
+  DEMANDE_ADHESION      = 'DEMANDE_ADHESION',
+  ADHESION_REFUSEE      = 'ADHESION_REFUSEE',
 }
 
 export interface NotificationItem {
@@ -19,6 +22,12 @@ export interface NotificationItem {
   title: string
   body: string
   read: boolean
-  tontineId: string | null
+  /** Champs absents du JSON quand non pertinents (backend non_null) */
+  tontineId?: string | null
+  cycleId?: string | null
+  cotisationId?: string | null
+  membreId?: string | null
+  /** DEMANDE_ADHESION / ADHESION_REFUSEE uniquement (absent sur les notifications antérieures) */
+  demandeId?: string | null
   createdAt: string
 }

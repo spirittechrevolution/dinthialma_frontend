@@ -15,7 +15,7 @@ import { useCodeList } from '@/hooks/useCodeList'
 import { useOnline } from '@/hooks/useOnline'
 import { formatF } from '@/lib/format'
 import { rythmeCourt, FREQUENCES_DEFAUT, ORDRES_DEFAUT, ORDRE_LABEL, capital } from '@/lib/tontineLabels'
-import { parseApiError } from '@/lib/apiError'
+import { messageErreur } from '@/lib/apiError'
 import { TontineStatut } from '@/types/common'
 import { TontineType, type UpdateTontineRequest } from '@/types/tontine'
 
@@ -114,7 +114,7 @@ export function ModifierTontinePage() {
     }
     modifier({ id, request: req }, {
       onSuccess: () => { toast.success('Modifications enregistrées'); navigate(`/tontine/${id}/reglages`, { replace: true }) },
-      onError: (err) => setError(parseApiError(err).serverMessage || "L'enregistrement a échoué. Réessayez."),
+      onError: (err) => setError(messageErreur(err, "L'enregistrement a échoué. Réessayez.")),
     })
   }
 

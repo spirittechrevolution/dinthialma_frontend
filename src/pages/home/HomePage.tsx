@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Send, Wallet, Trophy, History, Plus, Share2, Bell, MoreHorizontal, CreditCard,
   CheckCircle2, Users, RefreshCw, Clock, PartyPopper, UserCircle, Download, ListChecks, WifiOff,
+  UserPlus,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useMesRoles, useCotisantSummary, useGestionSummary, useActivite } from '@/hooks/useMe'
@@ -25,7 +26,8 @@ import { ServiceGrid, type ServiceItem } from '@/components/home/ServiceGrid'
 import { ActivityFeed } from '@/components/home/ActivityFeed'
 import { TontinePickerSheet, MontantsSheet, PlusSheet, dueDetail, type PlusItem } from '@/components/home/HomeSheets'
 import { formatF, safeGet } from '@/lib/format'
-import { memberQrUrl, tontineQrUrl, INVITATION_EN_ATTENTE_KEY } from '@/lib/share'
+import { INVITATION_EN_ATTENTE_KEY } from '@/lib/share'
+import { useMonQr, useInvitationTontine } from '@/hooks/useQr'
 import { jeCotise, jeGere, type ActiviteItem, type ModeAccueil } from '@/types/me'
 
 const MODES = ['COTISE', 'GERE'] as const
@@ -93,7 +95,7 @@ export function HomePage() {
   }, [mode, tontineId, gestion.data, gestion.isLoading, cotisant.data, cotisant.isLoading, roles.cotise, roles.isLoading])
 
   // Pastilles de la bascule : ce qui attend dans l'autre mode
-  const aValiderTotal = gestion.data?.totalCotisationsEnAttente ?? 0
+  const aValiderTotal = (gestion.data?.totalCotisationsEnAttente ?? 0) + (gestion.data?.totalDemandesEnAttente ?? 0)
   const aPayerTotal = cotisant.data?.aPayer.length ?? 0
 
   // ─── Carte d'action (une seule, la plus urgente) ─────────────────────────
@@ -116,9 +118,11 @@ export function HomePage() {
     const aValider = lignes.reduce((s, t) => s + t.cotisationsEnAttente, 0)
     const retard = lignes
       .filter((t) => t.cycleEnCours)
-      .map((t) => ({ t, manquants: t.cycleEnCours!.membresActifs - t.cycleEnCours!.membresAyantDeclare }))
+      .map((t) => ({ t, manquants: t.cycleEnCours!.membresActifs - t.cycleEnCours!.membresAyantPaye - t.cycleEnCours!.membresEnAttente }))
       .filter((x) => x.manquants > 0)
       .sort((a, b) => b.manquants - a.manquants)[0]
+
+    const demandes = lignes.reduce((s, t) => s + t.demandesEnAttente, 0)
 
     if (aValider > 0) {
       const cible = lignes.filter((t) => t.cotisationsEnAttente > 0)
@@ -128,6 +132,18 @@ export function HomePage() {
           title={`${aValider} paiement${aValider > 1 ? 's' : ''} à valider`}
           subtitle={cible.length === 1 ? cible[0].nom : `${cible.length} tontines`}
           actionLabel="Valider"
+          onAction={() => navigate(cible.length === 1 ? `/a-valider?tontine=${cible[0].tontineId}` : '/a-valider')}
+          disabled={!online} disabledReason={offlineReason}
+        />
+      )
+    } else if (demandes > 0) {
+      const cible = lignes.filter((t) => t.demandesEnAttente > 0)
+      actionCard = (
+        <ActionCard
+          icon={<UserPlus size={22} />} tone="urgent"
+          title={`${demandes} demande${demandes > 1 ? 's' : ''} d'adhésion`}
+          subtitle={cible.length === 1 ? cible[0].nom : `${cible.length} tontines`}
+          actionLabel="Voir"
           onAction={() => navigate(cible.length === 1 ? `/a-valider?tontine=${cible[0].tontineId}` : '/a-valider')}
           disabled={!online} disabledReason={offlineReason}
         />
@@ -181,11 +197,13 @@ export function HomePage() {
 
   // ─── Carte QR ────────────────────────────────────────────────────────────
   const prenom = user?.firstName || ''
+  const monQr = useMonQr(mode === 'COTISE')
+  const invitation = useInvitationTontine(mode === 'GERE' ? tontineChoisie?.id : null)
   const qr = mode === 'GERE'
     ? {
         title: tontineChoisie ? `Inviter dans ${tontineChoisie.nom}` : 'Inviter dans une tontine',
         subtitle: tontineChoisie ? 'Faites scanner ce QR pour rejoindre' : 'Choisissez la tontine à partager',
-        url: tontineChoisie ? tontineQrUrl(tontineChoisie) : null,
+        url: tontineChoisie ? invitation.data?.url ?? null : null,
         shareText: tontineChoisie
           ? `Rejoins notre tontine ${tontineChoisie.nom} (${formatF(tontineChoisie.montant)}) :`
           : '',
@@ -193,7 +211,7 @@ export function HomePage() {
     : {
         title: 'Mon QR membre',
         subtitle: 'À montrer à votre gestionnaire',
-        url: user?.phone ? memberQrUrl(user.phone) : null,
+        url: monQr.data?.url ?? null,
         shareText: `${prenom ? `${prenom} sur` : 'Retrouvez-moi sur'} Dinthialma :`,
       }
 

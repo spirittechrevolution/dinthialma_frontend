@@ -21,8 +21,9 @@ import { useRecordCotisation } from '@/hooks/useCotisations'
 import { useOnline } from '@/hooks/useOnline'
 import { formatF, formatDateCourte, safeGet, safeSet } from '@/lib/format'
 import { formatPhoneLocal } from '@/lib/phone'
-import { isMobileMoney, LAST_METHOD_KEY } from '@/lib/paymentMethods'
-import { parseApiError } from '@/lib/apiError'
+import { isMobileMoney, LAST_METHOD_KEY, METHODE_PAR_DEFAUT, estDisponible } from '@/lib/paymentMethods'
+import { synchroniserPreferences } from '@/lib/preferences'
+import { messageErreur } from '@/lib/apiError'
 import type { CotisantTontineSummary } from '@/types/me'
 
 export function PayerPage() {
@@ -107,7 +108,11 @@ function DeclarerPaiement({ ligne }: { ligne: CotisantTontineSummary }) {
   const due = ligne.cotisationDue
   const { mutate: record, isPending } = useRecordCotisation()
 
-  const [methode, setMethode] = useState(() => safeGet(LAST_METHOD_KEY) ?? '')
+  // Dernier moyen utilisé s'il est disponible, sinon Espèces (seul moyen ouvert pour l'instant)
+  const [methode, setMethode] = useState(() => {
+    const dernier = safeGet(LAST_METHOD_KEY) ?? ''
+    return estDisponible(dernier) ? dernier : METHODE_PAR_DEFAUT
+  })
   const [montantLibre, setMontantLibre] = useState(0)
   const [refOpen, setRefOpen] = useState(false)
   const [reference, setReference] = useState('')
@@ -175,15 +180,11 @@ function DeclarerPaiement({ ligne }: { ligne: CotisantTontineSummary }) {
       {
         onSuccess: (cotisation) => {
           safeSet(LAST_METHOD_KEY, methode)
+          synchroniserPreferences()
           navigate(`/recu/${ligne.tontineId}/${cotisation.id}`, { replace: true, state: { justCreated: true } })
         },
         onError: (err) => {
-          const { code } = parseApiError(err, 'cotisation')
-          setError(
-            code === 'COTISATION_ALREADY_EXISTS' ? 'Vous avez déjà déclaré un paiement pour ce tour.'
-            : code === 'NETWORK_ERROR' ? 'Pas de connexion. Réessayez quand le réseau revient.'
-            : "Le paiement n'a pas pu être enregistré. Réessayez.",
-          )
+          setError(messageErreur(err, "Le paiement n'a pas pu être enregistré. Réessayez."))
         },
       },
     )
@@ -194,6 +195,11 @@ function DeclarerPaiement({ ligne }: { ligne: CotisantTontineSummary }) {
   return (
     <Shell>
       <div className="space-y-4 pb-28">
+        {due.motifDernierRefus && (
+          <p role="status" className="rounded-3xl bg-red-50 px-4 py-3 text-sm text-red-800">
+            <b>Votre paiement a été refusé :</b> {due.motifDernierRefus}. Vous pouvez le déclarer à nouveau.
+          </p>
+        )}
         <section className="bg-white rounded-3xl shadow-sm p-5 text-center">
           <p className="text-sm font-medium text-neutral-500">{ligne.nom} · Tour {due.numeroCycle}</p>
           <div className="mt-3">

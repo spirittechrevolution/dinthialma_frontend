@@ -6,7 +6,10 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { clsx } from 'clsx'
-import { ChevronDown, RotateCw } from 'lucide-react'
+import { ChevronDown, RotateCw, Download } from 'lucide-react'
+import { toast } from 'sonner'
+import { telechargerCsv } from '@/lib/exportCsv'
+import { messageErreur } from '@/lib/apiError'
 import { ScreenHeader } from '@/components/layout/ScreenHeader'
 import { ActiviteRow } from '@/components/home/ActivityFeed'
 import { TontinePickerSheet } from '@/components/home/HomeSheets'
@@ -14,7 +17,7 @@ import { useActivite, useCotisantSummary, useGestionSummary, useMesRoles } from 
 import { useLocalPreference } from '@/hooks/useLocalPreference'
 import { formatF } from '@/lib/format'
 import { CotisationStatut } from '@/types/common'
-import { jeCotise, jeGere, type ActiviteItem, type ModeAccueil } from '@/types/me'
+import { jeCotise, jeGere, type ActiviteItem, type ActiviteType, type ModeAccueil } from '@/types/me'
 
 const STATUTS: { id: string; label: string; statut: CotisationStatut | null }[] = [
   { id: 'tous', label: 'Tous', statut: null },
@@ -22,6 +25,13 @@ const STATUTS: { id: string; label: string; statut: CotisationStatut | null }[] 
   { id: 'valides', label: 'Validés', statut: CotisationStatut.VALIDE },
   { id: 'retard', label: 'En retard', statut: CotisationStatut.EN_RETARD },
 ]
+
+/** Filtre « type » envoyé au serveur (paramètre répétable, OU logique) */
+const TYPES_FILTRE: Record<'tout' | 'paiements' | 'jackpots', ActiviteType[] | undefined> = {
+  tout: undefined,
+  paiements: ['COTISATION_DECLAREE', 'COTISATION_VALIDEE', 'COTISATION_ENCAISSEE', 'COTISATION_EN_RETARD', 'COTISATION_REFUSEE'],
+  jackpots: ['JACKPOT_RECU', 'DISTRIBUTION_RECUE'],
+}
 
 export function HistoriquePage() {
   const navigate = useNavigate()
@@ -37,8 +47,9 @@ export function HistoriquePage() {
   const [type, setType] = useState<'tout' | 'paiements' | 'jackpots'>('tout')
   const [limite, setLimite] = useState(60)
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [exportEnCours, setExportEnCours] = useState(false)
 
-  const activite = useActivite(mode, { tontineId, limit: 1000 })
+  const activite = useActivite(mode, { tontineId, type: TYPES_FILTRE[type], limit: 1000 })
   const cotisant = useCotisantSummary(mode === 'COTISE' && roles.cotise)
   const gestion = useGestionSummary(mode === 'GERE' && roles.gere)
 
@@ -64,8 +75,6 @@ export function HistoriquePage() {
 
   const filtreStatut = STATUTS.find((s) => s.id === statut)?.statut ?? null
   const items = (activite.data ?? []).filter((it) => {
-    if (type === 'paiements' && it.sens !== 'EPARGNE') return false
-    if (type === 'jackpots' && it.sens !== 'GAIN') return false
     if (filtreStatut && it.statut !== filtreStatut) return false
     return true
   })
@@ -86,13 +95,35 @@ export function HistoriquePage() {
     else next.delete(k)
     setParams(next, { replace: true })
   }
+  const exporter = async () => {
+    setExportEnCours(true)
+    try {
+      await telechargerCsv('/v1/me/activite/export', {
+        mode,
+        ...(tontineId ? { tontineId } : {}),
+        ...(filtreStatut ? { statut: filtreStatut } : {}),
+        ...(TYPES_FILTRE[type] ? { type: TYPES_FILTRE[type] } : {}),
+      }, 'historique-dinthialma.csv')
+    } catch (err) {
+      toast.error(messageErreur(err, "L'export a échoué. Réessayez."))
+    } finally {
+      setExportEnCours(false)
+    }
+  }
   const ouvrir = (it: ActiviteItem) => navigate(it.cotisationId ? `/recu/${it.tontineId}/${it.cotisationId}` : `/tontine/${it.tontineId}`)
 
   const chip = (actif: boolean) => clsx('h-9 px-4 rounded-full text-sm font-medium whitespace-nowrap', actif ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-700 shadow-sm')
 
   return (
     <div className="min-h-[100dvh] bg-[#f2f3f5]">
-      <ScreenHeader title="Historique" />
+      <ScreenHeader
+        title="Historique"
+        right={
+          <button onClick={exporter} disabled={exportEnCours} className="h-11 px-3 mr-1 rounded-full text-sm font-semibold text-primary-800 hover:bg-primary-50 inline-flex items-center gap-1.5 disabled:opacity-50">
+            <Download size={16} /> {exportEnCours ? '…' : 'Exporter'}
+          </button>
+        }
+      />
       <main className="px-4 pb-10 max-w-lg mx-auto md:max-w-3xl space-y-4">
         {roles.deuxModes && (
           <div role="tablist" aria-label="Mode" className="mx-auto flex max-w-[16rem] rounded-full bg-white p-1 shadow-sm">

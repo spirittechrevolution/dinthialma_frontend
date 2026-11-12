@@ -10,9 +10,11 @@ import { toast } from 'sonner'
 import { clsx } from 'clsx'
 import {
   ArrowLeft, Eye, EyeOff, UserPlus, Info, Users, RefreshCw, Settings, Trophy, ChevronRight,
-  CreditCard, ListChecks, Send, CalendarClock, Play, Lock, RotateCw, Clock, CheckCircle2, AlertTriangle,
+  CreditCard, ListChecks, Send, CalendarClock, Play, Lock, RotateCw, Clock, CheckCircle2, AlertTriangle, Download, XCircle,
 } from 'lucide-react'
 import { InitialsAvatar } from '@/components/ui/Section'
+import { telechargerCsv } from '@/lib/exportCsv'
+import { messageErreur } from '@/lib/apiError'
 import { Modal } from '@/components/ui/Modal'
 import { AddMembreModal } from '@/components/shared/AddMembreModal'
 import { useTontineVue } from '@/hooks/useTontineVue'
@@ -35,12 +37,14 @@ const FILTRES: { id: string; label: string; statuts: CotisationStatut[] }[] = [
   { id: 'attente', label: 'En attente', statuts: [CotisationStatut.EN_ATTENTE] },
   { id: 'valides', label: 'Validés', statuts: [CotisationStatut.VALIDE] },
   { id: 'retard', label: 'En retard', statuts: [CotisationStatut.EN_RETARD] },
+  { id: 'refuses', label: 'Refusés', statuts: [CotisationStatut.REFUSE] },
 ]
 
 const STATUT_PILL: Record<CotisationStatut, { label: string; cls: string; icon: JSX.Element }> = {
   EN_ATTENTE: { label: 'En attente', cls: 'bg-amber-50 text-amber-800', icon: <Clock size={13} /> },
   VALIDE: { label: 'Validé', cls: 'bg-primary-50 text-primary-800', icon: <CheckCircle2 size={13} /> },
   EN_RETARD: { label: 'En retard', cls: 'bg-red-50 text-red-700', icon: <AlertTriangle size={13} /> },
+  REFUSE: { label: 'Refusé', cls: 'bg-red-50 text-red-700', icon: <XCircle size={13} /> },
 }
 
 const PAGE = 30
@@ -128,7 +132,7 @@ export function FicheTontinePage() {
   }
   const etat = [
     cycleEnCours ? `Tour ${cycleEnCours.numeroCycle}` : null,
-    gerant && cycleEnCours ? `${ontPaye}/${actifsRecap || actifs.length} ont payé` : null,
+    gerant && cycleEnCours ? `${ontPaye}/${actifsRecap || actifs.length} payés${enAttente ? ` + ${enAttente} en attente` : ''}` : null,
     cycleEnCours ? `fin le ${formatDateCourte(cycleEnCours.dateFin)}` : null,
     isEvent ? compteARebours(t.dateEcheance) : null,
   ].filter(Boolean).join(' · ')
@@ -281,7 +285,23 @@ export function FicheTontinePage() {
 
         {/* Historique */}
         <section className="mt-4 md:mt-0 bg-white rounded-3xl shadow-sm">
-          <h2 className="px-4 pt-4 text-[17px] font-semibold text-neutral-900">{gerant ? 'Paiements' : 'Mes paiements'}</h2>
+          <div className="px-4 pt-4 flex items-center justify-between">
+            <h2 className="text-[17px] font-semibold text-neutral-900">{gerant ? 'Paiements' : 'Mes paiements'}</h2>
+            {gerant && (
+              <button
+                onClick={async () => {
+                  try {
+                    await telechargerCsv(`/v1/tontines/${id}/cotisations/export`, statuts.length === 1 ? { statut: statuts[0] } : {}, `paiements-${t.nom}.csv`)
+                  } catch (err) {
+                    toast.error(messageErreur(err, "L'export a échoué. Réessayez."))
+                  }
+                }}
+                className="h-9 px-3 rounded-full text-sm font-semibold text-primary-800 hover:bg-primary-50 inline-flex items-center gap-1.5"
+              >
+                <Download size={15} /> Exporter
+              </button>
+            )}
+          </div>
           <div className="flex gap-2 overflow-x-auto px-4 py-3" role="group" aria-label="Filtrer par statut">
             {FILTRES.map((f) => (
               <button

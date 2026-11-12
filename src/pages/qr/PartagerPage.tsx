@@ -12,7 +12,9 @@ import { ScreenHeader } from '@/components/layout/ScreenHeader'
 import { useTontineVue } from '@/hooks/useTontineVue'
 import { formatF } from '@/lib/format'
 import { rythmeCourt } from '@/lib/tontineLabels'
-import { appUrl, tontineQrUrl, whatsappUrl } from '@/lib/share'
+import { appUrl, whatsappUrl } from '@/lib/share'
+import { useInvitationTontine } from '@/hooks/useQr'
+import { messageErreur } from '@/lib/apiError'
 import { TontineStatut } from '@/types/common'
 
 export function PartagerPage() {
@@ -20,16 +22,20 @@ export function PartagerPage() {
   const tontineId = search.get('tontine') ?? ''
   const v = useTontineVue(tontineId)
   const t = tontineId ? v.tontine : undefined
+  const invitation = useInvitationTontine(tontineId && v.vue === 'GERE' ? tontineId : null)
 
-  if (tontineId && v.isLoading) {
+  if (tontineId && (v.isLoading || invitation.isLoading)) {
     return <Shell title="Inviter"><div className="mx-auto mt-6 w-72 h-72 rounded-3xl bg-white animate-pulse" aria-busy="true" /></Shell>
   }
   if (tontineId && (!t || v.vue !== 'GERE')) {
     return <Shell title="Inviter"><p className="pt-8 text-center text-sm text-neutral-500">Seul le gestionnaire peut inviter dans cette tontine.</p></Shell>
   }
+  if (tontineId && invitation.isError) {
+    return <Shell title="Inviter"><p className="pt-8 text-center text-sm text-neutral-500">{messageErreur(invitation.error, "Impossible de créer le lien d'invitation.")}</p></Shell>
+  }
 
   const pourTontine = !!t
-  const url = t ? tontineQrUrl(t) : appUrl()
+  const url = t ? invitation.data?.url ?? appUrl() : appUrl()
   const titre = t ? `Inviter dans ${t.nom}` : 'Inviter un proche'
   const detail = t ? (t.montantLibre ? 'Montant libre' : `${formatF(t.montant)} / ${rythmeCourt(t.frequence)}`) : 'Dinthialma, vos tontines simples et claires'
   const texte = t

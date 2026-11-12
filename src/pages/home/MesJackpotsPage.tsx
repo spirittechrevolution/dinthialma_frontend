@@ -100,7 +100,7 @@ export function MesJackpotsPage() {
               ) : (
                 <ul className="grid grid-cols-2 gap-3 p-4">
                   {data.recus.map((r) => (
-                    <li key={`${r.cycleId}`}>
+                    <li key={`${r.tontineId}-${r.nature}-${r.cycleId ?? ''}`}>
                       <button
                         onClick={() => navigate(`/tontine/${r.tontineId}`)}
                         className="w-full h-full rounded-2xl border border-yellow-200 bg-yellow-50 p-3 text-left"
@@ -109,7 +109,7 @@ export function MesJackpotsPage() {
                         <span className="mt-2 block font-bold text-primary-700 tabular-nums">+{formatF(r.montantRecu)}</span>
                         <span className="block text-sm font-semibold text-neutral-900 truncate">{r.tontineNom}</span>
                         <span className="block text-xs text-neutral-500">
-                          Tour {r.numeroCycle}{r.dateRemise ? ` · ${formatDateCourte(r.dateRemise)}` : ''}
+                          {r.nature === 'DISTRIBUTION_FINALE' ? 'Distribution finale' : `Tour ${r.numeroCycle ?? '—'}`}{r.dateRemise ? ` · ${formatDateCourte(r.dateRemise)}` : ''}
                         </span>
                       </button>
                     </li>

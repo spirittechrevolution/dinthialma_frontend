@@ -4,9 +4,14 @@ import { PageResponse, CustomResponse, RawPage, toPage } from '@/types/common'
 
 export const tontineService = {
   // ─── Lister les tontines (SUPER_ADMIN = toutes, autres = les siennes) ────────
-  listTontines: async (page = 0, size = 20, sort = 'createdAt,desc'): Promise<PageResponse<Tontine>> => {
+  listTontines: async (
+    page = 0,
+    size = 20,
+    sort = 'createdAt,desc',
+    filtres: { role?: 'GERE' | 'COTISE'; statut?: string; q?: string } = {},
+  ): Promise<PageResponse<Tontine>> => {
     const response = await api.get<CustomResponse<RawPage<Tontine>>>('/v1/tontines', {
-      params: { page, size, sort },
+      params: { page, size, sort, ...filtres },
     })
     return toPage(response.data.data)
   },

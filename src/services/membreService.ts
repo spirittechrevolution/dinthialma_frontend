@@ -4,10 +4,15 @@ import { PageResponse, CustomResponse, RawPage, toPage } from '@/types/common'
 
 export const membreService = {
   // ─── Lister les membres d'une tontine ────────────────────────────────────────
-  listMembres: async (tontineId: string, page = 0, size = 20): Promise<PageResponse<Membre>> => {
+  listMembres: async (
+    tontineId: string,
+    page = 0,
+    size = 20,
+    filtres: { statut?: string; q?: string; cycleId?: string; aPaye?: boolean } = {}
+  ): Promise<PageResponse<Membre>> => {
     const response = await api.get<CustomResponse<RawPage<Membre>>>(
       `/v1/tontines/${tontineId}/membres`,
-      { params: { page, size, sort: 'ordreJackpot,asc' } }
+      { params: { page, size, sort: 'ordreJackpot,asc', ...filtres } }
     )
     return toPage(response.data.data)
   },

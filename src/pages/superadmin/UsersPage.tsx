@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { toast } from 'sonner'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AppLayout } from '@/components/layout/AppLayout'
@@ -104,10 +104,15 @@ export function UsersPage() {
   const [selectedRoles, setSelectedRoles] = useState<string[]>([])
   const queryClient = useQueryClient()
 
+  // Recherche, rôle et statut de compte appliqués côté serveur (toutes les pages)
+  const [q, setQ] = useState('')
+  useEffect(() => {
+    const t = setTimeout(() => { setQ(search.trim()); setPage(0) }, 300)
+    return () => clearTimeout(t)
+  }, [search])
   const { data: usersData, isLoading } = useQuery({
-    // Filtre « Inscrits / En attente » appliqué côté serveur (porte sur toutes les pages)
-    queryKey: ['adminUsers', page, statusTab],
-    queryFn: () => userService.listUsers(page, PAGE_SIZE, statusTab),
+    queryKey: ['adminUsers', page, statusTab, q, roleTab],
+    queryFn: () => userService.listUsers(page, PAGE_SIZE, statusTab, { q, role: roleTab }),
     placeholderData: (prev) => prev,
   })
 
@@ -134,15 +139,7 @@ export function UsersPage() {
   const totalElements = usersData?.totalElements || 0
   const totalPages = usersData?.totalPages || 1
 
-  const filtered = allUsers.filter((u) => {
-    const q = search.toLowerCase()
-    const matchSearch = !q ||
-      `${u.firstName} ${u.lastName}`.toLowerCase().includes(q) ||
-      u.phone.includes(q) ||
-      (u.email || '').toLowerCase().includes(q)
-    const matchRole = !roleTab || u.roles.some((r) => r.replace('DINTHIALMA_', '') === roleTab)
-    return matchSearch && matchRole
-  })
+  const filtered = allUsers
 
   const openRolesModal = (user: AdminUserResponse) => {
     const normalized = user.roles.map((r) => r.replace('DINTHIALMA_', ''))
@@ -195,7 +192,7 @@ export function UsersPage() {
                 <button
                   aria-pressed={roleTab === tab.value}
                   key={tab.value}
-                  onClick={() => setRoleTab(tab.value)}
+                  onClick={() => { setRoleTab(tab.value); setPage(0) }}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
                     roleTab === tab.value
                       ? 'bg-primary-600 text-white'

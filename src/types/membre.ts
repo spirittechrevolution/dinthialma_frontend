@@ -17,8 +17,10 @@ export interface Membre {
 }
 
 // ─── Requête ajout membre ─────────────────────────────────────────────────────
+/** Soit `phone`, soit `qrToken` (QR membre scanné), jamais les deux — sinon MEMBER_IDENTIFIER_REQUIRED */
 export interface AddMembreRequest {
-  phone: string
+  phone?: string
+  qrToken?: string
   firstName?: string
   lastName?: string
   ordreJackpot?: number
