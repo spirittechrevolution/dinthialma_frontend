@@ -19,6 +19,7 @@ import { useMaTontine } from '@/hooks/useMe'
 import { useOnline } from '@/hooks/useOnline'
 import { formatFcfaRecu, formatDateHeure } from '@/lib/format'
 import { paymentMethodLabel } from '@/lib/paymentMethods'
+import { PaymentLogo } from '@/components/pay/PaymentLogo'
 import { shareLink } from '@/lib/share'
 import { CotisationStatut, CycleStatut } from '@/types/common'
 import { jeGere } from '@/types/me'
@@ -132,7 +133,10 @@ export function RecuPage() {
             {lignes.map(([k, v]) => (
               <div key={k} className="flex items-start justify-between gap-4 px-4 py-3">
                 <dt className="text-sm text-neutral-500">{k}</dt>
-                <dd className="text-sm font-semibold text-neutral-900 text-right">{v}</dd>
+                <dd className="text-sm font-semibold text-neutral-900 text-right inline-flex items-center gap-2">
+                  {k === 'Moyen' && cot.methodePaiement && <PaymentLogo value={cot.methodePaiement} size={24} className="rounded-md" />}
+                  {v}
+                </dd>
               </div>
             ))}
           </dl>

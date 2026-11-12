@@ -1,21 +1,35 @@
 /**
  * Moyens de paiement. Les valeurs viennent de la liste « METHODE_PAIEMENT » du backend ;
- * cette table sert de libellé par défaut et d'ordre d'affichage.
+ * cette table sert de libellé par défaut, d'ordre d'affichage et de repli hors ligne.
  */
 export const PAYMENT_METHODS = [
   { value: 'WAVE', label: 'Wave', mobileMoney: true },
   { value: 'ORANGE_MONEY', label: 'Orange Money', mobileMoney: true },
-  { value: 'FREE_MONEY', label: 'Free Money', mobileMoney: true },
+  { value: 'PISPI', label: 'PI-SPI', mobileMoney: true },
   { value: 'CASH', label: 'Espèces', mobileMoney: false },
 ] as const
+
+/** Plus proposés au paiement (même si le référentiel les renvoie encore) ; libellé gardé pour l'historique */
+export const METHODES_RETIREES = ['FREE_MONEY']
 
 const LABELS: Record<string, string> = {
   WAVE: 'Wave',
   ORANGE_MONEY: 'Orange Money',
-  FREE_MONEY: 'Free Money',
+  PISPI: 'PI-SPI',
   CASH: 'Espèces',
+  FREE_MONEY: 'Free Money',
   VIREMENT: 'Virement',
   MTN_MOMO: 'MTN MoMo',
+}
+
+/**
+ * Logos officiels servis depuis /public/moyens-paiement/. Un fichier absent affiche un repli
+ * (pastille aux initiales) : il suffit de déposer le fichier pour que le logo apparaisse.
+ */
+export const PAYMENT_LOGOS: Record<string, string> = {
+  WAVE: '/moyens-paiement/wave.svg',
+  ORANGE_MONEY: '/moyens-paiement/orange-money.svg',
+  PISPI: '/moyens-paiement/pispi.svg',
 }
 
 export function paymentMethodLabel(value: string | null | undefined): string {
@@ -25,6 +39,12 @@ export function paymentMethodLabel(value: string | null | undefined): string {
 
 export function isMobileMoney(value: string | null | undefined): boolean {
   return !!value && value !== 'CASH'
+}
+
+/** Ordre d'affichage : celui de PAYMENT_METHODS, puis les autres valeurs du référentiel */
+export function ordreMethode(value: string): number {
+  const i = PAYMENT_METHODS.findIndex((m) => m.value === value)
+  return i === -1 ? PAYMENT_METHODS.length : i
 }
 
 /** Dernier moyen utilisé sur cet appareil (présélection) */
