@@ -1,31 +1,17 @@
 /**
- * Couche « moi » : données centrées sur l'utilisateur connecté, pour les écrans du brief v2
- * (accueil Je cotise / Je gère, À valider, fil d'activité, Mes jackpots).
+ * Couche « moi » : données centrées sur l'utilisateur connecté (accueil Je cotise / Je gère,
+ * À valider, fil d'activité, Mes jackpots), branchée sur les endpoints du backend
+ * (B01, B04, B05, B06, B07, B09, B10 — voir docs/PLAN_INTEGRATION_BACKEND.md, lot 2).
  *
- * Chaque fonction correspond à un endpoint proposé dans docs/BESOINS_BACKEND.md.
- * En attendant sa livraison, elle reconstruit la même réponse à partir des endpoints existants
- * (plusieurs appels par tontine). Quand le backend livre, on remplace UNIQUEMENT le corps de la
- * fonction par un appel direct : les types (src/types/me.ts) et les écrans ne bougent pas.
- *
- * Les appels intermédiaires passent par le cache React Query avec les mêmes clés que les hooks
- * existants (tontines, membres, cycles, cotisations…) : pas de double téléchargement entre écrans,
- * et les invalidations faites par les mutations s'appliquent aussi ici.
+ * Le backend omet les champs `null` (non_null) : chaque réponse est normalisée ici
+ * (champ absent → null) pour que les écrans n'aient jamais à distinguer les deux.
  */
-import type { QueryKey } from '@tanstack/react-query'
-import { queryClient } from '@/lib/queryClient'
-import { getAccessToken, getAuthUser, getUserPhone } from '@/lib/tokenStorage'
-import { samePhone } from '@/lib/phone'
+import api from './api'
 import { tontineService } from './tontineService'
-import { membreService } from './membreService'
-import { cycleService } from './cycleService'
 import { cotisationService } from './cotisationService'
 import { dashboardService } from './dashboardService'
-import { CotisationStatut, CycleStatut, MembreStatut, TontineStatut } from '@/types/common'
-import type { PageResponse } from '@/types/common'
-import { TontineType } from '@/types/tontine'
+import { toPage, type CustomResponse, type RawPage, type PageResponse, type CotisationStatut } from '@/types/common'
 import type { Tontine } from '@/types/tontine'
-import type { Cycle } from '@/types/cycle'
-import type { Membre } from '@/types/membre'
 import type { Cotisation } from '@/types/cotisation'
 import type { TontineStats } from '@/types/dashboard'
 import type {
@@ -33,434 +19,262 @@ import type {
   GestionSummary, GestionTontineSummary, CotisationAValider,
   ActiviteItem, ActiviteType, ModeAccueil, MesJackpots, JackpotRecu, JackpotAVenir, ModeAttribution,
 } from '@/types/me'
-import { jeCotise, jeGere } from '@/types/me'
 
-/** Taille de page maximale acceptée par le backend */
-const MAX = 200
+/** Taille de page utilisée pour lire une liste complète */
+const PAGE = 100
 /** Garde-fou : nombre maximum de pages lues pour une même liste */
-const MAX_PAGES = 10
-/** Durée pendant laquelle une donnée intermédiaire en cache est réutilisée sans rappel réseau */
-const STALE_MS = 60_000
+const MAX_PAGES = 20
 
-// ─── Outils ──────────────────────────────────────────────────────────────────
-
-function cached<T>(queryKey: QueryKey, queryFn: () => Promise<T>): Promise<T> {
-  return queryClient.fetchQuery({ queryKey, queryFn, staleTime: STALE_MS })
-}
-
-async function collectAll<T>(
-  fetchPage: (page: number) => Promise<PageResponse<T>>,
-): Promise<T[]> {
+async function collectAll<T>(fetchPage: (page: number) => Promise<PageResponse<T>>, limite = Infinity): Promise<T[]> {
   const items: T[] = []
-  for (let page = 0; page < MAX_PAGES; page++) {
+  for (let page = 0; page < MAX_PAGES && items.length < limite; page++) {
     const res = await fetchPage(page)
     items.push(...res.content)
     if (res.last || page + 1 >= res.totalPages) break
   }
-  return items
+  return items.slice(0, limite)
 }
 
-const num = (v: number | string | null | undefined): number => {
-  const n = typeof v === 'string' ? parseFloat(v) : v ?? 0
-  return Number.isFinite(n) ? (n as number) : 0
+const num = (v: unknown): number => {
+  const n = typeof v === 'string' ? parseFloat(v) : Number(v ?? 0)
+  return Number.isFinite(n) ? n : 0
+}
+const numOuNull = (v: unknown): number | null => (v === undefined || v === null ? null : num(v))
+const ouNull = <T>(v: T | undefined | null): T | null => (v === undefined ? null : v)
+
+function avecRole(t: Tontine): MaTontine {
+  return { ...t, monRole: (t.monRole ?? 'LECTURE') as MonRole }
 }
 
-function currentUserPhone(): string {
-  return getAuthUser(getAccessToken() ?? undefined)?.phone || getUserPhone() || ''
-}
-
-// Lectures mises en cache (clés identiques aux hooks existants)
-const getTontinesPage = (page: number) =>
-  cached(['tontines', page, MAX], () => tontineService.listTontines(page, MAX))
-const getMembres = (tontineId: string) =>
-  collectAll((page) => cached(['membres', tontineId, page, MAX], () => membreService.listMembres(tontineId, page, MAX)))
-const getCycles = (tontineId: string) =>
-  collectAll((page) => cached(['cycles', tontineId, page, MAX], () => cycleService.listCycles(tontineId, page, MAX)))
-const getCotisations = (tontineId: string, cycleId?: string, membreId?: string) =>
-  collectAll((page) =>
-    cached(['cotisations', tontineId, cycleId, page, MAX, membreId], () =>
-      cotisationService.listCotisations(tontineId, cycleId, page, MAX, membreId)))
-/** Première page seulement (200 plus récents, tri createdAt desc) — suffisant pour un fil d'activité */
-const getCotisationsRecentes = (tontineId: string, membreId?: string) =>
-  cached(['cotisations', tontineId, undefined, 0, MAX, membreId], () =>
-    cotisationService.listCotisations(tontineId, undefined, 0, MAX, membreId)).then((p) => p.content)
-const getBeneficiaires = (tontineId: string) =>
-  collectAll((page) =>
-    cached(['beneficiaires-historique', tontineId, page, MAX], () =>
-      cycleService.getBeneficiairesHistorique(tontineId, page, MAX)))
-const getRecapCycle = (tontineId: string, cycleId: string) =>
-  collectAll((page) =>
-    cached(['recapCycle', tontineId, cycleId, page, MAX], () =>
-      cotisationService.getRecapCycle(tontineId, cycleId, page, MAX)))
-const getGestionStats = () =>
-  collectAll((page) =>
-    cached(['me', 'myDashboardRaw', page, MAX], () => dashboardService.getMyDashboard(page, MAX))
-      .then((d) => d.tontines))
-
-function modeAttribution(ordre: string | null | undefined): ModeAttribution {
-  if (ordre === 'MANUEL') return 'CHOIX'
-  if (ordre === 'ALEATOIRE') return 'TIRAGE'
-  return 'ORDRE' // ROTATION
-}
-
-function nomComplet(p: { firstName?: string; lastName?: string } | null | undefined): string {
-  return [p?.firstName, p?.lastName].filter(Boolean).join(' ')
-}
-
-/** Ajoute mon rôle / mon membre à une tontine (contournement B01 : comparaison des numéros) */
-async function enrichir(t: Tontine): Promise<MaTontine> {
-  const phone = currentUserPhone()
-  const estCreateur = samePhone(t.creePar?.phone, phone)
-  const membres: Membre[] = await getMembres(t.id)
-  const moi = membres.find((m) => samePhone(m.user?.phone, phone))
-  const monRole: MonRole =
-    estCreateur && moi ? 'GESTIONNAIRE_ET_MEMBRE'
-    : estCreateur ? 'GESTIONNAIRE'
-    : moi ? 'MEMBRE'
-    : 'LECTURE'
-  return {
-    ...t,
-    monRole,
-    monMembreId: moi?.id ?? null,
-    monStatutMembre: moi?.statut ?? null,
-    monOrdreJackpot: moi?.ordreJackpot ?? null,
-    aRecuJackpot: moi?.aRecuJackpot ?? false,
+// ─── Formes brutes des réponses /me (champs absents possibles) ───────────────
+interface RawCotisantTontine {
+  tontineId: string; nom: string; tontineType: Tontine['tontineType']; statut: CotisantTontineSummary['statut']
+  frequence?: string; monMembreId?: string; monStatutMembre?: CotisantTontineSummary['monStatutMembre']
+  ordreJackpot?: number; aRecuJackpot?: boolean
+  totalCotiseValide?: number; totalEnAttente?: number; toursPayes?: number; toursTotal?: number
+  totalJackpotsRecus?: number; nombreJackpotsRecus?: number
+  cycleEnCours?: { cycleId: string; numeroCycle: number; dateDebut: string; dateFin: string }
+  cotisationDue?: {
+    montant?: number; montantLibre?: boolean; montantMinimum?: number; dateLimite: string
+    statut: CotisationDue['statut']; cotisationId?: string; motifDernierRefus?: string
   }
+  gestionnaire?: { firstName?: string; lastName?: string; phone?: string }
+}
+interface RawSummary {
+  totalCotiseValide?: number; totalEnAttente?: number; totalJackpotsRecus?: number
+  nombreCotisationsDues?: number; montantDu?: number; tontines?: RawCotisantTontine[]
+}
+interface RawActivite {
+  id: string; type: ActiviteType; date: string; montant?: number; sens: 'EPARGNE' | 'GAIN'
+  statut?: CotisationStatut; tontineId: string; tontineNom?: string; cycleId?: string; numeroCycle?: number
+  cotisationId?: string; membreId?: string; membreNom?: string; libelle?: string
+}
+interface RawJackpots {
+  totalRecu?: number
+  recus?: (Omit<JackpotRecu, 'dateRemise' | 'nature' | 'cycleId' | 'numeroCycle'> & {
+    dateRemise?: string; nature?: JackpotRecu['nature']; cycleId?: string; numeroCycle?: number
+  })[]
+  aVenir?: { tontineId: string; tontineNom: string; monMembreId?: string; modeAttribution: ModeAttribution
+    position?: number; numeroCycleEstime?: number; dateEstimee?: string; montantEstime?: number }[]
 }
 
 // ─── Service ─────────────────────────────────────────────────────────────────
 
 export const meService = {
-  /**
-   * B01 — Mes tontines avec mon rôle et mon identifiant de membre.
-   * Cible backend : champs `monRole`, `monMembreId`, `monStatutMembre` dans `GET /v1/tontines`.
-   * Contournement : comparaison des numéros (créateur, liste des membres).
-   * NB : pour un SUPER_ADMIN, `GET /v1/tontines` renvoie toute la plateforme ; les tontines où
-   * il n'est ni créateur ni membre ressortent avec `monRole = 'LECTURE'`.
-   */
+  /** B01 — mes tontines (créées + où je cotise) avec `monRole`. */
   async listMesTontines(): Promise<MaTontine[]> {
-    const tontines: Tontine[] = await collectAll(getTontinesPage)
-    return Promise.all(tontines.map((t) => enrichir(t)))
+    const tontines = await collectAll((page) => tontineService.listTontines(page, PAGE))
+    return tontines.map(avecRole)
   },
 
-  /** B01 pour une seule tontine (fiche, tours, membres) : 2 appels au lieu de toute la liste */
+  /** B01 pour une seule tontine */
   async getMaTontine(tontineId: string): Promise<MaTontine> {
-    const t = await cached(['tontine', tontineId], () => tontineService.getTontine(tontineId))
-    return enrichir(t)
+    return avecRole(await tontineService.getTontine(tontineId))
   },
 
-  /**
-   * QR membre (B15) : retrouve une personne (par son numéro) parmi les membres de mes tontines gérées.
-   * Cible backend : `GET /v1/qr/{token}` qui renvoie directement ces correspondances.
-   */
-  async trouverMembreDansMesTontines(phone: string, mesTontines: MaTontine[]): Promise<{ tontine: MaTontine; membre: Membre }[]> {
-    const gerees = mesTontines.filter(jeGere)
-    const res = await Promise.all(
-      gerees.map(async (t) => {
-        const membres = await getMembres(t.id)
-        const membre = membres.find((m) => samePhone(m.user?.phone, phone) && m.statut !== MembreStatut.SORTI)
-        return membre ? { tontine: t, membre } : null
-      }),
-    )
-    return res.filter((x): x is { tontine: MaTontine; membre: Membre } => x !== null)
-  },
+  /** B04 — résumé « Je cotise » : `GET /v1/me/summary` (+ jackpots par tontine). */
+  async getCotisantSummary(): Promise<CotisantSummary> {
+    const { data } = await api.get<CustomResponse<RawSummary>>('/v1/me/summary')
+    const raw = data.data ?? {}
 
-  /**
-   * B04 — Résumé « Je cotise » (toutes mes tontines où je cotise).
-   * Cible backend : `GET /v1/me/summary`.
-   */
-  async getCotisantSummary(mesTontines: MaTontine[]): Promise<CotisantSummary> {
-    const tontines = mesTontines.filter((t) => jeCotise(t) && t.monMembreId)
+    const tontines: CotisantTontineSummary[] = (raw.tontines ?? []).map((t) => ({
+      tontineId: t.tontineId,
+      nom: t.nom,
+      tontineType: t.tontineType,
+      statut: t.statut,
+      frequence: ouNull(t.frequence),
+      monMembreId: ouNull(t.monMembreId),
+      monStatutMembre: ouNull(t.monStatutMembre),
+      ordreJackpot: numOuNull(t.ordreJackpot),
+      aRecuJackpot: !!t.aRecuJackpot,
+      totalCotiseValide: num(t.totalCotiseValide),
+      totalEnAttente: num(t.totalEnAttente),
+      toursPayes: num(t.toursPayes),
+      toursTotal: num(t.toursTotal),
+      // Toujours 0 pour une tontine événementielle (pas de jackpot)
+      totalJackpotsRecus: num(t.totalJackpotsRecus),
+      nombreJackpotsRecus: num(t.nombreJackpotsRecus),
+      cycleEnCours: t.cycleEnCours ?? null,
+      cotisationDue: t.cotisationDue && t.cycleEnCours ? {
+        cycleId: t.cycleEnCours.cycleId,
+        numeroCycle: t.cycleEnCours.numeroCycle,
+        montant: numOuNull(t.cotisationDue.montant),
+        montantLibre: !!t.cotisationDue.montantLibre,
+        montantMinimum: numOuNull(t.cotisationDue.montantMinimum),
+        dateLimite: t.cotisationDue.dateLimite,
+        statut: t.cotisationDue.statut,
+        cotisationId: ouNull(t.cotisationDue.cotisationId),
+        motifDernierRefus: ouNull(t.cotisationDue.motifDernierRefus),
+      } : null,
+      gestionnaire: {
+        firstName: t.gestionnaire?.firstName ?? '',
+        lastName: t.gestionnaire?.lastName ?? '',
+        phone: t.gestionnaire?.phone ?? '',
+      },
+    }))
 
-    const lignes = await Promise.all(
-      tontines.map(async (t): Promise<CotisantTontineSummary> => {
-        const [cycles, cotisations, beneficiaires] = await Promise.all([
-          getCycles(t.id),
-          // membreId : indispensable si je suis aussi gestionnaire (sinon je reçois tout),
-          // ignoré par le backend pour un simple membre (il ne voit que les siennes).
-          getCotisations(t.id, undefined, t.monMembreId ?? undefined),
-          getBeneficiaires(t.id),
-        ])
-        const mesCotisations = cotisations.filter((c) => c.membre?.membreId === t.monMembreId || !jeGere(t))
-        const valides = mesCotisations.filter((c) => c.statut === CotisationStatut.VALIDE)
-        const enAttente = mesCotisations.filter((c) => c.statut === CotisationStatut.EN_ATTENTE)
-        const cycleEnCours = cycles.find((c: Cycle) => c.statut === CycleStatut.EN_COURS) ?? null
-
-        let cotisationDue: CotisationDue | null = null
-        if (cycleEnCours && t.monStatutMembre === MembreStatut.ACTIF) {
-          const existante = mesCotisations.find((c) => c.cycleId === cycleEnCours.id)
-          cotisationDue = {
-            cycleId: cycleEnCours.id,
-            numeroCycle: cycleEnCours.numeroCycle,
-            montant: t.montantLibre ? t.montantMinimum ?? null : t.montant,
-            montantLibre: !!t.montantLibre,
-            montantMinimum: t.montantMinimum ?? null,
-            dateLimite: cycleEnCours.dateFin,
-            cotisationId: existante?.id ?? null,
-            statut: !existante ? 'A_PAYER'
-              : existante.statut === CotisationStatut.VALIDE ? 'VALIDE'
-              : 'EN_ATTENTE',
-          }
-        }
-
-        const toursEstimes = t.tontineType === TontineType.ROTATIVE
-          ? Math.ceil(t.nombreMembres / Math.max(1, t.nombreGagnants || 1))
-          : 0
-        const totalJackpotsRecus = beneficiaires
-          .flatMap((b) => b.gagnants ?? [])
-          .filter((g) => g.membreId === t.monMembreId)
-          .reduce((s, g) => s + num(g.montantRecu), 0)
-
-        return {
-          tontineId: t.id,
-          nom: t.nom,
-          tontineType: t.tontineType,
-          monMembreId: t.monMembreId,
-          totalCotiseValide: valides.reduce((s, c) => s + num(c.montant), 0),
-          totalEnAttente: enAttente.reduce((s, c) => s + num(c.montant), 0),
-          toursPayes: new Set(valides.map((c) => c.cycleId)).size,
-          toursTotal: Math.max(cycles.length, toursEstimes),
-          totalJackpotsRecus,
-          cycleEnCours: cycleEnCours
-            ? { cycleId: cycleEnCours.id, numeroCycle: cycleEnCours.numeroCycle, dateFin: cycleEnCours.dateFin }
-            : null,
-          cotisationDue,
-          gestionnaire: {
-            firstName: t.creePar?.firstName ?? '',
-            lastName: t.creePar?.lastName ?? '',
-            phone: t.creePar?.phone ?? '',
-          },
-        }
-      }),
-    )
-
-    const aPayer = lignes
+    const aPayer = tontines
       .filter((l) => l.cotisationDue?.statut === 'A_PAYER')
       .sort((a, b) => +new Date(a.cotisationDue!.dateLimite) - +new Date(b.cotisationDue!.dateLimite))
 
     return {
-      totalCotiseValide: lignes.reduce((s, l) => s + l.totalCotiseValide, 0),
-      totalEnAttente: lignes.reduce((s, l) => s + l.totalEnAttente, 0),
-      totalJackpotsRecus: lignes.reduce((s, l) => s + l.totalJackpotsRecus, 0),
+      totalCotiseValide: num(raw.totalCotiseValide),
+      totalEnAttente: num(raw.totalEnAttente),
+      totalJackpotsRecus: num(raw.totalJackpotsRecus),
+      nombreCotisationsDues: num(raw.nombreCotisationsDues),
+      montantDu: num(raw.montantDu),
       aPayer,
-      tontines: lignes,
-    }
-  },
-
-  /**
-   * B05 — Résumé « Je gère » : collecté / attendu du tour en cours de chaque tontine gérée.
-   * Cible backend : champs ajoutés à `GET /v1/admin/my-dashboard`.
-   */
-  async getGestionSummary(): Promise<GestionSummary> {
-    const stats: TontineStats[] = await getGestionStats()
-
-    const tontines = await Promise.all(
-      stats.map(async (s): Promise<GestionTontineSummary> => {
-        const id = s.tontineId ?? s.id
-        let cycleEnCours: GestionTontineSummary['cycleEnCours'] = null
-        if (s.cycleEnCours) {
-          const recap = await getRecapCycle(id, s.cycleEnCours.cycleId)
-          const actifs = recap.filter((r) => r.statutMembre === MembreStatut.ACTIF)
-          const valides = recap.filter((r) => r.statutCotisation === CotisationStatut.VALIDE)
-          cycleEnCours = {
-            cycleId: s.cycleEnCours.cycleId,
-            numeroCycle: s.cycleEnCours.numeroCycle,
-            dateFin: s.cycleEnCours.dateFin,
-            montantCollecte: valides.reduce((sum, r) => sum + num(r.montant), 0),
-            montantAttendu: s.montantLibre || s.montant == null ? null : num(s.montant) * actifs.length,
-            membresAyantPaye: valides.length,
-            membresAyantDeclare: recap.filter((r) => r.cotisationId != null).length,
-            membresActifs: actifs.length,
-          }
-        }
-        return {
-          tontineId: id,
-          nom: s.nom,
-          tontineType: s.tontineType as GestionTontineSummary['tontineType'],
-          montant: s.montant ?? null,
-          montantLibre: !!s.montantLibre,
-          cotisationsEnAttente: num(s.cotisationsEnAttente),
-          cotisationsEnRetard: num(s.cotisationsEnRetard),
-          montantTotalValide: num(s.montantTotalValide),
-          cycleEnCours,
-        }
-      }),
-    )
-
-    const attendus = tontines.map((t) => t.cycleEnCours?.montantAttendu).filter((v): v is number => v != null)
-    return {
-      totalCollecteToursEnCours: tontines.reduce((s, t) => s + (t.cycleEnCours?.montantCollecte ?? 0), 0),
-      totalAttenduToursEnCours: attendus.length ? attendus.reduce((s, v) => s + v, 0) : null,
-      totalCotisationsEnAttente: tontines.reduce((s, t) => s + t.cotisationsEnAttente, 0),
-      totalCotisationsEnRetard: tontines.reduce((s, t) => s + t.cotisationsEnRetard, 0),
       tontines,
     }
   },
 
-  /**
-   * B06 — Paiements en attente de validation dans toutes mes tontines gérées (plus ancien d'abord).
-   * Cible backend : `GET /v1/me/gestion/cotisations?statut=EN_ATTENTE`.
-   * Contournement : seules les tontines signalées par le tableau de bord sont lues, et uniquement
-   * leur tour en cours (la clôture d'un tour fait passer ses paiements en attente « en retard »).
-   */
-  async listCotisationsAValider(tontineId?: string): Promise<CotisationAValider[]> {
-    const stats = (await getGestionStats())
-      .filter((s) => num(s.cotisationsEnAttente) > 0)
-      .filter((s) => !tontineId || (s.tontineId ?? s.id) === tontineId)
-
-    const parTontine = await Promise.all(
-      stats.map(async (s) => {
-        const id = s.tontineId ?? s.id
-        const cotisations = await getCotisations(id, s.cycleEnCours?.cycleId)
-        return cotisations
-          .filter((c) => c.statut === CotisationStatut.EN_ATTENTE)
-          .map((c): CotisationAValider => ({ ...c, tontineNom: s.nom }))
-      }),
-    )
-    return parTontine.flat().sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt))
+  /** B05 — résumé « Je gère » : `GET /v1/admin/my-dashboard` (toutes les pages). */
+  async getGestionSummary(): Promise<GestionSummary> {
+    const premiere = await dashboardService.getMyDashboard(0, PAGE)
+    const stats: TontineStats[] = [...premiere.tontines.content]
+    for (let page = 1; page < Math.min(premiere.tontines.totalPages, MAX_PAGES); page++) {
+      stats.push(...(await dashboardService.getMyDashboard(page, PAGE)).tontines.content)
+    }
+    const tontines: GestionTontineSummary[] = stats.map((s) => {
+      const c = s.cycleEnCours
+      return {
+        tontineId: s.tontineId ?? s.id,
+        nom: s.nom,
+        tontineType: s.tontineType as GestionTontineSummary['tontineType'],
+        montant: numOuNull(s.montant),
+        montantLibre: !!s.montantLibre,
+        cotisationsEnAttente: num(s.cotisationsEnAttente),
+        cotisationsEnRetard: num(s.cotisationsEnRetard),
+        demandesEnAttente: num(s.demandesEnAttente),
+        montantTotalValide: num(s.montantTotalValide),
+        gagnantsADesigner: !!s.gagnantsADesigner,
+        cycleEnCours: c ? {
+          cycleId: c.cycleId,
+          numeroCycle: c.numeroCycle,
+          dateFin: c.dateFin,
+          montantCollecte: num(c.montantCollecte),
+          montantEnAttente: num(c.montantEnAttente),
+          montantAttendu: numOuNull(c.montantAttendu),
+          membresAyantPaye: num(c.membresAyantPaye),
+          membresEnAttente: num(c.membresEnAttente),
+          membresActifs: num(c.membresActifs),
+        } : null,
+      }
+    })
+    return {
+      nombreTontinesGerees: num(premiere.nombreTontinesGerees),
+      totalCollecteToursEnCours: num(premiere.totalCollecteToursEnCours),
+      totalAttenduToursEnCours: premiere.totalAttenduToursEnCours,
+      totalCotisationsEnAttente: num(premiere.totalCotisationsEnAttente),
+      totalCotisationsEnRetard: num(premiere.totalCotisationsEnRetard),
+      totalDemandesEnAttente: num(premiere.totalDemandesEnAttente),
+      tontines,
+    }
   },
 
-  /**
-   * B07 — Paiements d'une tontine filtrés par statut.
-   * Cible backend : paramètre `statut` sur `GET /v1/tontines/{id}/cotisations`.
-   * Contournement : lecture complète (pages de 200) puis filtre local.
-   */
+  /** B06 — paiements à valider de mes tontines gérées, plus anciens d'abord. */
+  async listCotisationsAValider(tontineId?: string): Promise<CotisationAValider[]> {
+    const items = await collectAll(async (page) => {
+      const { data } = await api.get<CustomResponse<RawPage<CotisationAValider>>>('/v1/me/gestion/cotisations', {
+        params: { statut: ['EN_ATTENTE'], page, size: PAGE, sort: 'createdAt,asc', ...(tontineId ? { tontineId } : {}) },
+      })
+      return toPage(data.data)
+    })
+    return items.map((c) => ({ ...c, tontineNom: c.tontineNom ?? '' }))
+  },
+
+  /** B07 — paiements d'une tontine filtrés par statut (et recherche) côté serveur. */
   async listCotisationsParStatut(
     tontineId: string,
     statuts: CotisationStatut[],
-    opts: { cycleId?: string; membreId?: string } = {},
+    opts: { cycleId?: string; membreId?: string; q?: string } = {},
   ): Promise<Cotisation[]> {
-    const all = await getCotisations(tontineId, opts.cycleId, opts.membreId)
-    return statuts.length ? all.filter((c) => statuts.includes(c.statut)) : all
+    return collectAll((page) =>
+      cotisationService.listCotisations(tontineId, opts.cycleId, page, PAGE, opts.membreId, { statut: statuts, q: opts.q }),
+    )
   },
 
-  /**
-   * B09 — Fil d'activité (plus récent d'abord).
-   * Cible backend : `GET /v1/me/activite?mode=…`.
-   */
+  /** B09 — fil d'activité (tri imposé : plus récent d'abord). */
   async listActivite(
     mode: ModeAccueil,
-    mesTontines: MaTontine[],
-    opts: { tontineId?: string; limit?: number } = {},
+    /** `type` répétable (OU logique, filtré côté serveur) */
+    opts: { tontineId?: string; statut?: CotisationStatut; type?: ActiviteType | ActiviteType[]; limit?: number } = {},
   ): Promise<ActiviteItem[]> {
-    const limit = opts.limit ?? 50
-    const cible = mesTontines
-      .filter((t) => (mode === 'COTISE' ? jeCotise(t) && t.monMembreId : jeGere(t)))
-      .filter((t) => !opts.tontineId || t.id === opts.tontineId)
-
-    const items = await Promise.all(
-      cible.map(async (t): Promise<ActiviteItem[]> => {
-        const membreId = mode === 'COTISE' ? t.monMembreId ?? undefined : undefined
-        const [cotisations, beneficiaires] = await Promise.all([
-          getCotisationsRecentes(t.id, membreId),
-          mode === 'COTISE' ? getBeneficiaires(t.id) : Promise.resolve([]),
-        ])
-
-        const lignes: ActiviteItem[] = cotisations
-          .filter((c) => mode === 'GERE' || !jeGere(t) || c.membre?.membreId === t.monMembreId)
-          .map((c) => {
-            const encaissee = !!c.enregistrePar && c.enregistrePar.id !== c.membre?.userId
-            const type: ActiviteType =
-              c.statut === CotisationStatut.EN_RETARD ? 'COTISATION_EN_RETARD'
-              : c.statut === CotisationStatut.EN_ATTENTE ? 'COTISATION_DECLAREE'
-              : encaissee ? 'COTISATION_ENCAISSEE'
-              : 'COTISATION_VALIDEE'
-            return {
-              id: `cot-${c.id}`,
-              type,
-              date: c.dateValidation ?? c.createdAt,
-              montant: num(c.montant),
-              sens: 'EPARGNE',
-              statut: c.statut,
-              tontineId: t.id,
-              tontineNom: t.nom,
-              cycleId: c.cycleId,
-              cotisationId: c.id,
-              membreNom: nomComplet(c.membre) || null,
-            }
-          })
-
-        for (const b of beneficiaires) {
-          for (const g of b.gagnants ?? []) {
-            if (g.membreId !== t.monMembreId) continue
-            lignes.push({
-              id: `jack-${b.cycleId}-${g.membreId}`,
-              type: 'JACKPOT_RECU',
-              date: g.dateJackpot ?? b.dateRemise,
-              montant: num(g.montantRecu ?? b.montantParGagnant),
-              sens: 'GAIN',
-              statut: null,
-              tontineId: t.id,
-              tontineNom: t.nom,
-              cycleId: b.cycleId,
-              cotisationId: null,
-              membreNom: nomComplet(g) || null,
-            })
-          }
-        }
-        return lignes
-      }),
-    )
-
-    return items.flat().sort((a, b) => +new Date(b.date) - +new Date(a.date)).slice(0, limit)
+    const limite = opts.limit ?? 50
+    const items = await collectAll(async (page) => {
+      const { data } = await api.get<CustomResponse<RawPage<RawActivite>>>('/v1/me/activite', {
+        params: {
+          mode, page, size: Math.min(PAGE, limite),
+          ...(opts.tontineId ? { tontineId: opts.tontineId } : {}),
+          ...(opts.statut ? { statut: opts.statut } : {}),
+          ...(opts.type ? { type: opts.type } : {}),
+        },
+      })
+      return toPage(data.data)
+    }, limite)
+    return items.map((a) => ({
+      id: a.id,
+      type: a.type,
+      date: a.date,
+      montant: num(a.montant),
+      sens: a.sens,
+      statut: ouNull(a.statut),
+      tontineId: a.tontineId,
+      tontineNom: a.tontineNom ?? '',
+      cycleId: ouNull(a.cycleId),
+      numeroCycle: numOuNull(a.numeroCycle),
+      cotisationId: ouNull(a.cotisationId),
+      membreId: ouNull(a.membreId),
+      membreNom: ouNull(a.membreNom),
+      libelle: ouNull(a.libelle),
+    }))
   },
 
-  /**
-   * B10 — Mes jackpots reçus et à venir.
-   * Cible backend : `GET /v1/me/jackpots`.
-   * Estimation à venir : seulement pour une tontine rotative active, ordre « ROTATION », jackpot pas
-   * encore reçu ; date = fin du tour correspondant s'il est déjà planifié.
-   */
-  async getMesJackpots(mesTontines: MaTontine[]): Promise<MesJackpots> {
-    const tontines = mesTontines.filter((t) => jeCotise(t) && t.monMembreId)
-
-    const parTontine = await Promise.all(
-      tontines.map(async (t) => {
-        const beneficiaires = await getBeneficiaires(t.id)
-        const recus: JackpotRecu[] = beneficiaires.flatMap((b) =>
-          (b.gagnants ?? [])
-            .filter((g) => g.membreId === t.monMembreId)
-            .map((g) => ({
-              tontineId: t.id,
-              tontineNom: t.nom,
-              cycleId: b.cycleId,
-              numeroCycle: b.numeroCycle,
-              dateRemise: g.dateJackpot ?? b.dateRemise ?? null,
-              montantRecu: num(g.montantRecu ?? b.montantParGagnant),
-            })),
-        )
-
-        let aVenir: JackpotAVenir | null = null
-        const dejaRecu = t.aRecuJackpot || recus.length > 0
-        if (t.tontineType === TontineType.ROTATIVE && t.statut === TontineStatut.ACTIVE && !dejaRecu) {
-          const mode = modeAttribution(t.ordreBeneficiaire)
-          const gagnants = Math.max(1, t.nombreGagnants || 1)
-          const numeroCycleEstime =
-            mode === 'ORDRE' && t.monOrdreJackpot ? Math.ceil(t.monOrdreJackpot / gagnants) : null
-          let dateEstimee: string | null = null
-          if (numeroCycleEstime) {
-            const cycles = await getCycles(t.id)
-            dateEstimee = cycles.find((c) => c.numeroCycle === numeroCycleEstime)?.dateFin ?? null
-          }
-          aVenir = {
-            tontineId: t.id,
-            tontineNom: t.nom,
-            position: t.monOrdreJackpot,
-            numeroCycleEstime,
-            dateEstimee,
-            montantEstime: t.montant ? Math.round((t.montant * t.nombreMembres) / gagnants) : null,
-            modeAttribution: mode,
-          }
-        }
-        return { recus, aVenir }
-      }),
-    )
-
-    const recus = parTontine.flatMap((p) => p.recus)
-      .sort((a, b) => +new Date(b.dateRemise ?? 0) - +new Date(a.dateRemise ?? 0))
-    const aVenir = parTontine.map((p) => p.aVenir).filter((v): v is JackpotAVenir => v !== null)
-      .sort((a, b) => (a.dateEstimee ? +new Date(a.dateEstimee) : Infinity) - (b.dateEstimee ? +new Date(b.dateEstimee) : Infinity))
-
-    return { totalRecu: recus.reduce((s, r) => s + r.montantRecu, 0), recus, aVenir }
+  /** B10 — mes jackpots reçus et à venir (tontines rotatives uniquement). */
+  async getMesJackpots(): Promise<MesJackpots> {
+    const { data } = await api.get<CustomResponse<RawJackpots>>('/v1/me/jackpots')
+    const raw = data.data ?? {}
+    return {
+      totalRecu: num(raw.totalRecu),
+      // Déjà triés par date de remise, la plus récente d'abord
+      recus: (raw.recus ?? []).map((r) => ({
+        ...r,
+        nature: r.nature ?? 'JACKPOT',
+        cycleId: ouNull(r.cycleId),
+        numeroCycle: numOuNull(r.numeroCycle),
+        montantRecu: num(r.montantRecu),
+        dateRemise: ouNull(r.dateRemise),
+      })),
+      aVenir: (raw.aVenir ?? []).map((v): JackpotAVenir => ({
+        tontineId: v.tontineId,
+        tontineNom: v.tontineNom,
+        monMembreId: ouNull(v.monMembreId),
+        modeAttribution: v.modeAttribution,
+        position: numOuNull(v.position),
+        numeroCycleEstime: numOuNull(v.numeroCycleEstime),
+        dateEstimee: ouNull(v.dateEstimee),
+        montantEstime: numOuNull(v.montantEstime),
+      })),
+    }
   },
 }

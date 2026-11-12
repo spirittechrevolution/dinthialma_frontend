@@ -1,110 +1,149 @@
 /**
- * /q/m/:phone — QR membre scanné (Scanner ou appareil photo du téléphone).
- * Gestionnaire : la personne est dans une de ses tontines → Encaisser (préremplie) ;
- * sinon → Ajouter un membre (numéro prérempli). Aucune action sans confirmation.
+ * /q/:token — QR membre scanné (Scanner ou appareil photo du téléphone).
+ * Résolution par le backend : `GET /v1/qr/{token}` → identité (sans téléphone) + mes tontines
+ * gérées où la personne est inscrite. Un QR de type TONTINE renvoie vers l'invitation.
+ * Ajout direct à une de mes tontines gérées : `POST /v1/tontines/{id}/membres { qrToken }`
+ * (le numéro n'est jamais exposé au scan).
+ * Aucune action sans confirmation : l'écran Encaisser demande toujours de valider.
  */
 import { useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { toast } from 'sonner'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronRight, UserPlus, CreditCard, RotateCw, QrCode } from 'lucide-react'
+import { ChevronRight, CreditCard, RotateCw, QrCode, UserPlus, CheckCircle2 } from 'lucide-react'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { useAddMembre } from '@/hooks/useMembres'
+import { TontineStatut } from '@/types/common'
 import { ScreenHeader } from '@/components/layout/ScreenHeader'
 import { InitialsAvatar } from '@/components/ui/Section'
-import { AddMembreModal } from '@/components/shared/AddMembreModal'
 import { useMesTontines } from '@/hooks/useMe'
-import { meService } from '@/services/meService'
-import { userService } from '@/services/userService'
-import { formatPhoneLocal, toLocalPhone } from '@/lib/phone'
-import { jeGere } from '@/types/me'
+import { qrService } from '@/services/qrService'
+import { parseApiError, messageErreur } from '@/lib/apiError'
+import { jeGere, type MaTontine } from '@/types/me'
 
 export function MembreQrPage() {
-  const { phone = '' } = useParams()
+  const { token = '' } = useParams()
   const navigate = useNavigate()
-  const local = toLocalPhone(phone)
-  const e164 = `+221${local}`
   const mes = useMesTontines()
   const gerees = (mes.data ?? []).filter(jeGere)
-  const [ajoutTontine, setAjoutTontine] = useState<string | null>(null)
-
-  const personne = useQuery({
-    queryKey: ['qr-membre', 'user', local],
-    queryFn: () => userService.searchByPhone(e164),
-    enabled: local.length === 9,
+  const resolution = useQuery({
+    queryKey: ['qr', token],
+    queryFn: () => qrService.resoudre(token),
+    enabled: !!token,
     retry: false,
-    staleTime: 60_000,
   })
-  const correspondances = useQuery({
-    queryKey: ['me', 'qr-membre', local],
-    queryFn: () => meService.trouverMembreDansMesTontines(local, mes.data ?? []),
-    enabled: local.length === 9 && !!mes.data,
-    staleTime: 60_000,
-  })
+  const [cible, setCible] = useState<MaTontine | null>(null)
+  const { mutate: ajouter, isPending: ajoutEnCours } = useAddMembre()
 
-  if (local.length !== 9) {
-    return <Shell><Message titre="QR illisible" texte="Ce QR membre ne contient pas de numéro valide." /></Shell>
+  const confirmerAjout = () => {
+    if (!cible) return
+    const tontine = cible
+    ajouter(
+      { tontineId: tontine.id, request: { qrToken: token } },
+      {
+        onSuccess: (membre) => {
+          toast.success(`Ajouté à ${tontine.nom}`)
+          setCible(null)
+          navigate(`/tontine/${tontine.id}/membres/${membre.id}`)
+        },
+        onError: (err) => {
+          const { code } = parseApiError(err)
+          toast.error(
+            code === 'NOT_FOUND' ? "Ce QR n'est plus valide. Demandez-lui de vous montrer son QR actuel."
+              : code === 'FORBIDDEN' ? 'Action réservée au gestionnaire.'
+              : messageErreur(err, "L'ajout a échoué. Réessayez."),
+          )
+          setCible(null)
+          if (code === 'MEMBER_ALREADY_IN_TONTINE') resolution.refetch()
+        },
+      },
+    )
   }
 
-  const loading = mes.isLoading || correspondances.isLoading || personne.isLoading
-  if (loading) {
+  // On attend aussi mes tontines : elles décident entre « Encaisser » direct et « Ajouter à… »
+  if (resolution.isLoading || mes.isLoading) {
     return <Shell><div className="space-y-3" aria-busy="true"><div className="h-24 rounded-3xl bg-white animate-pulse" /><div className="h-40 rounded-3xl bg-white animate-pulse" /></div></Shell>
   }
-  if (mes.isError || correspondances.isError) {
+  if (resolution.isError) {
+    const { code } = parseApiError(resolution.error)
     return (
       <Shell>
-        <Message titre="Impossible de vérifier ce QR" texte="Vérifiez votre connexion puis réessayez.">
-          <button onClick={() => { mes.refetch(); correspondances.refetch() }} className="h-12 px-5 rounded-full bg-neutral-100 font-semibold inline-flex items-center gap-2"><RotateCw size={16} /> Réessayer</button>
+        <Message
+          titre={code === 'NOT_FOUND' ? 'QR inconnu ou remplacé' : 'Impossible de lire ce QR'}
+          texte={code === 'NOT_FOUND' ? 'Ce QR a peut-être été régénéré par son propriétaire. Demandez-lui de l’afficher à nouveau.' : 'Vérifiez votre connexion puis réessayez.'}
+        >
+          {code !== 'NOT_FOUND' && (
+            <button onClick={() => resolution.refetch()} className="h-12 px-5 rounded-full bg-neutral-100 font-semibold inline-flex items-center gap-2"><RotateCw size={16} /> Réessayer</button>
+          )}
         </Message>
       </Shell>
     )
   }
 
-  const trouvees = correspondances.data ?? []
-  const nom = personne.data ? `${personne.data.firstName} ${personne.data.lastName}`.trim() : ''
-  const affichage = nom || formatPhoneLocal(local)
+  const r = resolution.data!
+  if (r.type === 'TONTINE' && r.invitationCode) return <Navigate to={`/q/t/${r.invitationCode}`} replace />
 
-  // Une seule tontine : l'écran Encaisser (qui demande confirmation) s'ouvre directement
-  if (trouvees.length === 1) {
-    return <Navigate to={`/encaisser/${trouvees[0].tontine.id}?membre=${trouvees[0].membre.id}`} replace />
+  const nom = r.user ? `${r.user.firstName} ${r.user.lastName}`.trim() : 'Membre'
+  const dejaDedans = new Set(r.dansMesTontines.map((m) => m.tontineId))
+  const ajoutables = gerees.filter((t) => !dejaDedans.has(t.id) && t.statut !== TontineStatut.TERMINEE)
+  const aEncaisser = r.dansMesTontines.filter((m) => m.statutMembre === 'ACTIF' && m.cycleEnCoursId && !m.aPayeCycleEnCours)
+
+  // Une seule tontine où encaisser : l'écran Encaisser (qui demande confirmation) s'ouvre directement
+  if (aEncaisser.length === 1 && r.dansMesTontines.length === 1 && ajoutables.length === 0) {
+    return <Navigate to={`/encaisser/${aEncaisser[0].tontineId}?membre=${aEncaisser[0].membreId}`} replace />
   }
 
   return (
     <Shell>
       <section className="bg-white rounded-3xl shadow-sm p-5 flex items-center gap-3">
-        <InitialsAvatar name={affichage} size={52} />
+        <InitialsAvatar name={nom} size={52} />
         <div className="min-w-0">
-          <p className="font-bold text-neutral-900 truncate">{affichage}</p>
-          <p className="text-sm text-neutral-500">{formatPhoneLocal(local)}</p>
+          <p className="font-bold text-neutral-900 truncate">{nom}</p>
+          {r.user?.accountStatus === 'PRE_ENROLLED' && <p className="text-sm text-neutral-500">Compte pas encore activé</p>}
         </div>
       </section>
 
-      {gerees.length === 0 ? (
-        <div className="mt-4">
-          <Message titre="QR membre" texte="Seul un gestionnaire peut encaisser un paiement ou ajouter cette personne à une tontine.">
-            <button onClick={() => navigate('/accueil')} className="h-12 px-5 rounded-full bg-primary-700 text-white font-bold">Retour à l'accueil</button>
-          </Message>
-        </div>
-      ) : trouvees.length > 1 ? (
+      {r.dansMesTontines.length > 0 ? (
         <section className="mt-4">
-          <h2 className="px-1 text-sm font-semibold text-neutral-600">Encaisser dans quelle tontine ?</h2>
+          <h2 className="px-1 text-sm font-semibold text-neutral-600">Dans vos tontines</h2>
           <ul className="mt-2 bg-white rounded-3xl shadow-sm divide-y divide-neutral-100">
-            {trouvees.map(({ tontine, membre }) => (
-              <li key={tontine.id}>
-                <Link to={`/encaisser/${tontine.id}?membre=${membre.id}`} className="flex items-center gap-3 px-4 py-3 min-h-[64px]">
-                  <CreditCard size={20} className="text-primary-700" />
-                  <span className="flex-1 font-semibold text-neutral-900 truncate">{tontine.nom}</span>
-                  <ChevronRight size={18} className="text-neutral-300" />
-                </Link>
-              </li>
-            ))}
+            {r.dansMesTontines.map((m) => {
+              const peutEncaisser = m.statutMembre === 'ACTIF' && !!m.cycleEnCoursId && !m.aPayeCycleEnCours
+              const contenu = (
+                <>
+                  {peutEncaisser ? <CreditCard size={20} className="text-primary-700" /> : <CheckCircle2 size={20} className="text-neutral-400" />}
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-semibold text-neutral-900 truncate">{m.tontineNom}</span>
+                    <span className="block text-sm text-neutral-500">
+                      {m.statutMembre !== 'ACTIF' ? (m.statutMembre === 'SUSPENDU' ? 'Suspendu' : 'Sorti')
+                        : !m.cycleEnCoursId ? 'Aucun tour en cours'
+                        : m.aPayeCycleEnCours ? 'A déjà payé ce tour' : 'Encaisser son paiement'}
+                    </span>
+                  </span>
+                  {peutEncaisser && <ChevronRight size={18} className="text-neutral-300" />}
+                </>
+              )
+              return (
+                <li key={m.tontineId}>
+                  {peutEncaisser ? (
+                    <Link to={`/encaisser/${m.tontineId}?membre=${m.membreId}`} className="flex items-center gap-3 px-4 py-3 min-h-[64px]">{contenu}</Link>
+                  ) : (
+                    <Link to={`/tontine/${m.tontineId}/membres/${m.membreId}`} className="flex items-center gap-3 px-4 py-3 min-h-[64px]">{contenu}</Link>
+                  )}
+                </li>
+              )
+            })}
           </ul>
         </section>
-      ) : (
+      ) : null}
+
+      {ajoutables.length > 0 ? (
         <section className="mt-4">
-          <p className="px-1 text-sm text-neutral-600">{affichage} n'est dans aucune de vos tontines.</p>
-          <h2 className="mt-3 px-1 text-sm font-semibold text-neutral-600">L'ajouter à :</h2>
+          <h2 className="px-1 text-sm font-semibold text-neutral-600">Ajouter à une de vos tontines</h2>
           <ul className="mt-2 bg-white rounded-3xl shadow-sm divide-y divide-neutral-100">
-            {gerees.map((t) => (
+            {ajoutables.map((t) => (
               <li key={t.id}>
-                <button onClick={() => setAjoutTontine(t.id)} className="w-full flex items-center gap-3 px-4 py-3 min-h-[64px] text-left">
+                <button onClick={() => setCible(t)} className="w-full text-left flex items-center gap-3 px-4 py-3 min-h-[64px]">
                   <UserPlus size={20} className="text-primary-700" />
                   <span className="flex-1 font-semibold text-neutral-900 truncate">{t.nom}</span>
                   <ChevronRight size={18} className="text-neutral-300" />
@@ -113,17 +152,23 @@ export function MembreQrPage() {
             ))}
           </ul>
         </section>
+      ) : r.dansMesTontines.length === 0 && (
+        <div className="mt-4">
+          <Message titre="QR membre" texte={gerees.length === 0 ? 'Seul un gestionnaire peut ajouter cette personne ou encaisser son paiement.' : 'Aucune de vos tontines ne peut accueillir de nouveau membre.'}>
+            <button onClick={() => navigate('/accueil')} className="h-12 px-5 rounded-full bg-primary-700 text-white font-bold">Retour à l'accueil</button>
+          </Message>
+        </div>
       )}
 
-      {ajoutTontine && (
-        <AddMembreModal
-          key={ajoutTontine}
-          tontineId={ajoutTontine}
-          isOpen
-          initialPhone={e164}
-          onClose={() => setAjoutTontine(null)}
-        />
-      )}
+      <ConfirmDialog
+        isOpen={!!cible}
+        onClose={() => setCible(null)}
+        onConfirm={confirmerAjout}
+        title="Ajouter ce membre ?"
+        message={cible ? `${nom} sera ajouté(e) à « ${cible.nom} » et recevra une notification.` : ''}
+        confirmText="Ajouter"
+        isLoading={ajoutEnCours}
+      />
     </Shell>
   )
 }

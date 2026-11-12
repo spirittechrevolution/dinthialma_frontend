@@ -5,6 +5,7 @@ import { ArrowRight, KeyRound, ShieldCheck } from 'lucide-react'
 import { PinScreen, PIN_LENGTH } from '@/components/auth/PinPad'
 import { useAuth } from '@/hooks/useAuth'
 import { getHomePath } from '@/lib/homePath'
+import { consommerRetour } from '@/lib/retour'
 
 type SetupStep = 'create' | 'confirm'
 
@@ -20,7 +21,7 @@ export function PinSetupPage() {
 
   const redirectAfterLogin = () => {
     if (!user) { navigate('/login', { replace: true }); return }
-    navigate(getHomePath(user.roles), { replace: true })
+    navigate(consommerRetour() ?? getHomePath(user.roles), { replace: true })
   }
 
   const handleKey = async (key: string) => {

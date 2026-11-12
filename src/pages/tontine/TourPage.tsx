@@ -9,7 +9,7 @@ import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { clsx } from 'clsx'
-import { Trophy, Clock, CheckCircle2, AlertTriangle, Shuffle, RotateCw, PartyPopper } from 'lucide-react'
+import { Trophy, Clock, CheckCircle2, AlertTriangle, XCircle, Shuffle, RotateCw, PartyPopper } from 'lucide-react'
 import { ScreenHeader } from '@/components/layout/ScreenHeader'
 import { InitialsAvatar } from '@/components/ui/Section'
 import { Modal } from '@/components/ui/Modal'
@@ -20,7 +20,7 @@ import { useMembres } from '@/hooks/useMembres'
 import { useOnline } from '@/hooks/useOnline'
 import { formatF, formatDateCourte } from '@/lib/format'
 import { TOUR_STATUT } from '@/lib/tontineLabels'
-import { parseApiError } from '@/lib/apiError'
+import { messageErreur } from '@/lib/apiError'
 import { AccountStatus, CotisationStatut, CycleStatut, MembreStatut } from '@/types/common'
 import { TontineType } from '@/types/tontine'
 import type { Cycle } from '@/types/cycle'
@@ -29,6 +29,7 @@ const STATUT_PILL: Record<CotisationStatut, { label: string; cls: string; icon: 
   EN_ATTENTE: { label: 'À valider', cls: 'bg-amber-50 text-amber-800', icon: <Clock size={13} /> },
   VALIDE: { label: 'Payé', cls: 'bg-primary-50 text-primary-800', icon: <CheckCircle2 size={13} /> },
   EN_RETARD: { label: 'En retard', cls: 'bg-red-50 text-red-700', icon: <AlertTriangle size={13} /> },
+  REFUSE: { label: 'Refusé', cls: 'bg-red-50 text-red-700', icon: <XCircle size={13} /> },
 }
 
 export function TourPage() {
@@ -53,8 +54,10 @@ export function TourPage() {
   const isEvent = t?.tontineType === TontineType.EVENEMENTIELLE
   const mot = isEvent ? 'Période' : 'Tour'
   const lignes = (recap.data?.content ?? []).filter((l) => l.statutMembre !== MembreStatut.SORTI)
-  const nonPayes = lignes.filter((l) => !l.cotisationId && l.statutMembre === MembreStatut.ACTIF)
-  const payes = lignes.filter((l) => l.cotisationId)
+  const actif = (l: (typeof lignes)[number]) => (l.statutCotisation === CotisationStatut.EN_ATTENTE || l.statutCotisation === CotisationStatut.VALIDE)
+  const nonPayes = lignes.filter((l) => !actif(l) && l.statutMembre === MembreStatut.ACTIF)
+  const payes = lignes.filter(actif)
+  const enAttente = lignes.filter((l) => l.statutCotisation === CotisationStatut.EN_ATTENTE).length
   const valides = lignes.filter((l) => l.statutCotisation === CotisationStatut.VALIDE)
   const collecte = valides.reduce((s, l) => s + (l.montant ?? 0), 0)
   const actifs = lignes.filter((l) => l.statutMembre === MembreStatut.ACTIF).length
@@ -100,14 +103,14 @@ export function TourPage() {
     { tontineId: id, cycleId },
     {
       onSuccess: (c) => { setConfirmCloture(false); setResultat(c) },
-      onError: (err) => toast.error(parseApiError(err).serverMessage || 'La clôture a échoué. Réessayez.'),
+      onError: (err) => toast.error(messageErreur(err, 'La clôture a échoué. Réessayez.')),
     },
   )
   const onDesigner = (membreIds: string[]) => designer(
     { tontineId: id, cycleId, request: { membreIds } },
     {
       onSuccess: (c) => { setDesignerOpen(false); setTirageOpen(false); setChoix([]); setResultat(c) },
-      onError: (err) => toast.error(parseApiError(err).serverMessage || 'La désignation a échoué.'),
+      onError: (err) => toast.error(messageErreur(err, 'La désignation a échoué.')),
     },
   )
 
@@ -133,6 +136,7 @@ export function TourPage() {
                 <p className="text-sm text-neutral-500">Ont payé</p>
                 <p className="text-2xl font-extrabold tabular-nums text-neutral-900">{formatF(collecte)}</p>
                 {attendu ? <p className="text-sm text-neutral-500">sur {formatF(attendu)} prévus</p> : null}
+                {enAttente > 0 && <p className="text-sm font-medium text-amber-800">+ {enAttente} en attente de validation</p>}
               </div>
             </div>
           ) : (

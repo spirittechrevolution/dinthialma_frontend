@@ -7,7 +7,7 @@ import { useQuery } from '@tanstack/react-query'
 import { meService } from '@/services/meService'
 import { jeCotise, jeGere } from '@/types/me'
 import type { CotisationStatut } from '@/types/common'
-import type { MaTontine, ModeAccueil } from '@/types/me'
+import type { MaTontine, ModeAccueil, ActiviteType } from '@/types/me'
 
 const STALE_MS = 60_000
 
@@ -46,11 +46,10 @@ export function useMesRoles() {
 
 /** B04 — résumé « Je cotise » */
 export function useCotisantSummary(enabled = true) {
-  const { data: tontines } = useMesTontines()
   return useQuery({
     queryKey: ['me', 'cotisant'],
-    queryFn: () => meService.getCotisantSummary(tontines ?? []),
-    enabled: enabled && !!tontines,
+    queryFn: () => meService.getCotisantSummary(),
+    enabled,
     staleTime: STALE_MS,
   })
 }
@@ -79,10 +78,10 @@ export function useCotisationsAValider(tontineId?: string, enabled = true) {
 export function useCotisationsParStatut(
   tontineId: string,
   statuts: CotisationStatut[],
-  opts: { cycleId?: string; membreId?: string } = {},
+  opts: { cycleId?: string; membreId?: string; q?: string } = {},
 ) {
   return useQuery({
-    queryKey: ['me', 'cotisations-statut', tontineId, [...statuts].sort().join(','), opts.cycleId, opts.membreId],
+    queryKey: ['me', 'cotisations-statut', tontineId, [...statuts].sort().join(','), opts.cycleId, opts.membreId, opts.q],
     queryFn: () => meService.listCotisationsParStatut(tontineId, statuts, opts),
     enabled: !!tontineId,
     staleTime: STALE_MS,
@@ -90,23 +89,24 @@ export function useCotisationsParStatut(
 }
 
 /** B09 — fil d'activité */
-export function useActivite(mode: ModeAccueil, opts: { tontineId?: string; limit?: number } = {}) {
-  const { data: tontines } = useMesTontines()
+export function useActivite(
+  mode: ModeAccueil,
+  opts: { tontineId?: string; statut?: CotisationStatut; type?: ActiviteType | ActiviteType[]; limit?: number } = {},
+  enabled = true,
+) {
   return useQuery({
-    queryKey: ['me', 'activite', mode, opts.tontineId ?? 'toutes', opts.limit ?? 50],
-    queryFn: () => meService.listActivite(mode, tontines ?? [], opts),
-    enabled: !!tontines,
+    queryKey: ['me', 'activite', mode, opts.tontineId ?? 'toutes', opts.statut ?? 'tous', [opts.type ?? 'tous'].flat().join(','), opts.limit ?? 50],
+    queryFn: () => meService.listActivite(mode, opts),
+    enabled,
     staleTime: STALE_MS,
   })
 }
 
 /** B10 — mes jackpots reçus et à venir */
 export function useMesJackpots() {
-  const { data: tontines } = useMesTontines()
   return useQuery({
     queryKey: ['me', 'jackpots'],
-    queryFn: () => meService.getMesJackpots(tontines ?? []),
-    enabled: !!tontines,
+    queryFn: () => meService.getMesJackpots(),
     staleTime: STALE_MS,
   })
 }

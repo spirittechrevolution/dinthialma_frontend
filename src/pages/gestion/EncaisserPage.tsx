@@ -12,13 +12,14 @@ import { ChevronDown, ChevronRight, Search, PartyPopper, CalendarX, RotateCw, Pe
 import { ScreenHeader } from '@/components/layout/ScreenHeader'
 import { InitialsAvatar } from '@/components/ui/Section'
 import { PaymentMethodTiles } from '@/components/pay/PaymentMethodTiles'
+import { METHODE_PAR_DEFAUT } from '@/lib/paymentMethods'
 import { AmountPad, BigAmount } from '@/components/pay/AmountPad'
 import { useGestionSummary } from '@/hooks/useMe'
 import { useTontine } from '@/hooks/useTontines'
 import { useRecapCycle, useAdminRecordCotisation } from '@/hooks/useCotisations'
 import { useOnline } from '@/hooks/useOnline'
 import { formatF } from '@/lib/format'
-import { parseApiError } from '@/lib/apiError'
+import { messageErreur } from '@/lib/apiError'
 import { AccountStatus, CotisationStatut, MembreStatut } from '@/types/common'
 import type { CycleRecapLigne } from '@/types/cotisation'
 
@@ -33,8 +34,8 @@ function ChoisirTontine() {
   const { data, isLoading, isError, refetch } = useGestionSummary()
   const avecTour = (data?.tontines ?? []).filter((t) => t.cycleEnCours)
     .sort((a, b) => {
-      const ma = a.cycleEnCours!.membresActifs - a.cycleEnCours!.membresAyantDeclare
-      const mb = b.cycleEnCours!.membresActifs - b.cycleEnCours!.membresAyantDeclare
+      const ma = a.cycleEnCours!.membresActifs - a.cycleEnCours!.membresAyantPaye - a.cycleEnCours!.membresEnAttente
+      const mb = b.cycleEnCours!.membresActifs - b.cycleEnCours!.membresAyantPaye - b.cycleEnCours!.membresEnAttente
       return mb - ma
     })
 
@@ -52,7 +53,7 @@ function ChoisirTontine() {
           <ul className="mt-2 bg-white rounded-3xl shadow-sm divide-y divide-neutral-100">
             {avecTour.map((t) => {
               const c = t.cycleEnCours!
-              const manquants = c.membresActifs - c.membresAyantDeclare
+              const manquants = c.membresActifs - c.membresAyantPaye - c.membresEnAttente
               return (
                 <li key={t.tontineId}>
                   <Link to={`/encaisser/${t.tontineId}`} className="flex items-center gap-3 px-4 py-3 min-h-[64px]">
@@ -104,7 +105,8 @@ function EncaisserTontine({ tontineId }: { tontineId: string }) {
   const lignes = (recap.data?.content ?? []).filter((l) => l.statutMembre === MembreStatut.ACTIF)
   const membre = membreId ? lignes.find((l) => l.membreId === membreId) : undefined
 
-  if (membreId && membre && !membre.cotisationId) {
+  const actif = (l: CycleRecapLigne) => (l.statutCotisation === CotisationStatut.EN_ATTENTE || l.statutCotisation === CotisationStatut.VALIDE)
+  if (membreId && membre && !actif(membre)) {
     return (
       <Montant
         tontineId={tontineId}
@@ -142,9 +144,10 @@ function DeQui({ tontineId, titre, numeroCycle, lignes, onChoisir }: {
     const s = q.trim().toLowerCase()
     return !s || `${l.firstName} ${l.lastName}`.toLowerCase().includes(s) || (l.phone ?? '').includes(s.replace(/\s/g, ''))
   }
-  const nonPayes = lignes.filter((l) => !l.cotisationId && filtre(l))
-  const payes = lignes.filter((l) => l.cotisationId && filtre(l))
-  const toutPaye = lignes.length > 0 && lignes.every((l) => l.cotisationId)
+  const actif = (l: CycleRecapLigne) => (l.statutCotisation === CotisationStatut.EN_ATTENTE || l.statutCotisation === CotisationStatut.VALIDE)
+  const nonPayes = lignes.filter((l) => !actif(l) && filtre(l))
+  const payes = lignes.filter((l) => actif(l) && filtre(l))
+  const toutPaye = lignes.length > 0 && lignes.every(actif)
 
   return (
     <Shell title={`Encaisser · ${titre}`}>
@@ -238,7 +241,7 @@ function Montant({ tontineId, tontineNom, cycleId, numeroCycle, montantDefaut, m
   const { mutate: encaisser, isPending } = useAdminRecordCotisation()
   const [montant, setMontant] = useState(montantDefaut)
   const [editMontant, setEditMontant] = useState(montantDefaut === 0)
-  const [methode, setMethode] = useState('CASH')
+  const [methode, setMethode] = useState(METHODE_PAR_DEFAUT)
   const [plusOpen, setPlusOpen] = useState(false)
   const [reference, setReference] = useState('')
   const [note, setNote] = useState('')
@@ -263,12 +266,7 @@ function Montant({ tontineId, tontineNom, cycleId, numeroCycle, montantDefaut, m
       {
         onSuccess: (cot) => navigate(`/recu/${tontineId}/${cot.id}`, { replace: true, state: { justCreated: true } }),
         onError: (err) => {
-          const { code, serverMessage } = parseApiError(err, 'cotisation')
-          setError(
-            code === 'COTISATION_ALREADY_EXISTS' ? `${membre.firstName} a déjà un paiement sur ce tour.`
-            : code === 'NETWORK_ERROR' ? 'Pas de connexion. Réessayez quand le réseau revient.'
-            : serverMessage || "L'encaissement n'a pas pu être enregistré. Réessayez.",
-          )
+          setError(messageErreur(err, "L'encaissement n'a pas pu être enregistré. Réessayez."))
         },
       },
     )

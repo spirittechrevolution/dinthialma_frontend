@@ -1,17 +1,16 @@
 /**
  * A5 — Scanner : lit un QR Dinthialma et ouvre l'écran correspondant.
- * - QR membre (/q/m/…)  → résolution (Encaisser ou Ajouter un membre)
+ * - QR membre (/q/{token}) → résolution par le backend (Encaisser…)
  * - QR tontine (/q/t/…) → page d'invitation (ou fiche si déjà membre)
  * Un scan ne déclenche jamais rien seul : il ouvre toujours un écran avec confirmation.
  *
- * Détection : BarcodeDetector (Chrome Android) sinon jsQR (Safari iOS…). Repli : saisie du numéro.
+ * Détection : BarcodeDetector (Chrome Android) sinon jsQR (Safari iOS…). Repli : chercher le membre.
  */
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import jsQR from 'jsqr'
-import { X, Flashlight, Keyboard, CameraOff } from 'lucide-react'
+import { X, Flashlight, Search, CameraOff } from 'lucide-react'
 import { cheminQrDinthialma } from '@/lib/share'
-import { toLocalPhone } from '@/lib/phone'
 
 type Etat = 'demarrage' | 'actif' | 'refuse' | 'indisponible'
 
@@ -32,8 +31,6 @@ export function ScannerPage() {
   const [etat, setEtat] = useState<Etat>('demarrage')
   const [message, setMessage] = useState<string | null>(null)
   const [torche, setTorche] = useState<boolean | null>(null) // null = non disponible
-  const [saisie, setSaisie] = useState(false)
-  const [numero, setNumero] = useState('')
 
   useEffect(() => {
     let stop = false
@@ -121,12 +118,6 @@ export function ScannerPage() {
     }
   }
 
-  const validerNumero = () => {
-    const local = toLocalPhone(numero)
-    if (local.length !== 9) { setMessage('Numéro à 9 chiffres (ex. : 77 123 45 67)'); return }
-    navigate(`/q/m/221${local}`, { replace: true })
-  }
-
   return (
     <div className="fixed inset-0 bg-black text-white flex flex-col">
       <video ref={videoRef} playsInline muted className="absolute inset-0 w-full h-full object-cover" aria-hidden="true" />
@@ -149,7 +140,7 @@ export function ScannerPage() {
             <span className="mx-auto w-16 h-16 rounded-full bg-white/10 flex items-center justify-center"><CameraOff size={30} /></span>
             <p className="mt-4 text-lg font-bold">{etat === 'refuse' ? 'Accès à la caméra refusé' : 'Caméra indisponible'}</p>
             <p className="mt-1 text-sm text-white/70">
-              {etat === 'refuse' ? 'Autorisez la caméra dans les réglages du navigateur, ou saisissez le numéro.' : 'Saisissez le numéro du membre.'}
+              {etat === 'refuse' ? 'Autorisez la caméra dans les réglages du navigateur, ou cherchez le membre par son nom.' : 'Cherchez le membre par son nom ou son numéro.'}
             </p>
           </div>
         ) : (
@@ -164,29 +155,11 @@ export function ScannerPage() {
       </main>
 
       <footer className="relative z-10 px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-        {saisie || etat === 'refuse' || etat === 'indisponible' ? (
-          <div className="max-w-sm mx-auto bg-white rounded-3xl p-4 text-neutral-900">
-            <label className="block text-sm font-semibold text-neutral-700">Numéro du membre</label>
-            <div className="mt-2 flex gap-2">
-              <span className="h-12 px-3 rounded-2xl bg-neutral-100 flex items-center font-semibold">+221</span>
-              <input
-                value={numero}
-                onChange={(e) => { setNumero(e.target.value.replace(/[^\d ]/g, '')); setMessage(null) }}
-                inputMode="tel"
-                autoFocus
-                placeholder="77 123 45 67"
-                className="flex-1 h-12 px-4 rounded-2xl bg-neutral-100 text-[16px] outline-none focus:ring-2 focus:ring-primary-600"
-              />
-            </div>
-            <button onClick={validerNumero} className="mt-3 w-full h-12 rounded-full bg-primary-700 text-white font-bold">Continuer</button>
-          </div>
-        ) : (
-          <div className="flex justify-center">
-            <button onClick={() => setSaisie(true)} className="h-12 px-5 rounded-full bg-white/15 backdrop-blur font-semibold inline-flex items-center gap-2">
-              <Keyboard size={18} /> Saisir un numéro
-            </button>
-          </div>
-        )}
+        <div className="flex justify-center">
+          <button onClick={() => navigate('/encaisser', { replace: true })} className="h-12 px-5 rounded-full bg-white/15 backdrop-blur font-semibold inline-flex items-center gap-2">
+            <Search size={18} /> Chercher un membre
+          </button>
+        </div>
       </footer>
     </div>
   )
