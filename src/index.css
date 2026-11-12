@@ -87,8 +87,20 @@ body {
 }
 .animate-pop { animation: pop 0.4s ease-out both; }
 
+/* Étapes (connexion…) : l'étape suivante arrive de la droite, la précédente de la gauche */
+@keyframes stepIn {
+  from { transform: translateX(32px); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+@keyframes stepBack {
+  from { transform: translateX(-32px); opacity: 0; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+.animate-stepIn   { animation: stepIn 0.28s cubic-bezier(.2, .8, .2, 1) both; }
+.animate-stepBack { animation: stepBack 0.28s cubic-bezier(.2, .8, .2, 1) both; }
+
 @media (prefers-reduced-motion: reduce) {
-  .animate-pop, .animate-shake, .animate-slideUp, .animate-slideDown { animation: none; }
+  .animate-pop, .animate-shake, .animate-slideUp, .animate-slideDown, .animate-stepIn, .animate-stepBack { animation: none; }
 }
 
 /* Barre de réglage du rythme (RythmeSlider) : piste remplie jusqu'au curseur (--pct), curseur rond 28 px */
