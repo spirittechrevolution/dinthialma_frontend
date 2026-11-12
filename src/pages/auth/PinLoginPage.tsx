@@ -7,6 +7,7 @@ import { getUserPhone, clearAll, getRefreshToken, getClientType } from '@/lib/to
 import { PinScreen, PIN_LENGTH } from '@/components/auth/PinPad'
 import { UserRole } from '@/types/common'
 import { getHomePath } from '@/lib/homePath'
+import { consommerRetour } from '@/lib/retour'
 import { parseApiError, messageErreur } from '@/lib/apiError'
 import api from '@/services/api'
 
@@ -28,7 +29,7 @@ export function PinLoginPage() {
   }, [phone])
 
   const redirectAfterLogin = (roles: UserRole[]) => {
-    navigate(getHomePath(roles), { replace: true })
+    navigate(consommerRetour() ?? getHomePath(roles), { replace: true })
   }
 
   const handleKey = async (key: string) => {

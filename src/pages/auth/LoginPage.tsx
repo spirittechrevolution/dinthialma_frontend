@@ -5,6 +5,7 @@ import { Phone, Lock, AlertCircle, ArrowRight, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { UserRole } from '@/types/common'
 import { getHomePath } from '@/lib/homePath'
+import { consommerRetour } from '@/lib/retour'
 import { parseApiError, messageErreur } from '@/lib/apiError'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -40,7 +41,7 @@ export function LoginPage() {
       navigate('/pin/setup', { replace: true })
       return
     }
-    navigate(getHomePath(roles), { replace: true })
+    navigate(consommerRetour() ?? getHomePath(roles), { replace: true })
   }
 
   const onSubmit = async ({ username, password }: LoginFormData) => {

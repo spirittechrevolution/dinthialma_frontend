@@ -90,20 +90,20 @@ bout avec l'API n'a encore été fait** (à mener avant la PR, voir « Comment t
 ## Questions pour le backend
 1. **Jackpots par tontine dans `/me/summary`** : `TontineCotisant` n'a pas de total des jackpots reçus.
    Le front appelle `/me/jackpots` en plus et additionne. Ajouter `totalJackpotsRecus` par tontine ?
-2. **QR membre d'une personne absente de mes tontines** : `/qr/{token}` ne renvoie pas le téléphone
-   (normal), mais l'ajout d'un membre exige un numéro. Le front propose d'envoyer l'invitation de la
-   tontine. Faut-il un ajout par `userId` / `qrToken` (ex. `POST /tontines/{id}/membres` avec `userId`) ?
+2. ~~QR membre d'une personne absente de mes tontines~~ — **Répondu** : `POST …/membres { qrToken }`
+   (sans numéro). Intégré : « Ajouter à une de vos tontines » sur `/q/{token}`.
 3. **Aperçu d'invitation pour un utilisateur déjà membre** : `InvitationApercuResponse` n'a ni
    `tontineId` ni indicateur « déjà membre ». On ne le découvre qu'en recevant
    `MEMBER_ALREADY_IN_TONTINE` à la demande, sans pouvoir ouvrir la fiche. Ajouter `tontineId`
    (si l'appelant est membre) ou `dejaMembre` quand un JWT est fourni ?
 4. **Filtre `type` de `/me/activite`** : valeur unique. Pour « Paiements seulement » (tout sauf
    `JACKPOT_RECU`), le front filtre localement. Accepter plusieurs `type` ou un filtre `sens` ?
-5. **Domaine de `url` dans `/me/qr` et `/tontines/{id}/invitation`** : l'URL doit pointer vers le
-   front (`/q/{token}`, `/q/t/{code}`) pour fonctionner avec l'appareil photo. Quelle configuration
-   par environnement ?
-6. **`versionMinimaleApp`** : comparée à la version du `package.json` du front (aujourd'hui `0.0.1`).
-   Confirmer le schéma de version attendu avant de renseigner cette valeur en production.
+5. ~~Domaine des liens~~ — **Répondu** : le backend génère `{FRONT}/q/{m_…}` et `{FRONT}/q/t/{code}`
+   (local `http://localhost:4200`, prod `https://www.dinthialma.com`). Le front n'utilise que le champ
+   `url`. Test sur téléphone : demander au backend de mettre `APP_URL` sur l'IP locale du poste.
+6. ~~`versionMinimaleApp`~~ — **Répondu** : SemVer strict ; `versionMinimaleApp` → écran bloquant,
+   `versionRecommandeeApp` → bandeau refermable ; en cas de doute, aucun blocage. **À faire à la mise
+   en production : passer `package.json` à `1.0.0`.**
 7. **`PIN_NOT_CONFIGURED` au login PIN** : le front renvoie vers la connexion par mot de passe (le PIN
    sera proposé ensuite). Est-ce le comportement voulu, ou faut-il aller directement à la création ?
 8. **Notifications `DEMANDE_ADHESION` / `ADHESION_REFUSEE`** : portent-elles toujours `tontineId` ?

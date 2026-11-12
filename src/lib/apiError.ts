@@ -22,7 +22,7 @@ export type ApiErrorCode =
   // Codes SMS
   | 'OTP_INVALID' | 'OTP_EXPIRED' | 'OTP_NOT_VERIFIED' | 'OTP_RATE_LIMITED'
   // Tontines / membres / adhésions
-  | 'MEMBER_ALREADY_IN_TONTINE' | 'JACKPOT_POSITION_TAKEN' | 'MEMBER_NAME_REQUIRED'
+  | 'MEMBER_ALREADY_IN_TONTINE' | 'JACKPOT_POSITION_TAKEN' | 'MEMBER_NAME_REQUIRED' | 'MEMBER_IDENTIFIER_REQUIRED'
   | 'TONTINE_FULL' | 'TONTINE_NOT_OPEN' | 'DEMANDE_DEJA_EN_ATTENTE' | 'DEMANDE_NOT_PENDING'
   // Cotisations / tours
   | 'COTISATION_ALREADY_EXISTS' | 'NO_CYCLE_IN_PROGRESS' | 'AMOUNT_BELOW_MINIMUM' | 'AMOUNT_MISMATCH'
@@ -81,6 +81,7 @@ const TEXTES: Partial<Record<ApiErrorCode, string>> = {
   OTP_NOT_VERIFIED: 'Vérifiez d’abord le code reçu par SMS.',
   MEMBER_ALREADY_IN_TONTINE: 'Déjà membre de cette tontine.',
   JACKPOT_POSITION_TAKEN: 'Cette position est déjà prise. Choisissez-en une autre.',
+  MEMBER_IDENTIFIER_REQUIRED: 'Ajout impossible : identifiant du membre manquant.',
   MEMBER_NAME_REQUIRED: 'Numéro inconnu : indiquez le prénom et le nom.',
   TONTINE_FULL: 'La tontine est complète.',
   TONTINE_NOT_OPEN: "Cette tontine n'accepte pas de nouveaux membres pour le moment.",
