@@ -23,9 +23,10 @@ interface HomeHeaderProps {
   unread: number
 }
 
+/** Bascule entre les deux espaces : libellés = rôles, les mêmes que les étiquettes de la fiche tontine */
 const MODES: { id: ModeAccueil; label: string }[] = [
-  { id: 'COTISE', label: 'Je cotise' },
-  { id: 'GERE', label: 'Je gère' },
+  { id: 'COTISE', label: 'Membre' },
+  { id: 'GERE', label: 'Gestionnaire' },
 ]
 
 /** Bandeau vert de l'accueil : réglages, alertes, bascule, filtre, montant masquable. */

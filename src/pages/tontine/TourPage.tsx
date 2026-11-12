@@ -161,15 +161,16 @@ export function TourPage() {
         {cycle.statut === CycleStatut.TERMINE && (
           <section className="bg-white rounded-3xl shadow-sm p-5">
             <h2 className="text-[17px] font-semibold text-neutral-900">Résultat</h2>
+            {/* Couleurs de l'app : jaune = jackpot/cagnotte, rose = ce qui est retiré, vert = ce qui est reçu */}
             <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
-              {[
-                [isEvent ? 'Cagnotte' : 'Jackpot', cycle.montantJackpot],
-                ['Commission', cycle.montantCommission],
-                ['Net', cycle.montantNet],
-              ].map(([k, val]) => (
-                <div key={k as string} className="rounded-2xl bg-neutral-50 px-2 py-3">
-                  <dt className="text-xs text-neutral-500">{k as string}</dt>
-                  <dd className="mt-1 font-bold tabular-nums">{val != null ? formatF(val as number) : '—'}</dd>
+              {([
+                { label: isEvent ? 'Cagnotte' : 'Jackpot', val: cycle.montantJackpot, signe: '', cls: 'bg-yellow-50', dt: 'text-yellow-800', dd: 'text-yellow-900' },
+                { label: 'Commission', val: cycle.montantCommission, signe: cycle.montantCommission ? '− ' : '', cls: 'bg-rose-50', dt: 'text-rose-700', dd: 'text-rose-800' },
+                { label: 'Net', val: cycle.montantNet, signe: '', cls: 'bg-primary-50', dt: 'text-primary-700', dd: 'text-primary-800' },
+              ] as const).map((x) => (
+                <div key={x.label} className={`rounded-2xl px-2 py-3 ${x.cls}`}>
+                  <dt className={`text-xs font-medium ${x.dt}`}>{x.label}</dt>
+                  <dd className={`mt-1 font-bold tabular-nums ${x.dd}`}>{x.val != null ? `${x.signe}${formatF(x.val)}` : '—'}</dd>
                 </div>
               ))}
             </dl>

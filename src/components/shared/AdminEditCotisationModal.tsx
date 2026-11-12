@@ -132,7 +132,7 @@ export function AdminEditCotisationModal({
             { value: 'CASH', label: 'Espèces' },
             { value: 'WAVE', label: 'Wave' },
             { value: 'ORANGE_MONEY', label: 'Orange Money' },
-            { value: 'PISPI', label: 'PI-SPI' },
+            { value: 'PI_SPI', label: 'PI-SPI' },
           ]}
           error={errors.methodePaiement?.message}
           {...register('methodePaiement')}

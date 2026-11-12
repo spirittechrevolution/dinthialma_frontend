@@ -25,6 +25,7 @@ import { useInvitationTontine, useRegenererInvitation, useRevoquerInvitation } f
 import { messageErreur } from '@/lib/apiError'
 import { ModeCycle, TontineStatut } from '@/types/common'
 import { TontineType, type Commission } from '@/types/tontine'
+import { TYPES_COMMISSION, valeurCommission } from '@/lib/commissions'
 
 const ORDRE: Record<string, string> = {
   ROTATION: 'Chacun son tour (ordre fixe)',
@@ -32,14 +33,6 @@ const ORDRE: Record<string, string> = {
   MANUEL: 'Choisi par le gestionnaire',
 }
 
-const TYPES_COMMISSION: { value: Commission['type']; label: string; unite: '%' | 'F' }[] = [
-  { value: 'POURCENTAGE_JACKPOT', label: '% du jackpot', unite: '%' },
-  { value: 'FRAIS_FIXES_PAR_CYCLE', label: 'Frais fixes par tour', unite: 'F' },
-  { value: 'FRAIS_ADHESION', label: "Frais d'adhésion", unite: 'F' },
-]
-
-const valeurCommission = (c: Commission) =>
-  c.type === 'POURCENTAGE_JACKPOT' ? `${c.valeur} %` : formatF(c.valeur)
 
 type Sensible = 'suspendre' | 'relancer' | 'supprimer'
 

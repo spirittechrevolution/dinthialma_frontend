@@ -1,6 +1,6 @@
 /**
  * T1 — Mes tontines (gabarit « catalogue » de Wave) : recherche, favoris, sections
- * Je gère · Je cotise · Terminées. Remplace les listes gestionnaire et membre.
+ * En tant que gestionnaire · En tant que membre · Terminées. Remplace les listes gestionnaire et membre.
  * ?section=gere|cotise : met la section du mode de l'accueil en premier.
  */
 import { useState } from 'react'
@@ -55,8 +55,8 @@ export function MesTontinesPage() {
   const cotise = actives.filter((t) => t.monRole === 'MEMBRE')
   const terminees = visibles.filter((t) => t.statut === TontineStatut.TERMINEE)
 
-  const sectionGere = { id: 'gere', titre: 'Je gère', items: gere }
-  const sectionCotise = { id: 'cotise', titre: 'Je cotise', items: cotise }
+  const sectionGere = { id: 'gere', titre: 'En tant que gestionnaire', items: gere }
+  const sectionCotise = { id: 'cotise', titre: 'En tant que membre', items: cotise }
   const sections = sectionPrioritaire === 'cotise' ? [sectionCotise, sectionGere] : [sectionGere, sectionCotise]
 
   const ligne = (t: MaTontine) => {

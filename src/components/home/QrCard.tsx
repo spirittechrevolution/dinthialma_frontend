@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
-import { ScanLine, Share2, QrCode } from 'lucide-react'
+import { ScanLine, Share2, UserPlus } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { shareLink } from '@/lib/share'
@@ -8,11 +8,13 @@ import { shareLink } from '@/lib/share'
 interface QrCardProps {
   title: string
   subtitle?: string
-  /** Lien encodé ; null = aucune tontine choisie (mode Je gère + « Toutes ») */
+  /** Lien encodé ; null = pas de QR à afficher (gestionnaire, filtre « Toutes mes tontines ») */
   url: string | null
   shareText: string
-  /** Quand url est null : action pour choisir une tontine */
-  onChoose?: () => void
+  /** Libellé du bouton de partage (défaut « Partager » ; gestionnaire : « Inviter ») */
+  shareLabel?: string
+  /** QR en cours de chargement */
+  loading?: boolean
   /** Ouvre l'écran Scanner (bouton affiché si fourni) */
   onScan?: () => void
   /** Remplace le partage natif (ex. : ouvrir l'écran Partager) */
@@ -21,10 +23,12 @@ interface QrCardProps {
 
 /**
  * Carte QR de l'accueil (équivalent de la carte « Scanner » de Wave).
- * Je cotise : mon QR membre. Je gère : QR d'invitation de la tontine choisie.
- * Toucher le QR l'agrandit ; « Scanner » ouvre la caméra ; « Partager » ouvre l'écran Partager ou le partage natif.
+ * Membre : mon QR membre. Gestionnaire : QR d'invitation de la tontine choisie dans le filtre du bandeau
+ * (ou de l'unique tontine gérée) ; sur « Toutes mes tontines », pas de QR mais le bouton Inviter reste
+ * (l'écran Partager fait choisir la tontine). Le choix de la tontine se fait uniquement dans le bandeau.
+ * Toucher le QR l'agrandit ; « Scanner » ouvre la caméra ; le bouton de partage ouvre l'écran Partager ou le partage natif.
  */
-export function QrCard({ title, subtitle, url, shareText, onChoose, onScan, onShare }: QrCardProps) {
+export function QrCard({ title, subtitle, url, shareText, shareLabel = 'Partager', loading, onScan, onShare }: QrCardProps) {
   const [big, setBig] = useState(false)
   const partager = () => (onShare ? onShare() : url && shareLink({ title, text: shareText, url }))
 
@@ -38,9 +42,11 @@ export function QrCard({ title, subtitle, url, shareText, onChoose, onScan, onSh
         >
           <QRCodeSVG value={url} size={96} level="M" />
         </button>
+      ) : loading ? (
+        <span className="flex-shrink-0 w-[112px] h-[112px] rounded-2xl bg-neutral-100 animate-pulse" aria-busy="true" aria-label="Chargement du QR" />
       ) : (
-        <span className="flex-shrink-0 w-[112px] h-[112px] rounded-2xl bg-neutral-100 text-neutral-400 flex items-center justify-center">
-          <QrCode size={40} />
+        <span className="flex-shrink-0 w-[112px] h-[112px] rounded-2xl bg-primary-50 text-primary-700 flex items-center justify-center" aria-hidden>
+          <UserPlus size={40} />
         </span>
       )}
 
@@ -56,22 +62,13 @@ export function QrCard({ title, subtitle, url, shareText, onChoose, onScan, onSh
               <ScanLine size={16} /> Scanner
             </button>
           )}
-          {url ? (
+          {(url || onShare) && (
             <button
               onClick={partager}
               className="h-11 px-3 rounded-full bg-primary-50 text-sm font-semibold text-primary-800 inline-flex items-center gap-1.5"
             >
-              <Share2 size={16} /> Partager
+              {shareLabel === 'Inviter' ? <UserPlus size={16} /> : <Share2 size={16} />} {shareLabel}
             </button>
-          ) : (
-            onChoose && (
-              <button
-                onClick={onChoose}
-                className="h-11 px-4 rounded-full bg-primary-50 text-sm font-semibold text-primary-800"
-              >
-                Choisir une tontine
-              </button>
-            )
           )}
         </div>
       </div>
@@ -84,7 +81,7 @@ export function QrCard({ title, subtitle, url, shareText, onChoose, onScan, onSh
             </div>
             {subtitle && <p className="text-sm text-neutral-500 text-center">{subtitle}</p>}
             <Button className="w-full" size="lg" onClick={() => { setBig(false); partager() }}>
-              <Share2 size={18} /> Partager
+              {shareLabel === 'Inviter' ? <UserPlus size={18} /> : <Share2 size={18} />} {shareLabel}
             </Button>
           </div>
         </Modal>

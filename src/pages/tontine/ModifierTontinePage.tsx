@@ -9,12 +9,13 @@ import { toast } from 'sonner'
 import { clsx } from 'clsx'
 import { ScreenHeader } from '@/components/layout/ScreenHeader'
 import { Stepper } from '@/components/ui/Stepper'
+import { RythmeSlider } from '@/components/ui/RythmeSlider'
 import { useTontineVue } from '@/hooks/useTontineVue'
 import { useUpdateTontine } from '@/hooks/useTontines'
 import { useCodeList } from '@/hooks/useCodeList'
 import { useOnline } from '@/hooks/useOnline'
 import { formatF } from '@/lib/format'
-import { rythmeCourt, FREQUENCES_DEFAUT, ORDRES_DEFAUT, ORDRE_LABEL, capital } from '@/lib/tontineLabels'
+import { FREQUENCES_DEFAUT, ORDRES_DEFAUT, ORDRE_LABEL } from '@/lib/tontineLabels'
 import { messageErreur } from '@/lib/apiError'
 import { TontineStatut } from '@/types/common'
 import { TontineType, type UpdateTontineRequest } from '@/types/tontine'
@@ -163,10 +164,16 @@ export function ModifierTontinePage() {
               {montant > 0 && <span className="text-sm text-neutral-500">{formatF(montant)}</span>}
             </label>
           )}
-          <div>
-            <p className="text-sm font-semibold text-neutral-700">{isEvent ? 'Rappels' : 'Rythme'}</p>
-            {pills(frequences, f.frequence, (x) => set('frequence', x), (x) => capital(rythmeCourt(x)))}
-          </div>
+          <RythmeSlider
+            value={f.frequence}
+            onChange={(x) => set('frequence', x)}
+            disponibles={frequences}
+            isEvent={isEvent}
+            montant={montant}
+            montantLibre={f.montantLibre}
+            dateDebut={f.dateDebut}
+            dateEvenement={f.dateEvenement}
+          />
           <div className={clsx('grid gap-3', isEvent ? 'grid-cols-2' : 'grid-cols-1')}>
             <label className="block">
               <span className="text-sm font-semibold text-neutral-700">Début</span>

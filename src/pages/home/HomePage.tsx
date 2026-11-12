@@ -6,7 +6,7 @@
  * Les écrans pas encore refaits (listes de tontines, historique…) ouvrent provisoirement
  * les écrans existants ; il suffira de changer la destination dans `services`.
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Send, Wallet, Trophy, History, Plus, Share2, Bell, MoreHorizontal, CreditCard,
@@ -28,6 +28,9 @@ import { TontinePickerSheet, MontantsSheet, PlusSheet, dueDetail, type PlusItem 
 import { formatF, safeGet } from '@/lib/format'
 import { INVITATION_EN_ATTENTE_KEY } from '@/lib/share'
 import { useMonQr, useInvitationTontine } from '@/hooks/useQr'
+import { parseApiError } from '@/lib/apiError'
+import { TontineStatut } from '@/types/common'
+import { PREF_KEYS } from '@/lib/preferences'
 import { jeCotise, jeGere, type ActiviteItem, type ModeAccueil } from '@/types/me'
 
 const MODES = ['COTISE', 'GERE'] as const
@@ -43,6 +46,8 @@ export function HomePage() {
   const roles = useMesRoles()
   const [savedMode, setSavedMode] = useLocalPreference<ModeAccueil>('dinthialma_home_mode', 'COTISE', MODES)
   const [hiddenPref, setHiddenPref] = useLocalPreference<'0' | '1'>('dinthialma_hide_amount', '0', ['0', '1'] as const)
+  // Dernière tontine choisie côté Gestionnaire (préférence synchronisée avec le serveur, B22)
+  const [derniereGeree, setDerniereGeree] = useLocalPreference<string>(PREF_KEYS.derniereTontineGeree, '')
   const hidden = hiddenPref === '1'
 
   // Mode effectif : on respecte le choix mémorisé seulement s'il est possible
@@ -66,6 +71,24 @@ export function HomePage() {
 
   const tontinesDuMode = roles.tontines.filter((t) => (mode === 'GERE' ? jeGere(t) : jeCotise(t)))
   const tontineChoisie = tontinesDuMode.find((t) => t.id === tontineId) ?? null
+
+  // Gestionnaire : pas d'option « Toutes mes tontines ». Par défaut : la dernière tontine choisie si je la gère
+  // toujours, sinon la première tontine ouverte (brouillon ou active : celles qui ont un QR d'invitation),
+  // sinon la première de la liste.
+  const tontineGereeParDefaut =
+    (mode === 'GERE' ? tontinesDuMode.find((t) => t.id === derniereGeree) : undefined)
+    ?? tontinesDuMode.find((t) => t.statut === TontineStatut.ACTIVE || t.statut === TontineStatut.BROUILLON)
+    ?? tontinesDuMode[0]
+  useEffect(() => {
+    if (mode === 'GERE' && !tontineChoisie && tontineGereeParDefaut) setTontineId(tontineGereeParDefaut.id)
+  }, [mode, tontineChoisie, tontineGereeParDefaut])
+  // Préférence arrivée du serveur après l'affichage (autre appareil) : on la suit,
+  // sauf si l'utilisateur a déjà choisi une tontine lui-même pendant cette visite
+  const choixManuel = useRef(false)
+  useEffect(() => {
+    if (mode !== 'GERE' || choixManuel.current || !derniereGeree || derniereGeree === tontineId) return
+    if (tontinesDuMode.some((t) => t.id === derniereGeree)) setTontineId(derniereGeree)
+  }, [mode, derniereGeree, tontineId, tontinesDuMode])
   const nouvelInscrit = !roles.isLoading && roles.tontines.length === 0
 
   // ─── Feuilles et modales ─────────────────────────────────────────────────
@@ -100,7 +123,7 @@ export function HomePage() {
 
   // ─── Carte d'action (une seule, la plus urgente) ─────────────────────────
   const offlineReason = online ? undefined : 'Connexion requise'
-  let actionCard: JSX.Element
+  let actionCard: JSX.Element | null
   if (roles.isLoading || (mode === 'COTISE' && roles.cotise && cotisant.isLoading) || (mode === 'GERE' && gestion.isLoading)) {
     actionCard = <ActionCardSkeleton />
   } else if (nouvelInscrit) {
@@ -116,11 +139,8 @@ export function HomePage() {
   } else if (mode === 'GERE') {
     const lignes = (gestion.data?.tontines ?? []).filter((t) => !tontineId || t.tontineId === tontineId)
     const aValider = lignes.reduce((s, t) => s + t.cotisationsEnAttente, 0)
-    const retard = lignes
-      .filter((t) => t.cycleEnCours)
-      .map((t) => ({ t, manquants: t.cycleEnCours!.membresActifs - t.cycleEnCours!.membresAyantPaye - t.cycleEnCours!.membresEnAttente }))
-      .filter((x) => x.manquants > 0)
-      .sort((a, b) => b.manquants - a.manquants)[0]
+    // Les membres qui n'ont pas encore payé ne s'affichent plus ici : le gestionnaire est prévenu
+    // par une notification (COTISATIONS_MANQUANTES, in-app et push), voir B26 / B31.
 
     const demandes = lignes.reduce((s, t) => s + t.demandesEnAttente, 0)
 
@@ -148,19 +168,9 @@ export function HomePage() {
           disabled={!online} disabledReason={offlineReason}
         />
       )
-    } else if (retard) {
-      actionCard = (
-        <ActionCard
-          icon={<Clock size={22} />} tone="urgent"
-          title={`${retard.manquants} n'${retard.manquants > 1 ? 'ont' : 'a'} pas payé`}
-          subtitle={`${retard.t.nom} · Tour ${retard.t.cycleEnCours!.numeroCycle}`}
-          actionLabel="Encaisser"
-          onAction={() => navigate(`/encaisser/${retard.t.tontineId}`)}
-          disabled={!online} disabledReason={offlineReason}
-        />
-      )
     } else {
-      actionCard = <ActionCard icon={<PartyPopper size={22} />} tone="ok" title="Tout est à jour ✓" subtitle="Aucun paiement en attente" />
+      // Rien à valider : pas de carte (l'accueil reste épuré)
+      actionCard = null
     }
   } else {
     const dues = (cotisant.data?.aPayer ?? []).filter((t) => !tontineId || t.tontineId === tontineId)
@@ -198,20 +208,29 @@ export function HomePage() {
   // ─── Carte QR ────────────────────────────────────────────────────────────
   const prenom = user?.firstName || ''
   const monQr = useMonQr(mode === 'COTISE')
-  const invitation = useInvitationTontine(mode === 'GERE' ? tontineChoisie?.id : null)
+  // Gestionnaire : QR d'invitation de la tontine choisie dans le filtre du bandeau
+  const tontineQr = mode === 'GERE' ? tontineChoisie ?? tontineGereeParDefaut : undefined
+  const invitation = useInvitationTontine(mode === 'GERE' ? tontineQr?.id : null)
+  const invitationFermee = invitation.isError && parseApiError(invitation.error).code === 'TONTINE_NOT_OPEN'
   const qr = mode === 'GERE'
     ? {
-        title: tontineChoisie ? `Inviter dans ${tontineChoisie.nom}` : 'Inviter dans une tontine',
-        subtitle: tontineChoisie ? 'Faites scanner ce QR pour rejoindre' : 'Choisissez la tontine à partager',
-        url: tontineChoisie ? invitation.data?.url ?? null : null,
-        shareText: tontineChoisie
-          ? `Rejoins notre tontine ${tontineChoisie.nom} (${formatF(tontineChoisie.montant)}) :`
+        title: tontineQr ? `Inviter dans ${tontineQr.nom}` : 'Inviter dans une tontine',
+        subtitle: invitationFermee
+          ? 'Cette tontine est fermée : plus d\'invitation possible.'
+          : invitation.isError
+            ? 'QR indisponible pour le moment. Réessayez plus tard.'
+            : 'Faites scanner ce QR pour rejoindre',
+        url: tontineQr ? invitation.data?.url ?? null : null,
+        loading: !!tontineQr && invitation.isLoading,
+        shareText: tontineQr
+          ? `Rejoins notre tontine ${tontineQr.nom} (${formatF(tontineQr.montant)}) :`
           : '',
       }
     : {
         title: 'Mon QR membre',
         subtitle: 'À montrer à votre gestionnaire',
         url: monQr.data?.url ?? null,
+        loading: monQr.isLoading,
         shareText: `${prenom ? `${prenom} sur` : 'Retrouvez-moi sur'} Dinthialma :`,
       }
 
@@ -227,11 +246,11 @@ export function HomePage() {
     ? [
         { key: 'encaisser', label: 'Encaisser', icon: <CreditCard size={26} />, tone: 'green', to: tontineId ? `/encaisser/${tontineId}` : '/encaisser' },
         { key: 'valider', label: 'À valider', icon: <ListChecks size={26} />, tone: 'amber', to: tontineId ? `/a-valider?tontine=${tontineId}` : '/a-valider', badge: aValiderTotal },
-        { key: 'tontines', label: 'Tontines', icon: <Wallet size={26} />, tone: 'blue', to: '/tontines?section=gere' },
+        { key: 'historique', label: 'Historique', icon: <History size={26} />, tone: 'blue', to: tontineId ? `/historique?mode=GERE&tontine=${tontineId}` : '/historique?mode=GERE' },
         { key: 'membres', label: 'Membres', icon: <Users size={26} />, tone: 'violet', onClick: () => ouvrirRubrique('membres') },
         { key: 'tours', label: 'Tours', icon: <RefreshCw size={26} />, tone: 'teal', onClick: () => ouvrirRubrique('tours') },
         { key: 'creer', label: 'Créer', icon: <Plus size={26} />, tone: 'rose', to: '/creer' },
-        { key: 'inviter', label: 'Inviter', icon: <Share2 size={26} />, tone: 'green', onClick: inviter },
+        { key: 'tontines', label: 'Mes tontines', icon: <Wallet size={26} />, tone: 'green', to: '/tontines?section=gere' },
         { key: 'plus', label: 'Plus', icon: <MoreHorizontal size={26} />, tone: 'neutral', onClick: () => setPlusOpen(true) },
       ]
     : [
@@ -249,7 +268,6 @@ export function HomePage() {
     ...(mode === 'GERE'
       ? [
           { key: 'jackpots', label: 'Jackpots', icon: <Trophy size={22} />, to: '/jackpots' },
-          { key: 'historique', label: 'Historique', icon: <History size={22} />, to: '/historique?mode=GERE' },
         ]
       : [{ key: 'alertes', label: 'Alertes', icon: <Bell size={22} />, to: '/notifications' }]),
     { key: 'profil', label: 'Paramètres', icon: <UserCircle size={22} />, to: '/parametres' },
@@ -284,7 +302,7 @@ export function HomePage() {
             onModeChange={setSavedMode}
             deuxModes={roles.deuxModes}
             pastilles={{ COTISE: aPayerTotal, GERE: aValiderTotal }}
-            filterLabel={nouvelInscrit || tontinesDuMode.length < 2 ? null : tontineChoisie?.nom ?? 'Toutes mes tontines'}
+            filterLabel={nouvelInscrit || tontinesDuMode.length < 2 ? null : tontineChoisie?.nom ?? (mode === 'GERE' ? tontineGereeParDefaut?.nom ?? null : 'Toutes mes tontines')}
             onOpenFilter={() => setFilterOpen(true)}
             amountLabel={mode === 'GERE' ? 'Collecté ce tour' : 'Total cotisé'}
             amount={amount}
@@ -301,9 +319,10 @@ export function HomePage() {
               subtitle={qr.subtitle}
               url={qr.url}
               shareText={qr.shareText}
-              onChoose={mode === 'GERE' ? () => setFilterOpen(true) : undefined}
+              loading={qr.loading}
+              shareLabel={mode === 'GERE' ? 'Inviter' : 'Partager'}
               onScan={() => navigate('/scanner')}
-              onShare={mode === 'GERE' && tontineChoisie ? () => navigate(`/partager?tontine=${tontineChoisie.id}`) : undefined}
+              onShare={mode === 'GERE' ? () => navigate(tontineQr ? `/partager?tontine=${tontineQr.id}` : '/partager') : undefined}
             />
             {actionCard}
             <ServiceGrid items={services} />
@@ -339,9 +358,12 @@ export function HomePage() {
         onClose={() => setFilterOpen(false)}
         title="Choisir une tontine"
         options={filterOptions}
-        allowAll
+        allowAll={mode !== 'GERE'}
         selectedId={tontineId}
-        onSelect={setTontineId}
+        onSelect={(id) => {
+          setTontineId(id)
+          if (mode === 'GERE' && id) { choixManuel.current = true; setDerniereGeree(id) }
+        }}
       />
       <TontinePickerSheet
         isOpen={rubriqueCible !== null}
