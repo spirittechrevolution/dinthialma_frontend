@@ -24,7 +24,8 @@ function categorie(type: NotificationType): Categorie {
     case NotificationType.COTISATION_VALIDEE: return 'validation'
     case NotificationType.PAIEMENT_EN_RETARD:
     case NotificationType.RAPPEL_COTISATION:
-    case NotificationType.COTISATION_REFUSEE: return 'retard'
+    case NotificationType.COTISATION_REFUSEE:
+    case NotificationType.COTISATIONS_MANQUANTES: return 'retard'
     case NotificationType.INVITATION_TONTINE:
     case NotificationType.STATUT_MEMBRE:
     case NotificationType.DEMANDE_ADHESION:
@@ -75,6 +76,8 @@ function destination(n: NotificationItem, t: MaTontine | undefined): string | nu
       return recu ?? (tid ? `/historique?mode=COTISE&tontine=${tid}` : null)
     case NotificationType.RAPPEL_COTISATION:
       return recu ?? (tid ? `/payer/${tid}` : null)
+    case NotificationType.COTISATIONS_MANQUANTES:
+      return tid ? `/encaisser/${tid}` : '/encaisser'
     case NotificationType.CYCLE_OUVERT:
     case NotificationType.CYCLE_BIENTOT_CLOTURE:
     case NotificationType.TOUR_PROCHE:

@@ -14,6 +14,8 @@ export enum NotificationType {
   COTISATION_REFUSEE    = 'COTISATION_REFUSEE',
   DEMANDE_ADHESION      = 'DEMANDE_ADHESION',
   ADHESION_REFUSEE      = 'ADHESION_REFUSEE',
+  /** Gestionnaire : des membres n'ont pas encore payé le tour (veille et jour de l'échéance) — B26 / B31 */
+  COTISATIONS_MANQUANTES = 'COTISATIONS_MANQUANTES',
 }
 
 export interface NotificationItem {

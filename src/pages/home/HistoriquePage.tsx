@@ -11,6 +11,7 @@ import { toast } from 'sonner'
 import { telechargerCsv } from '@/lib/exportCsv'
 import { messageErreur } from '@/lib/apiError'
 import { ScreenHeader } from '@/components/layout/ScreenHeader'
+import { ChipRow, FilterChip } from '@/components/ui/ChipRow'
 import { ActiviteRow } from '@/components/home/ActivityFeed'
 import { TontinePickerSheet } from '@/components/home/HomeSheets'
 import { useActivite, useCotisantSummary, useGestionSummary, useMesRoles } from '@/hooks/useMe'
@@ -19,19 +20,20 @@ import { formatF } from '@/lib/format'
 import { CotisationStatut } from '@/types/common'
 import { jeCotise, jeGere, type ActiviteItem, type ActiviteType, type ModeAccueil } from '@/types/me'
 
-const STATUTS: { id: string; label: string; statut: CotisationStatut | null }[] = [
-  { id: 'tous', label: 'Tous', statut: null },
-  { id: 'attente', label: 'En attente', statut: CotisationStatut.EN_ATTENTE },
-  { id: 'valides', label: 'Validés', statut: CotisationStatut.VALIDE },
-  { id: 'retard', label: 'En retard', statut: CotisationStatut.EN_RETARD },
+/**
+ * 3 filtres de statut, les mêmes que sur la fiche tontine : tout, ce qui attend une validation,
+ * ce qui pose problème (« À régler » membre / « À relancer » gestionnaire = en retard + refusés).
+ */
+const STATUTS: { id: string; label: string; labelGerant: string; statuts: CotisationStatut[] }[] = [
+  { id: 'tous', label: 'Tous', labelGerant: 'Tous', statuts: [] },
+  { id: 'attente', label: 'En attente', labelGerant: 'À valider', statuts: [CotisationStatut.EN_ATTENTE] },
+  { id: 'probleme', label: 'À régler', labelGerant: 'À relancer', statuts: [CotisationStatut.EN_RETARD, CotisationStatut.REFUSE] },
+  // Je cotise uniquement : les jackpots reçus n'ont pas de statut, c'est un filtre de type
+  { id: 'jackpots', label: 'Jackpots', labelGerant: 'Jackpots', statuts: [] },
 ]
 
-/** Filtre « type » envoyé au serveur (paramètre répétable, OU logique) */
-const TYPES_FILTRE: Record<'tout' | 'paiements' | 'jackpots', ActiviteType[] | undefined> = {
-  tout: undefined,
-  paiements: ['COTISATION_DECLAREE', 'COTISATION_VALIDEE', 'COTISATION_ENCAISSEE', 'COTISATION_EN_RETARD', 'COTISATION_REFUSEE'],
-  jackpots: ['JACKPOT_RECU', 'DISTRIBUTION_RECUE'],
-}
+/** Types d'activité « jackpot » (filtre Jackpots, et export) */
+const TYPES_JACKPOT: ActiviteType[] = ['JACKPOT_RECU', 'DISTRIBUTION_RECUE']
 
 export function HistoriquePage() {
   const navigate = useNavigate()
@@ -44,12 +46,12 @@ export function HistoriquePage() {
   const tontineId = params.get('tontine') ?? undefined
 
   const [statut, setStatut] = useState('tous')
-  const [type, setType] = useState<'tout' | 'paiements' | 'jackpots'>('tout')
   const [limite, setLimite] = useState(60)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [exportEnCours, setExportEnCours] = useState(false)
 
-  const activite = useActivite(mode, { tontineId, type: TYPES_FILTRE[type], limit: 1000 })
+  // Tout est chargé une fois : filtres et compteurs se calculent ici
+  const activite = useActivite(mode, { tontineId, limit: 1000 })
   const cotisant = useCotisantSummary(mode === 'COTISE' && roles.cotise)
   const gestion = useGestionSummary(mode === 'GERE' && roles.gere)
 
@@ -73,11 +75,13 @@ export function HistoriquePage() {
     ]
   }, [mode, tontineId, gestion.data, cotisant.data])
 
-  const filtreStatut = STATUTS.find((s) => s.id === statut)?.statut ?? null
-  const items = (activite.data ?? []).filter((it) => {
-    if (filtreStatut && it.statut !== filtreStatut) return false
-    return true
-  })
+  const filtreStatuts = STATUTS.find((s) => s.id === statut)?.statuts ?? []
+  const tout = activite.data ?? []
+  const compte = (st: CotisationStatut[]) => tout.filter((it) => !!it.statut && st.includes(it.statut)).length
+  const filtresVisibles = STATUTS.filter((s) => s.id !== 'jackpots' || mode === 'COTISE')
+  const items = statut === 'jackpots'
+    ? tout.filter((it) => TYPES_JACKPOT.includes(it.type))
+    : filtreStatuts.length ? tout.filter((it) => !!it.statut && filtreStatuts.includes(it.statut)) : tout
   const visibles = items.slice(0, limite)
 
   // Regroupement par mois (« novembre 2026 »)
@@ -101,8 +105,8 @@ export function HistoriquePage() {
       await telechargerCsv('/v1/me/activite/export', {
         mode,
         ...(tontineId ? { tontineId } : {}),
-        ...(filtreStatut ? { statut: filtreStatut } : {}),
-        ...(TYPES_FILTRE[type] ? { type: TYPES_FILTRE[type] } : {}),
+        ...(filtreStatuts.length === 1 ? { statut: filtreStatuts[0] } : {}),
+        ...(statut === 'jackpots' ? { type: TYPES_JACKPOT } : {}),
       }, 'historique-dinthialma.csv')
     } catch (err) {
       toast.error(messageErreur(err, "L'export a échoué. Réessayez."))
@@ -112,7 +116,6 @@ export function HistoriquePage() {
   }
   const ouvrir = (it: ActiviteItem) => navigate(it.cotisationId ? `/recu/${it.tontineId}/${it.cotisationId}` : `/tontine/${it.tontineId}`)
 
-  const chip = (actif: boolean) => clsx('h-9 px-4 rounded-full text-sm font-medium whitespace-nowrap', actif ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-700 shadow-sm')
 
   return (
     <div className="min-h-[100dvh] bg-[#f2f3f5]">
@@ -126,12 +129,12 @@ export function HistoriquePage() {
       />
       <main className="px-4 pb-10 max-w-lg mx-auto md:max-w-3xl space-y-4">
         {roles.deuxModes && (
-          <div role="tablist" aria-label="Mode" className="mx-auto flex max-w-[16rem] rounded-full bg-white p-1 shadow-sm">
+          <div role="tablist" aria-label="Mode" className="mx-auto flex max-w-[17rem] rounded-full bg-white p-1 shadow-sm">
             {(['COTISE', 'GERE'] as const).map((m) => (
               <button key={m} role="tab" aria-selected={mode === m}
-                onClick={() => { setSavedMode(m); setParams({ mode: m }, { replace: true }) }}
+                onClick={() => { setSavedMode(m); setParams({ mode: m }, { replace: true }); if (m === 'GERE' && statut === 'jackpots') setStatut('tous') }}
                 className={clsx('flex-1 h-9 rounded-full text-sm font-semibold', mode === m ? 'bg-primary-700 text-white' : 'text-neutral-600')}>
-                {m === 'GERE' ? 'Je gère' : 'Je cotise'}
+                {m === 'GERE' ? 'Gestionnaire' : 'Membre'}
               </button>
             ))}
           </div>
@@ -152,18 +155,21 @@ export function HistoriquePage() {
               {tontineChoisie?.nom ?? 'Toutes mes tontines'} <ChevronDown size={16} />
             </button>
           )}
-          <div className="flex gap-2 overflow-x-auto pb-1" role="group" aria-label="Filtrer par statut">
-            {STATUTS.map((s) => (
-              <button key={s.id} aria-pressed={statut === s.id} onClick={() => { setStatut(s.id); setLimite(60) }} className={chip(statut === s.id)}>{s.label}</button>
-            ))}
-          </div>
-          {mode === 'COTISE' && (
-            <div className="flex gap-2" role="group" aria-label="Filtrer par type">
-              {([['tout', 'Tout'], ['paiements', 'Paiements'], ['jackpots', 'Jackpots']] as const).map(([v, l]) => (
-                <button key={v} aria-pressed={type === v} onClick={() => setType(v)} className={chip(type === v)}>{l}</button>
-              ))}
-            </div>
-          )}
+          <ChipRow>
+            {filtresVisibles.map((s) => {
+              const n = s.statuts.length ? compte(s.statuts) : 0
+              return (
+                <FilterChip
+                  key={s.id}
+                  label={mode === 'GERE' ? s.labelGerant : s.label}
+                  actif={statut === s.id}
+                  onClick={() => { setStatut(s.id); setLimite(60) }}
+                  count={n}
+                  alerte={s.id === 'probleme' && n > 0}
+                />
+              )
+            })}
+          </ChipRow>
         </div>
 
         {activite.isLoading || roles.isLoading ? (
@@ -174,7 +180,15 @@ export function HistoriquePage() {
             <button onClick={() => activite.refetch()} className="mt-3 h-11 px-4 rounded-full bg-neutral-100 text-sm font-semibold inline-flex items-center gap-2"><RotateCw size={16} /> Réessayer</button>
           </section>
         ) : groupes.length === 0 ? (
-          <p className="py-10 text-center text-sm text-neutral-500">Aucun mouvement</p>
+          <p className="py-10 text-center text-sm text-neutral-500">
+            {statut === 'probleme'
+              ? (mode === 'GERE' ? 'Aucun paiement à relancer' : 'Rien à régler, tout est en ordre')
+              : statut === 'jackpots'
+                ? 'Aucun jackpot reçu pour le moment'
+                : statut === 'attente'
+                ? (mode === 'GERE' ? 'Aucun paiement à valider' : 'Aucun paiement en attente')
+                : 'Aucun mouvement'}
+          </p>
         ) : (
           <>
             {groupes.map(([mois, liste]) => (

@@ -14,6 +14,8 @@ export const PREF_KEYS = {
   masquer: 'dinthialma_hide_amount',
   favoris: 'dinthialma_tontines_favorites',
   moyen: 'dinthialma_last_method',
+  /** Dernière tontine choisie dans l'espace Gestionnaire de l'accueil */
+  derniereTontineGeree: 'dinthialma_derniere_tontine_geree',
 } as const
 
 /** Événement émis quand le cache local a été mis à jour depuis le serveur */
@@ -24,6 +26,8 @@ interface Preferences {
   dernierMode: 'COTISE' | 'GERE'
   masquerMontant: boolean
   dernierMoyenPaiement?: string
+  /** null si aucune, ou si le serveur ne la reconnaît pas (pas gestionnaire, tontine supprimée) */
+  derniereTontineGeree: string | null
 }
 
 function lireLocal(): Preferences {
@@ -33,11 +37,13 @@ function lireLocal(): Preferences {
     if (Array.isArray(v)) favoris = v.filter((x) => typeof x === 'string')
   } catch { /* cache illisible */ }
   const moyen = safeGet(PREF_KEYS.moyen)
+  const derniereTontineGeree = safeGet(PREF_KEYS.derniereTontineGeree) || null
   return {
     tontinesFavorites: favoris.slice(0, 50),
     dernierMode: safeGet(PREF_KEYS.mode) === 'GERE' ? 'GERE' : 'COTISE',
     masquerMontant: safeGet(PREF_KEYS.masquer) === '1',
     ...(moyen ? { dernierMoyenPaiement: moyen } : {}),
+    derniereTontineGeree,
   }
 }
 
@@ -46,6 +52,8 @@ function ecrireLocal(p: Partial<Preferences>) {
   if (p.dernierMode) safeSet(PREF_KEYS.mode, p.dernierMode)
   if (p.masquerMontant !== undefined) safeSet(PREF_KEYS.masquer, p.masquerMontant ? '1' : '0')
   if (p.dernierMoyenPaiement) safeSet(PREF_KEYS.moyen, p.dernierMoyenPaiement)
+  // null renvoyé par le serveur (tontine supprimée, plus gestionnaire) : on oublie aussi en local
+  if (p.derniereTontineGeree !== undefined) safeSet(PREF_KEYS.derniereTontineGeree, p.derniereTontineGeree ?? '')
 }
 
 /** Charge les préférences du serveur dans le cache local (à l'ouverture de l'app, connecté). */
