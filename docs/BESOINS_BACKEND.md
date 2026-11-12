@@ -236,6 +236,10 @@ Le filtre `aPayeCycleId=false` alimente directement l'écran **Encaisser** (« m
 
 ### B22 — Préférences utilisateur synchronisées
 - `GET/PUT /v1/me/preferences` → `{ "tontinesFavorites": [...], "dernierMode": "COTISE|GERE", "masquerMontant": true, "dernierMoyenPaiement": "WAVE" }`. Sans cela, ces réglages restent propres à chaque appareil (acceptable en v1).
+- **Ajout (2026-11-12)** : champ facultatif `"derniereTontineGeree": "uuid | null"` — dernière tontine choisie dans l'espace Gestionnaire de l'accueil (l'accueil gestionnaire a toujours une tontine sélectionnée, dont il affiche le QR d'invitation).
+  - accepté en `PUT` et renvoyé en `GET` ; absent ou null = aucune ;
+  - **contrôle** : si l'identifiant ne correspond pas à une tontine dont l'utilisateur est gestionnaire, le serveur l'enregistre à null (ou renvoie null en lecture) plutôt que de refuser tout l'objet ;
+  - le `PUT` remplace l'objet complet : tant que ce champ n'est pas accepté, le front le garde seulement sur l'appareil (il ne l'envoie pas, pour ne pas faire échouer la sauvegarde des autres préférences).
 
 ### B23 — Supprimer une valeur de liste
 - `DELETE /v1/code-list/{id}` (refusé pour les valeurs système). Annoncé dans la documentation projet, absent de l'API.
@@ -342,6 +346,11 @@ Aucun développement backend nécessaire pour : inscription / connexion / code s
   - la **veille** à 18h00 (si `rappels.veille`) ; pas de rappel « veille » pour un rythme d'un jour (il tomberait au moment de l'échéance précédente) ;
   - **N heures avant** `echeanceAt` (si `rappels.heuresAvant` > 0, 1 à 24) ;
   - type `RAPPEL_COTISATION` (existant), canaux selon B31 ; pas d'envoi WhatsApp entre 21h00 et 8h00 (reporté à 8h00, ou avancé à 20h00 si l'échéance tombe avant 8h00) ; jamais deux fois le même rappel pour le même tour.
+- **Gestionnaire : membres qui n'ont pas encore payé** (remplace la carte « N n'a pas payé » retirée de l'accueil) : nouveau type `COTISATIONS_MANQUANTES`, envoyé au gestionnaire **la veille de l'échéance à 18h00** et **à l'échéance** (`echeanceAt`), **une notification par tontine et par tour** (jamais une par membre) :
+  - contenu : « 3 membres n'ont pas encore payé · Tontine Tabaski · Tour 3 » (+ prénoms si 3 ou moins) ;
+  - champs : `tontineId`, `cycleId`, `nombre` ; le front ouvre l'écran Encaisser de la tontine ;
+  - pas envoyée si tout le monde a déclaré ; pas de doublon si le traitement repasse ;
+  - si une règle d'amende est active (B27), la notification de l'échéance est remplacée par `AMENDE_DETECTEE` (une seule notification).
 - **Modification** : rythme (intervalle, unité) modifiable seulement en `BROUILLON` ; `jourEcheance`, `heureEcheance`, `rappels` modifiables quand la tontine est active, **pour les tours pas encore commencés** (notification `REGLES_MODIFIEES`).
 - **Exports CSV** (B24) : ajouter le rythme lisible (« tous les 3 jours, avant 23h59 ») et `echeanceAt` par tour.
 - **Codes d'erreur** : `RYTHME_INVALIDE` (unité inconnue, intervalle ≤ 0), `RYTHME_TROP_LONG` (au-delà d'un mois, y compris `TRIMESTRIEL` à la création), `JOUR_ECHEANCE_INVALIDE` (incohérent avec l'unité), `HEURE_ECHEANCE_INVALIDE`, `RYTHME_NON_MODIFIABLE` (tontine non brouillon).
@@ -582,6 +591,7 @@ Aucun développement backend nécessaire pour : inscription / connexion / code s
     | `RAPPEL_COTISATION`, `PAIEMENT_EN_RETARD` | ✓ | ✓ | ✓ | — |
     | `AMENDE_INFLIGEE`, `AMENDE_ANNULEE`, `AMENDE_PAYEE`, `AMENDE_PAIEMENT_REFUSE` | ✓ | ✓ | ✓ | — |
     | `AMENDE_DETECTEE`, `AMENDE_PAIEMENT_DECLARE` (gestionnaire) | ✓ | ✓ | — | — |
+    | `COTISATIONS_MANQUANTES` (gestionnaire) | ✓ | ✓ | — | — |
     | `PRET_*`, `REMBOURSEMENT_*` | ✓ | ✓ | ✓ | — |
     | `CAISSE_SORTIE`, `REGLES_MODIFIEES` | ✓ | ✓ | ✓ | — |
     | `JACKPOT_DISTRIBUE`, `DISTRIBUTION_FINALE` | ✓ | ✓ | ✓ | ✓ |

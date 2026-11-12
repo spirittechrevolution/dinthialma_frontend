@@ -16,6 +16,15 @@ export const PREF_KEYS = {
   moyen: 'dinthialma_last_method',
 } as const
 
+/**
+ * Préférences gardées sur l'appareil seulement, en attendant que le backend les accepte (B22).
+ * Pour les synchroniser : ajouter la clé dans PREF_KEYS et le champ dans Preferences / lireLocal / ecrireLocal.
+ */
+export const PREF_KEYS_LOCALES = {
+  /** Dernière tontine choisie dans l'espace Gestionnaire de l'accueil (champ backend prévu : derniereTontineGeree) */
+  derniereTontineGeree: 'dinthialma_derniere_tontine_geree',
+} as const
+
 /** Événement émis quand le cache local a été mis à jour depuis le serveur */
 export const PREFERENCES_EVENT = 'dinthialma-preferences'
 
