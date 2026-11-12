@@ -71,7 +71,9 @@ interface RawActivite {
 }
 interface RawJackpots {
   totalRecu?: number
-  recus?: (Omit<JackpotRecu, 'dateRemise'> & { dateRemise?: string })[]
+  recus?: (Omit<JackpotRecu, 'dateRemise' | 'nature' | 'cycleId' | 'numeroCycle'> & {
+    dateRemise?: string; nature?: JackpotRecu['nature']; cycleId?: string; numeroCycle?: number
+  })[]
   aVenir?: { tontineId: string; tontineNom: string; monMembreId?: string; modeAttribution: ModeAttribution
     position?: number; numeroCycleEstime?: number; dateEstimee?: string; montantEstime?: number }[]
 }
@@ -254,7 +256,15 @@ export const meService = {
     const raw = data.data ?? {}
     return {
       totalRecu: num(raw.totalRecu),
-      recus: (raw.recus ?? []).map((r) => ({ ...r, montantRecu: num(r.montantRecu), dateRemise: ouNull(r.dateRemise) })),
+      // Déjà triés par date de remise, la plus récente d'abord
+      recus: (raw.recus ?? []).map((r) => ({
+        ...r,
+        nature: r.nature ?? 'JACKPOT',
+        cycleId: ouNull(r.cycleId),
+        numeroCycle: numOuNull(r.numeroCycle),
+        montantRecu: num(r.montantRecu),
+        dateRemise: ouNull(r.dateRemise),
+      })),
       aVenir: (raw.aVenir ?? []).map((v): JackpotAVenir => ({
         tontineId: v.tontineId,
         tontineNom: v.tontineNom,

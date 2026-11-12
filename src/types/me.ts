@@ -127,6 +127,8 @@ export type ActiviteType =
   | 'COTISATION_EN_RETARD'
   | 'COTISATION_REFUSEE'
   | 'JACKPOT_RECU'
+  /** Part nette reçue à la clôture d'une tontine événementielle (sens GAIN) */
+  | 'DISTRIBUTION_RECUE'
 
 export interface ActiviteItem {
   id: string
@@ -155,8 +157,10 @@ export type ModeAttribution = 'ORDRE' | 'TIRAGE' | 'CHOIX'
 export interface JackpotRecu {
   tontineId: string
   tontineNom: string
-  cycleId: string
-  numeroCycle: number
+  /** JACKPOT : tour d'une rotative ; DISTRIBUTION_FINALE : clôture d'une événementielle */
+  nature: 'JACKPOT' | 'DISTRIBUTION_FINALE'
+  cycleId: string | null
+  numeroCycle: number | null
   dateRemise: string | null
   montantRecu: number
 }

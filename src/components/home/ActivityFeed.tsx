@@ -10,6 +10,7 @@ const LIBELLES: Record<ActiviteType, string> = {
   COTISATION_EN_RETARD: 'Cotisation en retard',
   COTISATION_REFUSEE: 'Paiement refusé',
   JACKPOT_RECU: 'Jackpot reçu',
+  DISTRIBUTION_RECUE: 'Distribution finale',
 }
 
 const STATUT: Record<ActiviteType, { label: string; cls: string; icon: JSX.Element }> = {
@@ -19,7 +20,11 @@ const STATUT: Record<ActiviteType, { label: string; cls: string; icon: JSX.Eleme
   COTISATION_EN_RETARD: { label: 'En retard', cls: 'bg-red-50 text-red-700', icon: <AlertTriangle size={13} /> },
   COTISATION_REFUSEE: { label: 'Refusé', cls: 'bg-red-50 text-red-700', icon: <XCircle size={13} /> },
   JACKPOT_RECU: { label: 'Reçu', cls: 'bg-yellow-50 text-yellow-800', icon: <Trophy size={13} /> },
+  DISTRIBUTION_RECUE: { label: 'Reçu', cls: 'bg-yellow-50 text-yellow-800', icon: <Trophy size={13} /> },
 }
+
+/** Type ajouté plus tard par le backend : on s'appuie sur le libellé et le sens fournis */
+const STATUT_INCONNU = { label: '', cls: 'bg-neutral-100 text-neutral-600', icon: <CheckCircle2 size={13} /> }
 
 interface ActivityFeedProps {
   mode: ModeAccueil
@@ -68,9 +73,10 @@ export function ActivityFeed({ mode, items, isLoading, isError, onRetry, onOpen 
 
 /** Ligne d'activité (accueil, historique) : libellé, date, montant à droite, statut toujours visible */
 export function ActiviteRow({ mode, it, onOpen }: { mode: ModeAccueil; it: ActiviteItem; onOpen: (item: ActiviteItem) => void }) {
-  const st = STATUT[it.type]
+  const st = STATUT[it.type] ?? (it.sens === 'GAIN' ? STATUT.JACKPOT_RECU : STATUT_INCONNU)
   const gain = it.sens === 'GAIN'
-  const titre = mode === 'GERE' && it.membreNom ? it.membreNom : `${LIBELLES[it.type]} · ${it.tontineNom}`
+  const libelle = LIBELLES[it.type] ?? it.libelle ?? 'Mouvement'
+  const titre = mode === 'GERE' && it.membreNom ? it.membreNom : `${libelle} · ${it.tontineNom}`
   const sous = mode === 'GERE' ? `${it.tontineNom} · ${formatDateHeure(it.date)}` : formatDateHeure(it.date)
   return (
     <li>

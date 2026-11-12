@@ -102,5 +102,10 @@ bout avec l'API n'a encore été fait** (à mener avant la PR, voir « Comment t
 | 9 | Demandes dans my-dashboard | `totalDemandesEnAttente`, `demandesEnAttente` par tontine | Badge « À valider » = paiements + demandes ; carte « N demandes d'adhésion » ; compteur dans Mes tontines |
 
 Disponible côté backend après fusion de `feature/refactor-mapstruct-tests` (98a1d91) et migration V033.
-Limite connue : le montant de la distribution finale d'une tontine événementielle n'est pas enregistré par
-membre (évolution backend à demander si on veut l'afficher).
+Distribution finale des tontines événementielles (backend df1668d, migration V034) : part nette par membre
+dans `/me/summary` (`nombreJackpotsRecus` = 1 après clôture), `nature` (`JACKPOT` | `DISTRIBUTION_FINALE`)
+dans `/me/jackpots`, type d'activité `DISTRIBUTION_RECUE` (sens GAIN). Intégré : « Distribution finale »
+dans Mes jackpots et l'historique, filtre « Jackpots » = `JACKPOT_RECU` + `DISTRIBUTION_RECUE`, et tout type
+d'activité inconnu s'affiche avec le libellé et le sens fournis par le backend.
+Limite : les tontines événementielles clôturées avant le déploiement n'ont pas de distribution enregistrée
+(reprise possible côté backend, à décider).

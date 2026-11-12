@@ -30,7 +30,7 @@ const STATUTS: { id: string; label: string; statut: CotisationStatut | null }[] 
 const TYPES_FILTRE: Record<'tout' | 'paiements' | 'jackpots', ActiviteType[] | undefined> = {
   tout: undefined,
   paiements: ['COTISATION_DECLAREE', 'COTISATION_VALIDEE', 'COTISATION_ENCAISSEE', 'COTISATION_EN_RETARD', 'COTISATION_REFUSEE'],
-  jackpots: ['JACKPOT_RECU'],
+  jackpots: ['JACKPOT_RECU', 'DISTRIBUTION_RECUE'],
 }
 
 export function HistoriquePage() {
