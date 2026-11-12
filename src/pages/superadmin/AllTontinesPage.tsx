@@ -10,7 +10,7 @@ import { Tontine } from '@/types/tontine'
 import { TontineStatut } from '@/types/common'
 import { formatFCFA, formatDateCourte } from '@/lib/format'
 import { ChevronRight } from 'lucide-react'
-import { ChipRow } from '@/components/ui/ChipRow'
+import { ChipRow, FilterChip } from '@/components/ui/ChipRow'
 
 const PAGE_SIZE = 20
 
@@ -99,16 +99,7 @@ export function AllTontinesPage() {
       {/* Filtre statut (côté serveur) */}
       <ChipRow className="mb-4">
         {STATUT_TABS.map((tab) => (
-          <button
-            aria-pressed={statut === tab.value}
-            key={tab.value || 'all'}
-            onClick={() => changeStatut(tab.value)}
-            className={`h-9 px-4 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-              statut === tab.value ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-100'
-            }`}
-          >
-            {tab.label}
-          </button>
+          <FilterChip key={tab.value || 'all'} label={tab.label} actif={statut === tab.value} onClick={() => changeStatut(tab.value)} />
         ))}
       </ChipRow>
 

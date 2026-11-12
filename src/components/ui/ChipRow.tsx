@@ -50,3 +50,41 @@ export function ChipRow({ children, className, bleed = true }: ChipRowProps) {
     </div>
   )
 }
+
+interface FilterChipProps {
+  label: ReactNode
+  actif: boolean
+  onClick: () => void
+  /** Nombre d'éléments, affiché discrètement après le libellé (masqué si 0 ou absent) */
+  count?: number
+  /** Petit point rouge devant le nombre : quelque chose demande une action */
+  alerte?: boolean
+}
+
+/**
+ * Pastille de filtre, style unique de l'app (simplicité Wave) :
+ * - active : fond vert clair, texte vert foncé (le vert plein reste réservé au niveau principal, ex. Je cotise / Je gère) ;
+ * - inactive : simple texte gris, sans fond ni ombre ;
+ * - compteur en gris discret ; point rouge seulement quand il faut agir.
+ */
+export function FilterChip({ label, actif, onClick, count, alerte }: FilterChipProps) {
+  return (
+    <button
+      type="button"
+      aria-pressed={actif}
+      onClick={onClick}
+      className={clsx(
+        'h-9 px-3.5 rounded-full text-sm whitespace-nowrap inline-flex items-center gap-1.5 transition-colors flex-shrink-0',
+        actif ? 'bg-primary-100 text-primary-800 font-semibold' : 'text-neutral-600 font-medium hover:bg-black/5',
+      )}
+    >
+      {label}
+      {!!count && (
+        <span className={clsx('inline-flex items-center gap-1 text-[13px] tabular-nums', actif ? 'text-primary-700' : 'text-neutral-400')}>
+          {alerte && <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-red-600" />}
+          {count}
+        </span>
+      )}
+    </button>
+  )
+}

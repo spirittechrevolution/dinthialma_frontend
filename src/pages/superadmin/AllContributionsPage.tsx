@@ -10,7 +10,7 @@ import { useAllContributionsAdmin, useAllTontinesAdmin } from '@/hooks/useDashbo
 import { Cotisation } from '@/types/cotisation'
 import { CotisationStatut } from '@/types/common'
 import { formatFCFA, formatDateHeure } from '@/lib/format'
-import { ChipRow } from '@/components/ui/ChipRow'
+import { ChipRow, FilterChip } from '@/components/ui/ChipRow'
 
 const PAGE_SIZE = 20
 
@@ -92,16 +92,7 @@ export function AllContributionsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
         <ChipRow>
           {STATUT_TABS.map((tab) => (
-            <button
-              aria-pressed={statut === tab.value}
-              key={tab.value || 'all'}
-              onClick={() => changeStatut(tab.value)}
-              className={`h-9 px-4 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-                statut === tab.value ? 'bg-neutral-900 text-white' : 'bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-100'
-              }`}
-            >
-              {tab.label}
-            </button>
+            <FilterChip key={tab.value || 'all'} label={tab.label} actif={statut === tab.value} onClick={() => changeStatut(tab.value)} />
           ))}
         </ChipRow>
         <div className="sm:ml-auto sm:w-64">

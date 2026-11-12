@@ -13,6 +13,7 @@ import {
   CreditCard, ListChecks, Send, CalendarClock, Play, Lock, RotateCw, Clock, CheckCircle2, AlertTriangle, Download, XCircle,
 } from 'lucide-react'
 import { InitialsAvatar } from '@/components/ui/Section'
+import { ChipRow, FilterChip } from '@/components/ui/ChipRow'
 import { telechargerCsv } from '@/lib/exportCsv'
 import { messageErreur } from '@/lib/apiError'
 import { Modal } from '@/components/ui/Modal'
@@ -25,20 +26,45 @@ import { useActiverTontine } from '@/hooks/useTontines'
 import { useCotisantSummary, useCotisationsParStatut } from '@/hooks/useMe'
 import { useLocalPreference } from '@/hooks/useLocalPreference'
 import { useOnline } from '@/hooks/useOnline'
-import { formatF, formatDateCourte, formatDateHeure } from '@/lib/format'
+import { formatF, formatDateCourte } from '@/lib/format'
 import { paymentMethodLabel } from '@/lib/paymentMethods'
 import { rythmeCourt, compteARebours } from '@/lib/tontineLabels'
 import { CotisationStatut, CycleStatut, MembreStatut, TontineStatut } from '@/types/common'
 import { TontineType } from '@/types/tontine'
 import type { Cotisation } from '@/types/cotisation'
 
-const FILTRES: { id: string; label: string; statuts: CotisationStatut[] }[] = [
-  { id: 'tous', label: 'Tous', statuts: [] },
-  { id: 'attente', label: 'En attente', statuts: [CotisationStatut.EN_ATTENTE] },
-  { id: 'valides', label: 'Validés', statuts: [CotisationStatut.VALIDE] },
-  { id: 'retard', label: 'En retard', statuts: [CotisationStatut.EN_RETARD] },
-  { id: 'refuses', label: 'Refusés', statuts: [CotisationStatut.REFUSE] },
+/**
+ * 3 filtres, comme l'historique Wave : tout, ce qui attend une validation, ce qui pose problème.
+ * « À régler » (membre) / « À relancer » (gestionnaire) regroupe les paiements en retard et refusés.
+ */
+const FILTRES: { id: string; label: string; labelGerant: string; statuts: CotisationStatut[] }[] = [
+  { id: 'tous', label: 'Tous', labelGerant: 'Tous', statuts: [] },
+  { id: 'attente', label: 'En attente', labelGerant: 'À valider', statuts: [CotisationStatut.EN_ATTENTE] },
+  { id: 'probleme', label: 'À régler', labelGerant: 'À relancer', statuts: [CotisationStatut.EN_RETARD, CotisationStatut.REFUSE] },
 ]
+
+/** Rubrique de date d'un paiement : Aujourd'hui, Hier, Cette semaine, puis le mois (« Octobre 2026 ») */
+function rubriqueDate(iso: string): string {
+  const d = new Date(iso)
+  const minuit = new Date()
+  minuit.setHours(0, 0, 0, 0)
+  const jours = Math.floor((minuit.getTime() - new Date(d).setHours(0, 0, 0, 0)) / 86_400_000)
+  if (jours <= 0) return "Aujourd'hui"
+  if (jours === 1) return 'Hier'
+  if (jours < 7) return 'Cette semaine'
+  const mois = d.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+  return mois.charAt(0).toUpperCase() + mois.slice(1)
+}
+
+/** Heure seule pour aujourd'hui et hier, sinon jour + heure (« lun. 10:15 », « 12 oct. 10:15 ») */
+function heurePaiement(iso: string): string {
+  const d = new Date(iso)
+  const heure = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  const r = rubriqueDate(iso)
+  if (r === "Aujourd'hui" || r === 'Hier') return heure
+  if (r === 'Cette semaine') return `${d.toLocaleDateString('fr-FR', { weekday: 'short' })} ${heure}`
+  return `${d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} ${heure}`
+}
 
 const STATUT_PILL: Record<CotisationStatut, { label: string; cls: string; icon: JSX.Element }> = {
   EN_ATTENTE: { label: 'En attente', cls: 'bg-amber-50 text-amber-800', icon: <Clock size={13} /> },
@@ -75,7 +101,8 @@ export function FicheTontinePage() {
   const maLigne = cotisant.data?.tontines.find((l) => l.tontineId === id)
 
   const statuts = FILTRES.find((f) => f.id === filtre)?.statuts ?? []
-  const historique = useCotisationsParStatut(id, statuts, {
+  // Tout l'historique est chargé une fois ; filtres et compteurs se calculent ici
+  const historique = useCotisationsParStatut(id, [], {
     membreId: v.vue === 'COTISE' ? v.ma?.monMembreId ?? undefined : undefined,
   })
   const { mutate: valider, isPending: validating } = useValiderCotisation()
@@ -160,8 +187,18 @@ export function FicheTontinePage() {
           ]
         : []
 
-  const cotisations = historique.data ?? []
+  const toutes = [...(historique.data ?? [])].sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
+  const compte = (st: CotisationStatut[]) => toutes.filter((c) => st.includes(c.statut)).length
+  const cotisations = statuts.length ? toutes.filter((c) => statuts.includes(c.statut)) : toutes
   const visibles = cotisations.slice(0, limite)
+  // Regroupement par rubrique de date, dans l'ordre (plus récent d'abord)
+  const groupes: { titre: string; lignes: Cotisation[] }[] = []
+  for (const c of visibles) {
+    const titre = rubriqueDate(c.createdAt)
+    const dernier = groupes[groupes.length - 1]
+    if (dernier?.titre === titre) dernier.lignes.push(c)
+    else groupes.push({ titre, lignes: [c] })
+  }
 
   const onValider = (c: Cotisation) => valider(
     { tontineId: id, cotisationId: c.id },
@@ -302,18 +339,21 @@ export function FicheTontinePage() {
               </button>
             )}
           </div>
-          <div className="flex gap-2 overflow-x-auto px-4 py-3" role="group" aria-label="Filtrer par statut">
-            {FILTRES.map((f) => (
-              <button
-                key={f.id}
-                aria-pressed={filtre === f.id}
-                onClick={() => { setFiltre(f.id); setLimite(PAGE) }}
-                className={clsx('h-9 px-4 rounded-full text-sm font-medium whitespace-nowrap', filtre === f.id ? 'bg-neutral-900 text-white' : 'bg-neutral-100 text-neutral-700')}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
+          <ChipRow bleed={false} className="px-4 py-3">
+            {FILTRES.map((f) => {
+              const n = f.statuts.length ? compte(f.statuts) : 0
+              return (
+                <FilterChip
+                  key={f.id}
+                  label={gerant ? f.labelGerant : f.label}
+                  actif={filtre === f.id}
+                  onClick={() => { setFiltre(f.id); setLimite(PAGE) }}
+                  count={n}
+                  alerte={f.id === 'probleme' && n > 0}
+                />
+              )
+            })}
+          </ChipRow>
           {historique.isLoading ? (
             <div className="px-4 pb-4 space-y-2" aria-busy="true">
               {[0, 1, 2].map((i) => <div key={i} className="h-14 rounded-2xl bg-neutral-100 animate-pulse" />)}
@@ -324,10 +364,19 @@ export function FicheTontinePage() {
               <button onClick={() => historique.refetch()} className="mt-3 h-11 px-4 rounded-full bg-neutral-100 text-sm font-semibold">Réessayer</button>
             </div>
           ) : visibles.length === 0 ? (
-            <p className="px-4 pb-6 text-sm text-neutral-500 text-center">Aucun paiement</p>
+            <p className="px-4 pb-6 text-sm text-neutral-500 text-center">
+              {filtre === 'probleme'
+                ? (gerant ? 'Aucun paiement à relancer' : 'Rien à régler, tout est en ordre')
+                : filtre === 'attente'
+                  ? (gerant ? 'Aucun paiement à valider' : 'Aucun paiement en attente')
+                  : 'Aucun paiement'}
+            </p>
           ) : (
+            groupes.map((g) => (
+            <div key={g.titre}>
+            <p className="px-4 pt-3 pb-1 text-xs font-semibold tracking-[0.12em] uppercase text-neutral-500">{g.titre}</p>
             <ul className="divide-y divide-neutral-100">
-              {visibles.map((c) => {
+              {g.lignes.map((c) => {
                 const st = STATUT_PILL[c.statut]
                 const nom = `${c.membre.firstName} ${c.membre.lastName}`.trim()
                 const cycle = cycles.find((cy) => cy.id === c.cycleId)
@@ -340,7 +389,7 @@ export function FicheTontinePage() {
                           {gerant ? nom : `Cotisation${cycle ? ` · Tour ${cycle.numeroCycle}` : ''}`}
                         </span>
                         <span className="block text-sm text-neutral-500 truncate">
-                          {paymentMethodLabel(c.methodePaiement)} · {formatDateHeure(c.createdAt)}
+                          {paymentMethodLabel(c.methodePaiement)} · {heurePaiement(c.createdAt)}
                         </span>
                       </span>
                     </Link>
@@ -359,11 +408,23 @@ export function FicheTontinePage() {
                           {st.icon} {st.label}
                         </span>
                       )}
+                      {/* Membre : un paiement refusé ou en retard se règle d'un geste */}
+                      {v.vue === 'COTISE' && (c.statut === CotisationStatut.REFUSE || c.statut === CotisationStatut.EN_RETARD) && (
+                        <button
+                          onClick={() => navigate(`/payer/${id}`)}
+                          disabled={!online}
+                          className="text-xs font-bold text-primary-800 inline-flex items-center gap-0.5 disabled:opacity-50"
+                        >
+                          {c.statut === CotisationStatut.REFUSE ? 'Repayer' : 'Payer'} <ChevronRight size={14} />
+                        </button>
+                      )}
                     </span>
                   </li>
                 )
               })}
             </ul>
+            </div>
+            ))
           )}
           {cotisations.length > limite && (
             <button onClick={() => setLimite((l) => l + PAGE)} className="w-full h-12 text-sm font-semibold text-primary-800 border-t border-neutral-100">
