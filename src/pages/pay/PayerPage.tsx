@@ -194,7 +194,7 @@ function DeclarerPaiement({ ligne }: { ligne: CotisantTontineSummary }) {
 
   return (
     <Shell>
-      <div className="space-y-4 pb-28">
+      <div className="space-y-4 pb-28 lg:pb-0">
         {due.motifDernierRefus && (
           <p role="status" className="rounded-3xl bg-red-50 px-4 py-3 text-sm text-red-800">
             <b>Votre paiement a été refusé :</b> {due.motifDernierRefus}. Vous pouvez le déclarer à nouveau.
@@ -262,13 +262,13 @@ function DeclarerPaiement({ ligne }: { ligne: CotisantTontineSummary }) {
         {error && <p role="alert" className="px-1 text-sm font-medium text-red-700">{error}</p>}
       </div>
 
-      {/* Bouton principal collé en bas (zone du pouce) */}
-      <div className="fixed inset-x-0 bottom-0 z-20 bg-[#f2f3f5]/95 backdrop-blur px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
+      {/* Mobile : bouton principal collé en bas (zone du pouce). Desktop : sous le formulaire, dans la fenêtre. */}
+      <div className="fixed inset-x-0 bottom-0 z-20 bg-[#f2f3f5]/95 backdrop-blur px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] lg:static lg:z-auto lg:bg-transparent lg:backdrop-blur-none lg:px-0 lg:pt-5 lg:pb-0">
         <div className="max-w-lg mx-auto">
           <button
             onClick={confirmer}
             disabled={!peutConfirmer}
-            className="w-full h-14 rounded-full bg-primary-700 text-white text-[17px] font-bold active:scale-[0.98] transition disabled:opacity-50"
+            className="w-full h-14 rounded-full bg-primary-700 text-white text-[17px] font-bold hover:bg-primary-800 active:scale-[0.98] transition disabled:opacity-50"
           >
             {isPending ? 'Envoi…' : !online ? 'Connexion requise' : `Confirmer mon paiement${montant ? ` de ${formatF(montant)}` : ''}`}
           </button>
@@ -281,11 +281,12 @@ function DeclarerPaiement({ ligne }: { ligne: CotisantTontineSummary }) {
 
 // ─── Mise en page ────────────────────────────────────────────────────────────
 
+/** Mobile : plein écran. Desktop : fenêtre centrée de 480 px (brief B2). */
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-[100dvh] bg-[#f2f3f5]">
       <ScreenHeader title="Payer ma cotisation" />
-      <main className="px-4 pb-6 max-w-lg mx-auto">{children}</main>
+      <main className="px-4 pb-6 max-w-lg mx-auto lg:max-w-[480px] lg:px-0 lg:pt-2 lg:pb-12">{children}</main>
     </div>
   )
 }

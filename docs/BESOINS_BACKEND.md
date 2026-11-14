@@ -46,6 +46,7 @@
 | B29 | Caisses de la tontine (commune, amendes, frais de prêt) et mouvements | Fiche (rubrique Caisse), Réglages | P1 (socle de B27/B28) |
 | B30 | Commission du gestionnaire enregistrée dans la création | Créer une tontine | P1 |
 | B31 | Canaux de notification : in-app, push, WhatsApp (+ SMS pour les jackpots) | Toutes les alertes | P1 |
+| B32 | Rythme du jackpot distinct du rythme de cotisation (N cotisations par tour, déclenchement de la remise) | Créer, Modifier, Réglages, Fiche, Tours, Payer, Encaisser, À valider | P1 |
 
 ---
 
@@ -603,3 +604,74 @@ Aucun développement backend nécessaire pour : inscription / connexion / code s
     - regroupement : au plus **un message WhatsApp par tontine et par jour** pour un même membre (les rappels du jour sont fusionnés).
   - Chaque notification garde le lien précis vers l'écran concerné (B19), ex. `/tontine/{id}?amende={amendeId}`, `/tontine/{id}?pret={pretId}`.
   - Journal d'envoi par canal (envoyé / échec / motif) consultable par le super-admin.
+
+### B32 — Rythme du jackpot distinct du rythme de cotisation (tontines rotatives)
+- **Écrans** : Créer une tontine, Modifier, Réglages, Fiche Tontine, Tours, Payer, Encaisser, À valider, Invitation, Accueil (bandeaux), Mes jackpots.
+- **Existant** : 1 cycle = 1 tour = 1 jackpot = **une seule cotisation par membre** (`POST /tontines/{id}/cotisations` : une 2ᵉ déclaration sur le même cycle → `409 COTISATION_ALREADY_EXISTS`). Impossible de cotiser chaque semaine et de verser le jackpot chaque mois.
+- **Contournement front** : aucun (échéances, retards et rappels sont gérés par le backend).
+- **Dépendance** : B26 (rythme, `jourEcheance`, `echeanceAt`). Non bloquante : B32 fonctionne aussi avec les 4 rythmes actuels.
+- **Décision produit (2026-11-13)** : le rythme du jackpot s'exprime en **nombre de cotisations par tour** et non en durée calendaire. Le jackpot reste **fixe** (ex. 5 000 F × 10 membres × 4 = 200 000 F), sans le problème des mois à 4 ou 5 semaines.
+
+- **Cas à couvrir** (une tontine rotative combine librement un rythme de cotisation, un nombre de cotisations par tour, un déclenchement de la remise et un mode de désignation) :
+  | Cas | Cotisation | Jackpot | Paramétrage |
+  |---|---|---|---|
+  | Classique | chaque mois, avant le 30 (date fixée par le gestionnaire) | à chaque cotisation, une fois que tous ont payé | `rythme` 1 MOIS + `jourEcheance: "30"` (B26), `cotisationsParTour: 1`, `declenchementJackpot: TOUS_PAYES` |
+  | Hebdo / mensuel | chaque semaine, le dimanche | toutes les 4 cotisations (≈ 1 mois) | `rythme` 1 SEMAINE + `jourEcheance: "DIMANCHE"`, `cotisationsParTour: 4`, `declenchementJackpot: FIN_DU_TOUR` |
+  | Journalière | chaque jour (marchés) | toutes les 10 cotisations | `rythme` 1 JOUR, `cotisationsParTour: 10` |
+  | Manuel | selon le gestionnaire | à la date choisie par le gestionnaire | `modeCycle: MANUEL`, date de fin proposée par l'app ou choisie (voir plus bas) |
+  Dans tous les cas, le ou les gagnants sont désignés selon `ordreBeneficiaire` (existant : ordre fixe, tirage au sort, choix du gestionnaire, hybride) et les priorités sur le jackpot déjà livrées.
+
+- **Nouveaux champs** (dans `CreateTontineRequest`, `UpdateTontineRequest`, `TontineResponse`, `InvitationApercuResponse`, `TontineCotisant`, `TontineStats`) :
+  ```json
+  "cotisationsParTour": 4,                 // entier ≥ 1, défaut 1 (= fonctionnement actuel)
+  "declenchementJackpot": "FIN_DU_TOUR"    // FIN_DU_TOUR | TOUS_PAYES, défaut FIN_DU_TOUR
+  ```
+  - réservés aux tontines **ROTATIVE** ; pour une EVENEMENTIELLE, `cotisationsParTour` = 1 (sinon `COTISATIONS_PAR_TOUR_INVALIDE`) ;
+  - **pas de borne** (décision 2026-11-13) : ni maximum sur `cotisationsParTour`, ni limite sur la durée d'un tour (N × rythme) ; c'est le gestionnaire qui décide. Le front affiche simplement la durée résultante d'un tour et de la tontine (via la simulation B26) pour qu'il voie l'effet de son choix ;
+  - modifiables seulement en `BROUILLON` (`COTISATIONS_PAR_TOUR_NON_MODIFIABLE`).
+  - `declenchementJackpot` :
+    - `FIN_DU_TOUR` : la remise est possible (mode automatique : faite) à l'échéance de la **dernière** cotisation du tour, même si des membres n'ont pas payé (ils passent `EN_RETARD`, comme aujourd'hui) ;
+    - `TOUS_PAYES` : la remise est possible dès que **tous les membres actifs** ont une cotisation validée sur **toutes** les échéances du tour (même avant la dernière échéance) ; mode automatique : clôture déclenchée à la dernière validation ; tant que ce n'est pas le cas, le tour reste ouvert après l'échéance et le gestionnaire est notifié (`COTISATIONS_MANQUANTES`, B26) ; il peut toujours clôturer lui-même.
+
+- **Modèle : un tour contient N échéances de cotisation**
+  - nouvelle entité **échéance** rattachée à un tour : `id`, `cycleId`, `numero` (1 à N), `dateDebut`, `echeanceAt`, `statut` (`A_VENIR` | `EN_COURS` | `ECHUE`) ;
+  - génération : chaque échéance commence le lendemain de la précédente et suit la règle de B26 (intervalle, `jourEcheance`, `heureEcheance`) ; la `dateFin` du tour = jour de sa **dernière échéance** ;
+  - le **nombre de tours ne change pas** (`nombreMembres / nombreGagnants`) ; seule la durée d'un tour change (N × rythme).
+
+- **Paiement : uniquement l'échéance en cours** (décision 2026-11-13)
+  - un membre ne déclare que l'**échéance en cours** (pas de paiement en avance de plusieurs échéances) ; une échéance passée non payée reste déclarable (régularisation d'un retard) ; une échéance future → `ECHEANCE_NON_OUVERTE` ;
+  - **une cotisation par membre et par échéance** (et non plus par cycle) : le `409 COTISATION_ALREADY_EXISTS` porte sur l'échéance ; une déclaration refusée (B18) peut être refaite ;
+  - le gestionnaire qui encaisse (`/cotisations/admin`) suit la même règle, avec `echeanceId` explicite pour régulariser une échéance passée.
+
+- **Mode manuel : date de fin flexible** (décision 2026-11-13)
+  - à l'ouverture d'un tour, l'app **propose** une date de fin calculée (dernière des N échéances depuis `dateDebut`) : `GET /v1/tontines/{id}/cycles/proposition?dateDebut=` → `{ "dateDebut", "dateFin", "echeances": [...] }` ;
+  - le gestionnaire peut **garder** cette date ou en **choisir une autre** : `OpenCycleRequest.dateFin` devient facultatif (absent = date proposée) ;
+  - date choisie : les échéances sont celles du rythme qui tombent dans `[dateDebut, dateFin]`, la **dernière est ramenée sur `dateFin`** ; le nombre réel d'échéances du tour peut donc différer de N, et le jackpot prévu suit ce nombre réel (`CycleResponse.nombreEcheances`) ; seule contrainte : au moins une échéance (`dateFin` ≥ première échéance), sans limite de durée.
+
+- **Jackpot et commission**
+  - jackpot du tour = somme des cotisations validées de **toutes les échéances du tour** ; jackpot prévu = montant × membres actifs × nombre d'échéances du tour (÷ `nombreGagnants`) ;
+  - `FRAIS_FIXES_PAR_CYCLE` : prélevé **une fois par tour** (pas par échéance) ; `POURCENTAGE_JACKPOT` : sur le jackpot du tour.
+
+- **Retards, rappels, amendes : par échéance**
+  - ponctualité (`A_TEMPS` / `EN_RETARD` / `NON_DECLAREE`), rappels veille et N heures avant, `COTISATIONS_MANQUANTES` : calculés à **chaque échéance** (règles B26) ;
+  - B27 : une amende = une **échéance manquée**.
+
+- **Changements d'API**
+  - `RecordCotisationRequest` / `AdminRecordCotisationRequest` : `echeanceId` (facultatif ; défaut = échéance en cours) ;
+  - `CotisationResponse` : `echeanceId`, `numeroEcheance`, `echeanceAt` ;
+  - `CycleResponse`, `CycleEnCours`, `CycleEnCoursInfo` : `nombreEcheances`, `echeances[]`, `echeanceEnCours`, `montantJackpotPrevu`, `tousPayes` (booléen, utile pour `TOUS_PAYES`) ;
+  - `CotisationDue` (`/me/summary`) : porte sur l'**échéance en cours** + `numeroEcheance`, `nombreEcheances`, `echeanceAt`, `echeancesEnRetard` (nombre) ;
+  - `GET /cotisations/recap/{cycleId}` : par membre `echeancesPayees` / `echeancesDues` + détail par échéance ; filtre `?echeanceId=` ;
+  - `GET /membres?aPaye=` : accepte `echeanceId` en plus de `cycleId` ;
+  - `/admin/my-dashboard` (collecté / attendu du tour en cours) et `/me/jackpots` (montant prévu) : sur le tour complet (× nombre d'échéances) ;
+  - simulation B26 (`GET /tontines/simulation`) : paramètre `cotisationsParTour`, réponse avec les tours et leurs échéances.
+
+- **Migration** : tontines existantes → `cotisationsParTour: 1`, `declenchementJackpot: FIN_DU_TOUR` ; chaque cycle existant reçoit **une** échéance reprenant ses dates ; les cotisations existantes y sont rattachées. Aucun changement de comportement.
+- **Codes d'erreur** : `COTISATIONS_PAR_TOUR_INVALIDE`, `COTISATIONS_PAR_TOUR_NON_MODIFIABLE`, `ECHEANCE_INTROUVABLE`, `ECHEANCE_NON_OUVERTE`, `COTISATION_ALREADY_EXISTS` (désormais par échéance).
+- **Critères d'acceptation** :
+  - chaque semaine le dimanche, N = 4, 10 membres, 5 000 F → tour de 4 échéances, jackpot prévu 200 000 F, 10 tours ;
+  - 2ᵉ déclaration sur la même semaine → 409 ; déclaration de la semaine suivante avant son ouverture → `ECHEANCE_NON_OUVERTE` ; régularisation de la semaine 2 en semaine 3 → acceptée, ponctualité `EN_RETARD` ;
+  - chaque mois avant le 30, N = 1, `TOUS_PAYES` → dès la 10ᵉ validation, le tour peut être clôturé et le gagnant désigné (tirage ou choix) ; le 30 passé avec un membre non payé → tour toujours ouvert, gestionnaire notifié ;
+  - mode manuel : ouverture sans `dateFin` → date proposée ; avec une `dateFin` plus courte → moins d'échéances, jackpot prévu ajusté ;
+  - commission fixe 2 000 F → prélevée une seule fois à la clôture du tour ;
+  - tontine existante → fonctionne exactement comme avant.

@@ -5,11 +5,13 @@
  * puis la validation est envoyée. Balayer une ligne vers la droite valide aussi.
  * « Tout valider » demande une confirmation (validation groupée, bilan par paiement).
  * « Refuser » demande un motif (le membre peut déclarer à nouveau).
+ *
+ * Desktop (≥ 1024 px) : tableau à cases à cocher + « Valider la sélection » (même validation groupée).
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { CheckCircle2, PartyPopper, RotateCw, WifiOff } from 'lucide-react'
+import { CheckCircle2, ChevronRight, PartyPopper, RotateCw, WifiOff } from 'lucide-react'
 import { ScreenHeader } from '@/components/layout/ScreenHeader'
 import { InitialsAvatar } from '@/components/ui/Section'
 import { Modal } from '@/components/ui/Modal'
@@ -35,13 +37,26 @@ export function AValiderPage() {
   /** Lignes masquées : validées localement (en attente d'envoi ou envoyées) */
   const [masquees, setMasquees] = useState<Set<string>>(new Set())
   const timers = useRef(new Map<string, { timer: ReturnType<typeof setTimeout>; cot: CotisationAValider }>())
-  const [confirmAll, setConfirmAll] = useState(false)
+  /** Validation groupée à confirmer : toute la file (« Tout valider ») ou la sélection (desktop) */
+  const [aConfirmer, setAConfirmer] = useState<CotisationAValider[] | null>(null)
+  /** Desktop : lignes cochées */
+  const [selection, setSelection] = useState<Set<string>>(new Set())
   const [bulk, setBulk] = useState<{ running: boolean; done: number | null; echecs: number; dejaTraites: number }>({ running: false, done: null, echecs: 0, dejaTraites: 0 })
   const [aRefuser, setARefuser] = useState<CotisationAValider | null>(null)
   const [refusEnCours, setRefusEnCours] = useState(false)
 
   const visibles = useMemo(() => (data ?? []).filter((c) => !masquees.has(c.id)), [data, masquees])
   const total = visibles.reduce((s, c) => s + c.montant, 0)
+  const selectionnees = visibles.filter((c) => selection.has(c.id))
+  const toutCoche = visibles.length > 0 && selectionnees.length === visibles.length
+  const basculer = (id: string) => setSelection((s) => {
+    const n = new Set(s)
+    if (n.has(id)) n.delete(id)
+    else n.add(id)
+    return n
+  })
+  const basculerTout = () => setSelection(toutCoche ? new Set() : new Set(visibles.map((c) => c.id)))
+  const montantConfirme = (aConfirmer ?? []).reduce((s, c) => s + c.montant, 0)
   const groupes = useMemo(() => {
     const map = new Map<string, { nom: string; items: CotisationAValider[] }>()
     for (const c of visibles) {
@@ -94,9 +109,11 @@ export function AValiderPage() {
     })
   }
 
-  const toutValider = async () => {
-    setConfirmAll(false)
-    const cibles = visibles.map((c) => ({ tontineId: c.tontineId, cotisationId: c.id }))
+  const validerGroupe = async () => {
+    const lot = aConfirmer ?? []
+    setAConfirmer(null)
+    setSelection(new Set())
+    const cibles = lot.map((c) => ({ tontineId: c.tontineId, cotisationId: c.id }))
     setBulk({ running: true, done: null, echecs: 0, dejaTraites: 0 })
     setMasquees((s) => new Set([...s, ...cibles.map((c) => c.cotisationId)]))
     try {
@@ -136,7 +153,7 @@ export function AValiderPage() {
   if (bulk.done !== null) {
     return (
       <Shell>
-        <section className="bg-white rounded-3xl shadow-sm p-6 text-center">
+        <section className="bg-white rounded-3xl shadow-sm p-6 text-center lg:max-w-lg lg:mx-auto lg:mt-6">
           <span className="mx-auto w-20 h-20 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center animate-pop">
             <CheckCircle2 size={40} />
           </span>
@@ -182,7 +199,7 @@ export function AValiderPage() {
           </button>
         </section>
       ) : visibles.length === 0 ? (
-        <section className="bg-white rounded-3xl shadow-sm p-8 text-center">
+        <section className="bg-white rounded-3xl shadow-sm p-8 text-center lg:max-w-lg lg:mx-auto lg:mt-6">
           <span className="mx-auto w-16 h-16 rounded-full bg-primary-50 text-primary-700 flex items-center justify-center">
             <PartyPopper size={30} />
           </span>
@@ -190,12 +207,48 @@ export function AValiderPage() {
           <p className="mt-1 text-sm text-neutral-500">Tous les paiements déclarés sont traités.</p>
         </section>
       ) : (
-        <div className="space-y-4 pb-28">
-          <p className="px-1 text-sm font-semibold text-neutral-600">
+        <div className="space-y-4 pb-28 lg:pb-10">
+          <p className="lg:hidden px-1 text-sm font-semibold text-neutral-600">
             {visibles.length} paiement{visibles.length > 1 ? 's' : ''} · {formatF(total)}
           </p>
+
+          {/* Desktop : tableau à cases à cocher */}
+          <TableauDesktop
+            items={visibles}
+            multiTontines={groupes.length > 1}
+            selection={selection}
+            toutCoche={toutCoche}
+            onBasculer={basculer}
+            onBasculerTout={basculerTout}
+            disabled={!online || bulk.running}
+            onValider={valider}
+            onRefuser={setARefuser}
+            onOpen={(c) => navigate(`/recu/${c.tontineId}/${c.id}`)}
+            barre={
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setAConfirmer(selectionnees)}
+                  disabled={!online || bulk.running || selectionnees.length === 0}
+                  className="h-11 px-5 rounded-full bg-primary-700 text-white text-sm font-bold hover:bg-primary-800 disabled:opacity-40"
+                >
+                  {bulk.running ? 'Validation…' : `Valider la sélection${selectionnees.length ? ` (${selectionnees.length})` : ''}`}
+                </button>
+                {visibles.length > 1 && (
+                  <button
+                    onClick={() => setAConfirmer(visibles)}
+                    disabled={!online || bulk.running}
+                    className="h-11 px-5 rounded-full bg-primary-50 text-primary-800 text-sm font-bold hover:bg-primary-100 disabled:opacity-40"
+                  >
+                    Tout valider ({visibles.length})
+                  </button>
+                )}
+              </div>
+            }
+          />
+
+          {/* Mobile : liste groupée par tontine, balayage = valider */}
           {groupes.map(([id, g]) => (
-            <section key={id} className="bg-white rounded-3xl shadow-sm overflow-hidden">
+            <section key={id} className="lg:hidden bg-white rounded-3xl shadow-sm overflow-hidden">
               {groupes.length > 1 && <h2 className="px-4 pt-3 text-sm font-semibold text-neutral-500">{g.nom}</h2>}
               <ul className="divide-y divide-neutral-100">
                 {g.items.map((c) => (
@@ -208,10 +261,10 @@ export function AValiderPage() {
       )}
 
       {visibles.length > 1 && (
-        <div className="fixed inset-x-0 bottom-0 z-20 bg-[#f2f3f5]/95 backdrop-blur px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="lg:hidden fixed inset-x-0 bottom-0 z-20 bg-[#f2f3f5]/95 backdrop-blur px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <div className="max-w-lg mx-auto">
             <button
-              onClick={() => setConfirmAll(true)}
+              onClick={() => setAConfirmer(visibles)}
               disabled={!online || bulk.running}
               className="w-full h-14 rounded-full bg-primary-700 text-white text-[17px] font-bold disabled:opacity-50"
             >
@@ -232,13 +285,18 @@ export function AValiderPage() {
         />
       )}
 
-      <Modal isOpen={confirmAll} onClose={() => setConfirmAll(false)} title={`Valider ${visibles.length} paiements ?`} size="sm">
+      <Modal
+        isOpen={aConfirmer !== null}
+        onClose={() => setAConfirmer(null)}
+        title={`Valider ${aConfirmer?.length ?? 0} paiement${(aConfirmer?.length ?? 0) > 1 ? 's' : ''} ?`}
+        size="sm"
+      >
         <p className="text-neutral-600">
-          {formatF(total)} seront marqués comme reçus et les membres seront prévenus.
+          {formatF(montantConfirme)} seront marqués comme reçus et les membres seront prévenus.
         </p>
         <div className="mt-5 grid grid-cols-2 gap-3">
-          <button onClick={() => setConfirmAll(false)} className="h-12 rounded-full bg-neutral-100 font-semibold">Annuler</button>
-          <button onClick={toutValider} className="h-12 rounded-full bg-primary-700 text-white font-bold">Tout valider</button>
+          <button onClick={() => setAConfirmer(null)} className="h-12 rounded-full bg-neutral-100 font-semibold">Annuler</button>
+          <button onClick={validerGroupe} className="h-12 rounded-full bg-primary-700 text-white font-bold">Valider</button>
         </div>
       </Modal>
     </Shell>
@@ -293,11 +351,122 @@ function Ligne({ cot, disabled, onValider, onRefuser, onOpen }: { cot: Cotisatio
   )
 }
 
+/** Desktop : tableau de la file (une ligne par paiement, colonne Tontine si plusieurs tontines) */
+function TableauDesktop(p: {
+  items: CotisationAValider[]
+  multiTontines: boolean
+  selection: Set<string>
+  toutCoche: boolean
+  onBasculer: (id: string) => void
+  onBasculerTout: () => void
+  disabled: boolean
+  onValider: (c: CotisationAValider) => void
+  onRefuser: (c: CotisationAValider) => void
+  onOpen: (c: CotisationAValider) => void
+  barre: React.ReactNode
+}) {
+  const total = p.items.reduce((s, c) => s + c.montant, 0)
+  const th = 'px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500'
+  const td = 'px-3 py-3 align-middle'
+  return (
+    <section className="hidden lg:block bg-white rounded-3xl shadow-sm overflow-hidden">
+      <div className="px-5 py-4 flex items-center justify-between gap-4 border-b border-neutral-100">
+        <p className="text-[15px] font-semibold text-neutral-700">
+          {p.items.length} paiement{p.items.length > 1 ? 's' : ''} · <span className="tabular-nums">{formatF(total)}</span>
+        </p>
+        {p.barre}
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-neutral-50">
+            <tr>
+              <th className="pl-5 pr-2 py-3 w-10">
+                <input
+                  type="checkbox"
+                  checked={p.toutCoche}
+                  onChange={p.onBasculerTout}
+                  disabled={p.disabled}
+                  aria-label="Tout sélectionner"
+                  className="w-4 h-4 accent-primary-700 cursor-pointer"
+                />
+              </th>
+              <th className={th}>Membre</th>
+              {p.multiTontines && <th className={th}>Tontine</th>}
+              <th className={`${th} text-right`}>Montant</th>
+              <th className={th}>Moyen</th>
+              <th className={th}>Référence</th>
+              <th className={th}>Déclaré le</th>
+              <th className={`${th} pr-5`}><span className="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-neutral-100">
+            {p.items.map((c) => {
+              const nom = [c.membre.firstName, c.membre.lastName].filter(Boolean).join(' ')
+              const coche = p.selection.has(c.id)
+              return (
+                <tr key={c.id} className={coche ? 'bg-primary-50/60' : 'hover:bg-neutral-50'}>
+                  <td className="pl-5 pr-2 py-3">
+                    <input
+                      type="checkbox"
+                      checked={coche}
+                      onChange={() => p.onBasculer(c.id)}
+                      disabled={p.disabled}
+                      aria-label={`Sélectionner le paiement de ${nom}`}
+                      className="w-4 h-4 accent-primary-700 cursor-pointer"
+                    />
+                  </td>
+                  <td className={td}>
+                    <span className="flex items-center gap-3 min-w-0">
+                      <InitialsAvatar name={nom || '?'} size={34} />
+                      <span className="font-semibold text-neutral-900 truncate">{nom}</span>
+                    </span>
+                  </td>
+                  {p.multiTontines && <td className={`${td} text-neutral-600`}>{c.tontineNom}</td>}
+                  <td className={`${td} text-right font-semibold tabular-nums text-neutral-900 whitespace-nowrap`}>{formatF(c.montant)}</td>
+                  <td className={`${td} text-neutral-600 whitespace-nowrap`}>{paymentMethodLabel(c.methodePaiement)}</td>
+                  <td className={`${td} text-neutral-600 font-mono text-xs`}>{c.referenceTransaction || '—'}</td>
+                  <td className={`${td} text-neutral-500 whitespace-nowrap`}>{formatDateHeure(c.createdAt)}</td>
+                  <td className={`${td} pr-5`}>
+                    <span className="flex items-center justify-end gap-1">
+                      <button
+                        onClick={() => p.onRefuser(c)}
+                        disabled={p.disabled}
+                        className="h-9 px-3 rounded-full text-xs font-semibold text-red-700 hover:bg-red-50 disabled:opacity-40"
+                      >
+                        Refuser
+                      </button>
+                      <button
+                        onClick={() => p.onValider(c)}
+                        disabled={p.disabled}
+                        className="h-9 px-4 rounded-full bg-primary-700 text-white text-xs font-bold hover:bg-primary-800 disabled:opacity-40"
+                      >
+                        Valider
+                      </button>
+                      <button
+                        onClick={() => p.onOpen(c)}
+                        className="w-9 h-9 rounded-full flex items-center justify-center text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
+                        aria-label={`Détail du paiement de ${nom}`}
+                        title="Détail"
+                      >
+                        <ChevronRight size={18} />
+                      </button>
+                    </span>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )
+}
+
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-[100dvh] bg-[#f2f3f5]">
       <ScreenHeader title="À valider" />
-      <main className="px-4 pb-6 max-w-lg mx-auto">{children}</main>
+      <main className="px-4 pb-6 max-w-lg mx-auto lg:max-w-[1200px] lg:px-8">{children}</main>
     </div>
   )
 }

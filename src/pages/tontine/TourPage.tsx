@@ -10,7 +10,7 @@ import { Link, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { clsx } from 'clsx'
 import { Trophy, Clock, CheckCircle2, AlertTriangle, XCircle, Shuffle, RotateCw, PartyPopper } from 'lucide-react'
-import { ScreenHeader } from '@/components/layout/ScreenHeader'
+import { EcranDetail, BarreAction, useDansPanneau } from '@/components/layout/Panneau'
 import { InitialsAvatar } from '@/components/ui/Section'
 import { Modal } from '@/components/ui/Modal'
 import { useTontineVue } from '@/hooks/useTontineVue'
@@ -50,6 +50,7 @@ export function TourPage() {
   const [designerOpen, setDesignerOpen] = useState(false)
   const [tirageOpen, setTirageOpen] = useState(false)
   const [choix, setChoix] = useState<string[]>([])
+  const dansPanneau = useDansPanneau()
 
   const isEvent = t?.tontineType === TontineType.EVENEMENTIELLE
   const mot = isEvent ? 'Période' : 'Tour'
@@ -121,7 +122,7 @@ export function TourPage() {
 
   return (
     <Shell title={`${mot} ${cycle.numeroCycle}${t ? ` · ${t.nom}` : ''}`}>
-      <div className={clsx('space-y-4', action && 'pb-28')}>
+      <div className={clsx('space-y-4', action && !dansPanneau && 'pb-28')}>
         {/* Progression */}
         <section className="bg-white rounded-3xl shadow-sm p-5">
           <div className="flex items-center justify-between">
@@ -265,8 +266,8 @@ export function TourPage() {
 
       {/* Action principale */}
       {action && (
-        <div className="fixed inset-x-0 bottom-0 z-20 bg-[#f2f3f5]/95 backdrop-blur px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
-          <div className="max-w-lg mx-auto space-y-2">
+        <BarreAction>
+          <div className="space-y-2">
             <button onClick={action.onClick} disabled={!online} className="w-full h-14 rounded-full bg-primary-700 text-white text-[17px] font-bold disabled:opacity-50">
               {online ? action.label : 'Connexion requise'}
             </button>
@@ -276,7 +277,7 @@ export function TourPage() {
               </button>
             )}
           </div>
-        </div>
+        </BarreAction>
       )}
 
       {/* Confirmation de clôture */}
@@ -390,11 +391,5 @@ function Anneau({ pct, label }: { pct: number; label: string }) {
   )
 }
 
-function Shell({ children, title }: { children: React.ReactNode; title: string }) {
-  return (
-    <div className="min-h-[100dvh] bg-[#f2f3f5]">
-      <ScreenHeader title={title} />
-      <main className="px-4 pb-6 max-w-lg mx-auto">{children}</main>
-    </div>
-  )
-}
+/** Plein écran (mobile) ou panneau à droite de la liste des tours (desktop) */
+const Shell = EcranDetail

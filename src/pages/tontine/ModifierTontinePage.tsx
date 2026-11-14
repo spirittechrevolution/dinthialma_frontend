@@ -208,7 +208,7 @@ export function ModifierTontinePage() {
         {error && <p role="alert" className="px-1 text-sm font-medium text-red-700">{error}</p>}
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-20 bg-[#f2f3f5]/95 backdrop-blur px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <div className="fixed inset-x-0 bottom-0 lg:left-64 z-20 bg-[#f2f3f5]/95 backdrop-blur px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <div className="max-w-lg mx-auto">
           <button onClick={enregistrer} disabled={!online || isPending} className="w-full h-14 rounded-full bg-primary-700 text-white text-[17px] font-bold disabled:opacity-50">
             {isPending ? 'Enregistrement…' : !online ? 'Connexion requise' : 'Enregistrer'}

@@ -1,9 +1,13 @@
 /**
  * T6 — Tours d'une tontine : tour en cours épinglé, puis tous les tours.
  * Gestionnaire en mode manuel sans tour en cours : « Démarrer le tour suivant ».
+ * Desktop : détail du tour (T7) dans un panneau à droite ; /tontine/:id/tours/:cycleId ouvre cette page avec le panneau.
  */
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Panneau, PanneauVide } from '@/components/layout/Panneau'
+import { useIsDesktop } from '@/hooks/useMediaQuery'
+import { TourPage } from '@/pages/tontine/TourPage'
 import { toast } from 'sonner'
 import { clsx } from 'clsx'
 import { ChevronRight, Trophy, RotateCw, RefreshCw } from 'lucide-react'
@@ -20,7 +24,9 @@ import { TontineType } from '@/types/tontine'
 import type { Cycle } from '@/types/cycle'
 
 export function ToursPage() {
-  const { id = '' } = useParams()
+  const { id = '', cycleId } = useParams()
+  const navigate = useNavigate()
+  const desktop = useIsDesktop()
   const online = useOnline()
   const v = useTontineVue(id)
   const t = v.tontine
@@ -37,7 +43,17 @@ export function ToursPage() {
   return (
     <div className="min-h-[100dvh] bg-[#f2f3f5]">
       <ScreenHeader title={t ? `${isEvent ? 'Périodes' : 'Tours'} · ${t.nom}` : 'Tours'} />
-      <main className="px-4 pb-28 max-w-lg mx-auto space-y-4">
+      <main className={clsx('px-4 mx-auto', desktop ? 'pb-10 max-w-[1200px] lg:px-8 grid grid-cols-[minmax(0,1fr)_460px] gap-6 items-start' : 'pb-28 max-w-lg')}>
+        <div className="space-y-4 min-w-0">
+        {desktop && peutDemarrer && (
+          <button
+            onClick={() => setDemarrerOpen(true)}
+            disabled={!online}
+            className="w-full h-12 rounded-full bg-primary-700 text-white font-bold hover:bg-primary-800 disabled:opacity-50"
+          >
+            {cycles.length ? 'Démarrer le tour suivant' : 'Démarrer le premier tour'}
+          </button>
+        )}
         {isLoading || v.isLoading ? (
           <div className="space-y-3" aria-busy="true">
             {[0, 1, 2].map((i) => <div key={i} className="h-20 rounded-3xl bg-white animate-pulse" />)}
@@ -62,23 +78,39 @@ export function ToursPage() {
             {enCours && (
               <section>
                 <h2 className="px-1 mb-2 text-sm font-semibold text-neutral-600">En cours</h2>
-                <ul className="bg-white rounded-3xl shadow-sm ring-2 ring-primary-600"><LigneTour tontineId={id} cycle={enCours} mot={motTour} /></ul>
+                <ul className="bg-white rounded-3xl shadow-sm ring-2 ring-primary-600 overflow-hidden"><LigneTour tontineId={id} cycle={enCours} mot={motTour} selected={enCours.id === cycleId} replace={desktop} /></ul>
               </section>
             )}
             {autres.length > 0 && (
               <section>
                 <h2 className="px-1 mb-2 text-sm font-semibold text-neutral-600">Tous les {isEvent ? 'périodes' : 'tours'}</h2>
-                <ul className="bg-white rounded-3xl shadow-sm divide-y divide-neutral-100">
-                  {autres.map((c) => <LigneTour key={c.id} tontineId={id} cycle={c} mot={motTour} />)}
+                <ul className="bg-white rounded-3xl shadow-sm divide-y divide-neutral-100 overflow-hidden">
+                  {autres.map((c) => <LigneTour key={c.id} tontineId={id} cycle={c} mot={motTour} selected={c.id === cycleId} replace={desktop} />)}
                 </ul>
               </section>
             )}
           </>
         )}
+        </div>
+
+        {/* Desktop : détail du tour choisi à droite */}
+        {desktop && (
+          cycleId ? (
+            <Panneau label={`Détail du ${motTour.toLowerCase()}`} onClose={() => navigate(`/tontine/${id}/tours`, { replace: true })}>
+              <TourPage />
+            </Panneau>
+          ) : (
+            <PanneauVide
+              icon={<RefreshCw size={26} />}
+              title={isEvent ? 'Choisissez une période' : 'Choisissez un tour'}
+              text="La progression, les paiements et le gagnant s'afficheront ici."
+            />
+          )
+        )}
       </main>
 
-      {peutDemarrer && (
-        <div className="fixed inset-x-0 bottom-0 z-20 bg-[#f2f3f5]/95 backdrop-blur px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
+      {peutDemarrer && !desktop && (
+        <div className="fixed inset-x-0 bottom-0 lg:left-64 z-20 bg-[#f2f3f5]/95 backdrop-blur px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <div className="max-w-lg mx-auto">
             <button
               onClick={() => setDemarrerOpen(true)}
@@ -96,12 +128,17 @@ export function ToursPage() {
   )
 }
 
-function LigneTour({ tontineId, cycle, mot }: { tontineId: string; cycle: Cycle; mot: string }) {
+function LigneTour({ tontineId, cycle, mot, selected = false, replace = false }: { tontineId: string; cycle: Cycle; mot: string; selected?: boolean; replace?: boolean }) {
   const st = TOUR_STATUT[cycle.statut]
   const gagnants = (cycle.gagnants ?? []).map((g) => g.firstName).join(', ')
   return (
     <li>
-      <Link to={`/tontine/${tontineId}/tours/${cycle.id}`} className="flex items-center gap-3 px-4 py-3 min-h-[64px]">
+      <Link
+        to={`/tontine/${tontineId}/tours/${cycle.id}`}
+        replace={replace}
+        aria-current={selected ? 'true' : undefined}
+        className={clsx('flex items-center gap-3 px-4 py-3 min-h-[64px]', selected ? 'bg-primary-50' : 'hover:bg-neutral-50')}
+      >
         <span className="w-10 h-10 rounded-full bg-neutral-100 text-neutral-700 flex items-center justify-center font-bold">{cycle.numeroCycle}</span>
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-2">
