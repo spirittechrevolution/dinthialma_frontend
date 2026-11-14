@@ -146,7 +146,7 @@ export function PinScreen({
         {/* Barre du haut — mobile */}
         <div className="lg:hidden flex items-center justify-between px-5 pt-[max(2.5rem,env(safe-area-inset-top))] pb-2">
           <div className="flex items-center gap-2">
-            <span className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center"><LogoIcon size={22} /></span>
+            <span className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center"><LogoIcon size={22} variant="white" /></span>
             <span className="text-white font-bold text-sm">Dinthialma</span>
           </div>
           {topAction}

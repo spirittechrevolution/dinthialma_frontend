@@ -7,7 +7,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { clsx } from 'clsx'
 import { Phone, MessageCircle, Trophy, RotateCw, Clock, CheckCircle2, AlertTriangle, XCircle } from 'lucide-react'
-import { ScreenHeader } from '@/components/layout/ScreenHeader'
+import { EcranDetail, BarreAction, useDansPanneau } from '@/components/layout/Panneau'
 import { InitialsAvatar } from '@/components/ui/Section'
 import { Modal } from '@/components/ui/Modal'
 import { useTontineVue } from '@/hooks/useTontineVue'
@@ -43,6 +43,7 @@ export function MembreFichePage() {
   const { mutate: updateStatut, isPending: updating } = useUpdateMembreStatut()
   const { mutate: retirer, isPending: removing } = useRemoveMembre()
   const [action, setAction] = useState<Action | null>(null)
+  const dansPanneau = useDansPanneau()
 
   if (isLoading || v.isLoading) {
     return <Shell title="Membre"><div className="space-y-4" aria-busy="true"><div className="h-40 rounded-3xl bg-white animate-pulse" /><div className="h-40 rounded-3xl bg-white animate-pulse" /></div></Shell>
@@ -97,7 +98,7 @@ export function MembreFichePage() {
 
   return (
     <Shell title={nom}>
-      <div className={clsx('space-y-4', peutEncaisser && 'pb-28')}>
+      <div className={clsx('space-y-4', peutEncaisser && !dansPanneau && 'pb-28')}>
         <section className="bg-white rounded-3xl shadow-sm p-5 text-center">
           <div className="flex justify-center"><InitialsAvatar name={nom} size={64} /></div>
           <p className="mt-3 text-lg font-bold text-neutral-900">{nom}</p>
@@ -186,13 +187,11 @@ export function MembreFichePage() {
       </div>
 
       {peutEncaisser && (
-        <div className="fixed inset-x-0 bottom-0 z-20 bg-[#f2f3f5]/95 backdrop-blur px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
-          <div className="max-w-lg mx-auto">
-            <Link to={`/encaisser/${id}?membre=${membreId}`} className="w-full h-14 rounded-full bg-primary-700 text-white text-[17px] font-bold flex items-center justify-center">
-              Encaisser
-            </Link>
-          </div>
-        </div>
+        <BarreAction>
+          <Link to={`/encaisser/${id}?membre=${membreId}`} className="w-full h-14 rounded-full bg-primary-700 text-white text-[17px] font-bold flex items-center justify-center hover:bg-primary-800">
+            Encaisser
+          </Link>
+        </BarreAction>
       )}
 
       <Modal isOpen={!!action} onClose={() => setAction(null)} title={action ? confirmTextes[action].titre : ''} size="sm">
@@ -216,11 +215,5 @@ export function MembreFichePage() {
   )
 }
 
-function Shell({ children, title }: { children: React.ReactNode; title: string }) {
-  return (
-    <div className="min-h-[100dvh] bg-[#f2f3f5]">
-      <ScreenHeader title={title} />
-      <main className="px-4 pb-6 max-w-lg mx-auto">{children}</main>
-    </div>
-  )
-}
+/** Plein écran (mobile) ou panneau à droite de la liste des membres (desktop) */
+const Shell = EcranDetail

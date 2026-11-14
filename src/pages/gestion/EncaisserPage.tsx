@@ -5,10 +5,16 @@
  * /encaisser                       → « Pour quelle tontine ? » (sauté s'il n'y en a qu'une avec un tour en cours)
  * /encaisser/:tontineId            → « De qui ? » (membres pas encore payés en tête)
  * /encaisser/:tontineId?membre=id  → « Combien ? » directement (fiche membre, scan d'un QR membre)
+ *
+ * Desktop (≥ 1024 px) : « De qui ? » à gauche et « Combien ? » à droite sur le même écran ;
+ * le membre choisi reste dans l'URL (?membre=id), comme sur mobile.
  */
 import { useMemo, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { clsx } from 'clsx'
 import { ChevronDown, ChevronRight, Search, PartyPopper, CalendarX, RotateCw, Pencil } from 'lucide-react'
+import { useIsDesktop } from '@/hooks/useMediaQuery'
+import { EncaisserDesktop } from '@/pages/gestion/EncaisserDesktop'
 import { ScreenHeader } from '@/components/layout/ScreenHeader'
 import { InitialsAvatar } from '@/components/ui/Section'
 import { PaymentMethodTiles } from '@/components/pay/PaymentMethodTiles'
@@ -86,6 +92,7 @@ function EncaisserTontine({ tontineId }: { tontineId: string }) {
   const stats = gestion.data?.tontines.find((t) => t.tontineId === tontineId)
   const cycleId = stats?.cycleEnCours?.cycleId ?? ''
   const recap = useRecapCycle(tontineId, cycleId, 0, 200, !!cycleId)
+  const desktop = useIsDesktop()
 
   if (gestion.isLoading || (cycleId && recap.isLoading)) return <Shell title={tontine?.nom}><Skeleton /></Shell>
   if (gestion.isError || recap.isError) return <Shell><Erreur onRetry={() => { gestion.refetch(); recap.refetch() }} /></Shell>
@@ -106,38 +113,64 @@ function EncaisserTontine({ tontineId }: { tontineId: string }) {
   const membre = membreId ? lignes.find((l) => l.membreId === membreId) : undefined
 
   const actif = (l: CycleRecapLigne) => (l.statutCotisation === CotisationStatut.EN_ATTENTE || l.statutCotisation === CotisationStatut.VALIDE)
-  if (membreId && membre && !actif(membre)) {
+  const membreAEncaisser = membreId && membre && !actif(membre) ? membre : undefined
+  const montantProps = {
+    tontineId,
+    tontineNom: stats.nom,
+    cycleId,
+    numeroCycle: stats.cycleEnCours.numeroCycle,
+    montantDefaut: stats.montantLibre ? 0 : stats.montant ?? tontine?.montant ?? 0,
+    onChangeMembre: () => setParams({}, { replace: true }),
+  }
+  const deQuiProps = {
+    tontineId,
+    numeroCycle: stats.cycleEnCours.numeroCycle,
+    lignes,
+    // Desktop : changer de membre remplace la sélection (pas d'empilement dans l'historique)
+    onChoisir: (id: string) => setParams({ membre: id }),
+  }
+
+  // Desktop : un seul écran, liste à défilement interne à gauche, formulaire compact à droite
+  if (desktop) {
     return (
-      <Montant
+      <EncaisserDesktop
         tontineId={tontineId}
         tontineNom={stats.nom}
         cycleId={cycleId}
         numeroCycle={stats.cycleEnCours.numeroCycle}
-        montantDefaut={stats.montantLibre ? 0 : stats.montant ?? tontine?.montant ?? 0}
-        membre={membre}
-        onChangeMembre={() => setParams({}, { replace: true })}
+        montantDefaut={montantProps.montantDefaut}
+        lignes={lignes}
+        membreId={membreAEncaisser?.membreId ?? null}
+        onChoisir={(id) => setParams({ membre: id }, { replace: true })}
+        onFermer={montantProps.onChangeMembre}
       />
     )
   }
+
+  // Mobile / PWA : deux temps plein écran
+  if (membreAEncaisser) {
+    return (
+      <Shell title={`Encaisser · ${stats.nom}`}>
+        <MontantForm {...montantProps} membre={membreAEncaisser} />
+      </Shell>
+    )
+  }
   return (
-    <DeQui
-      tontineId={tontineId}
-      titre={stats.nom}
-      numeroCycle={stats.cycleEnCours.numeroCycle}
-      lignes={lignes}
-      onChoisir={(id) => setParams({ membre: id })}
-    />
+    <Shell title={`Encaisser · ${stats.nom}`}>
+      <DeQuiContenu {...deQuiProps} />
+    </Shell>
   )
 }
 
 // ─── « De qui ? » ────────────────────────────────────────────────────────────
 
-function DeQui({ tontineId, titre, numeroCycle, lignes, onChoisir }: {
+function DeQuiContenu({ tontineId, numeroCycle, lignes, onChoisir, selectedId }: {
   tontineId: string
-  titre: string
   numeroCycle: number
   lignes: CycleRecapLigne[]
   onChoisir: (membreId: string) => void
+  /** Desktop : membre dont le formulaire est ouvert à droite */
+  selectedId?: string
 }) {
   const [q, setQ] = useState('')
   const filtre = (l: CycleRecapLigne) => {
@@ -150,7 +183,7 @@ function DeQui({ tontineId, titre, numeroCycle, lignes, onChoisir }: {
   const toutPaye = lignes.length > 0 && lignes.every(actif)
 
   return (
-    <Shell title={`Encaisser · ${titre}`}>
+    <>
       <div className="relative">
         <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
         <input
@@ -165,7 +198,7 @@ function DeQui({ tontineId, titre, numeroCycle, lignes, onChoisir }: {
       <p className="mt-2 px-1 text-xs text-neutral-500">Tour {numeroCycle}</p>
 
       {toutPaye && !q && (
-        <div className="mt-3">
+        <div className="mt-3 lg:hidden">
           <Message icon={<PartyPopper size={28} />} title="Tout le monde a payé ce tour ✓" text="Il n'y a rien à encaisser." />
         </div>
       )}
@@ -176,7 +209,14 @@ function DeQui({ tontineId, titre, numeroCycle, lignes, onChoisir }: {
           <ul className="mt-2 bg-white rounded-3xl shadow-sm divide-y divide-neutral-100">
             {nonPayes.map((l) => (
               <li key={l.membreId}>
-                <button onClick={() => onChoisir(l.membreId)} className="w-full flex items-center gap-3 px-4 py-3 min-h-[64px] text-left hover:bg-neutral-50">
+                <button
+                  onClick={() => onChoisir(l.membreId)}
+                  aria-current={l.membreId === selectedId ? 'true' : undefined}
+                  className={clsx(
+                    'w-full flex items-center gap-3 px-4 py-3 min-h-[64px] text-left first:rounded-t-3xl last:rounded-b-3xl',
+                    l.membreId === selectedId ? 'bg-primary-50' : 'hover:bg-neutral-50',
+                  )}
+                >
                   <InitialsAvatar name={`${l.firstName} ${l.lastName}`} />
                   <span className="min-w-0 flex-1">
                     <span className="block font-semibold text-neutral-900 truncate">{l.firstName} {l.lastName}</span>
@@ -221,13 +261,13 @@ function DeQui({ tontineId, titre, numeroCycle, lignes, onChoisir }: {
       {q && nonPayes.length === 0 && payes.length === 0 && (
         <p className="mt-6 text-center text-sm text-neutral-500">Aucun membre ne correspond.</p>
       )}
-    </Shell>
+    </>
   )
 }
 
 // ─── « Combien ? » ───────────────────────────────────────────────────────────
 
-function Montant({ tontineId, tontineNom, cycleId, numeroCycle, montantDefaut, membre, onChangeMembre }: {
+function MontantForm({ tontineId, cycleId, numeroCycle, montantDefaut, membre, onChangeMembre, inline = false }: {
   tontineId: string
   tontineNom: string
   cycleId: string
@@ -235,6 +275,8 @@ function Montant({ tontineId, tontineNom, cycleId, numeroCycle, montantDefaut, m
   montantDefaut: number
   membre: CycleRecapLigne
   onChangeMembre: () => void
+  /** Desktop : formulaire dans le panneau de droite, bouton dans le flux (pas de barre fixe) */
+  inline?: boolean
 }) {
   const navigate = useNavigate()
   const online = useOnline()
@@ -272,9 +314,19 @@ function Montant({ tontineId, tontineNom, cycleId, numeroCycle, montantDefaut, m
     )
   }
 
+  const bouton = (
+    <button
+      onClick={confirmer}
+      disabled={!online || isPending || montant <= 0}
+      className="w-full h-14 rounded-full bg-primary-700 text-white text-[17px] font-bold hover:bg-primary-800 active:scale-[0.98] transition disabled:opacity-50"
+    >
+      {isPending ? 'Enregistrement…' : !online ? 'Connexion requise' : `Encaisser ${montant ? formatF(montant) : ''}`}
+    </button>
+  )
+
   return (
-    <Shell title={`Encaisser · ${tontineNom}`}>
-      <div className="space-y-4 pb-32">
+    <>
+      <div className={inline ? 'space-y-4' : 'space-y-4 pb-32'}>
         <section className="bg-white rounded-3xl shadow-sm p-5">
           <div className="flex items-center gap-3">
             <InitialsAvatar name={nom} size={48} />
@@ -336,30 +388,25 @@ function Montant({ tontineId, tontineNom, cycleId, numeroCycle, montantDefaut, m
 
         <p className="px-1 text-sm text-neutral-500">Le paiement sera validé et {membre.firstName} sera prévenu.</p>
         {error && <p role="alert" className="px-1 text-sm font-medium text-red-700">{error}</p>}
+        {inline && bouton}
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-20 bg-[#f2f3f5]/95 backdrop-blur px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <div className="max-w-lg mx-auto">
-          <button
-            onClick={confirmer}
-            disabled={!online || isPending || montant <= 0}
-            className="w-full h-14 rounded-full bg-primary-700 text-white text-[17px] font-bold active:scale-[0.98] transition disabled:opacity-50"
-          >
-            {isPending ? 'Enregistrement…' : !online ? 'Connexion requise' : `Encaisser ${montant ? formatF(montant) : ''}`}
-          </button>
+      {!inline && (
+        <div className="fixed inset-x-0 bottom-0 lg:left-64 z-20 bg-[#f2f3f5]/95 backdrop-blur px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <div className="max-w-lg mx-auto">{bouton}</div>
         </div>
-      </div>
-    </Shell>
+      )}
+    </>
   )
 }
 
 // ─── Mise en page ────────────────────────────────────────────────────────────
 
-function Shell({ children, title = 'Encaisser' }: { children: React.ReactNode; title?: string }) {
+function Shell({ children, title = 'Encaisser', wide = false }: { children: React.ReactNode; title?: string; wide?: boolean }) {
   return (
     <div className="min-h-[100dvh] bg-[#f2f3f5]">
       <ScreenHeader title={title} />
-      <main className="px-4 pb-6 max-w-lg mx-auto">{children}</main>
+      <main className={wide ? 'px-8 pb-6 max-w-[1200px] mx-auto' : 'px-4 pb-6 max-w-lg mx-auto'}>{children}</main>
     </div>
   )
 }

@@ -3,20 +3,20 @@
  * Je cotise : mes paiements et jackpots ; Je gère : paiements reçus dans mes tontines.
  * ?mode=COTISE|GERE  ?tontine=:id
  */
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { clsx } from 'clsx'
-import { ChevronDown, RotateCw, Download } from 'lucide-react'
+import { ChevronDown, RotateCw, Download, Trophy, ArrowUpRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { telechargerCsv } from '@/lib/exportCsv'
 import { messageErreur } from '@/lib/apiError'
 import { ScreenHeader } from '@/components/layout/ScreenHeader'
 import { ChipRow, FilterChip } from '@/components/ui/ChipRow'
-import { ActiviteRow } from '@/components/home/ActivityFeed'
+import { ActiviteRow, affichageActivite } from '@/components/home/ActivityFeed'
 import { TontinePickerSheet } from '@/components/home/HomeSheets'
 import { useActivite, useCotisantSummary, useGestionSummary, useMesRoles } from '@/hooks/useMe'
 import { useLocalPreference } from '@/hooks/useLocalPreference'
-import { formatF } from '@/lib/format'
+import { formatF, formatDateHeure } from '@/lib/format'
 import { CotisationStatut } from '@/types/common'
 import { jeCotise, jeGere, type ActiviteItem, type ActiviteType, type ModeAccueil } from '@/types/me'
 
@@ -127,9 +127,9 @@ export function HistoriquePage() {
           </button>
         }
       />
-      <main className="px-4 pb-10 max-w-lg mx-auto md:max-w-3xl space-y-4">
+      <main className="px-4 pb-10 max-w-lg mx-auto md:max-w-3xl lg:max-w-[1200px] lg:px-8 space-y-4">
         {roles.deuxModes && (
-          <div role="tablist" aria-label="Mode" className="mx-auto flex max-w-[17rem] rounded-full bg-white p-1 shadow-sm">
+          <div role="tablist" aria-label="Mode" className="mx-auto lg:mx-0 flex max-w-[17rem] rounded-full bg-white p-1 shadow-sm">
             {(['COTISE', 'GERE'] as const).map((m) => (
               <button key={m} role="tab" aria-selected={mode === m}
                 onClick={() => { setSavedMode(m); setParams({ mode: m }, { replace: true }); if (m === 'GERE' && statut === 'jackpots') setStatut('tous') }}
@@ -140,22 +140,22 @@ export function HistoriquePage() {
           </div>
         )}
 
-        <dl className="grid grid-cols-3 gap-2">
+        <dl className="grid grid-cols-3 gap-2 lg:gap-4">
           {chiffres.map(([k, v]) => (
-            <div key={k} className="bg-white rounded-2xl shadow-sm px-2 py-3 text-center">
-              <dt className="text-xs text-neutral-500">{k}</dt>
-              <dd className="mt-1 font-bold tabular-nums text-neutral-900 truncate">{v}</dd>
+            <div key={k} className="bg-white rounded-2xl shadow-sm px-2 py-3 text-center lg:text-left lg:px-5 lg:py-4">
+              <dt className="text-xs text-neutral-500 lg:text-sm">{k}</dt>
+              <dd className="mt-1 font-bold tabular-nums text-neutral-900 truncate lg:text-2xl">{v}</dd>
             </div>
           ))}
         </dl>
 
-        <div className="space-y-2">
+        <div className="space-y-2 lg:space-y-0 lg:flex lg:items-center lg:gap-3">
           {tontinesDuMode.length > 1 && (
             <button onClick={() => setPickerOpen(true)} className="h-10 px-4 rounded-full bg-white shadow-sm text-sm font-semibold text-neutral-800 inline-flex items-center gap-1.5">
               {tontineChoisie?.nom ?? 'Toutes mes tontines'} <ChevronDown size={16} />
             </button>
           )}
-          <ChipRow>
+          <ChipRow className="lg:min-w-0">
             {filtresVisibles.map((s) => {
               const n = s.statuts.length ? compte(s.statuts) : 0
               return (
@@ -191,8 +191,12 @@ export function HistoriquePage() {
           </p>
         ) : (
           <>
+            {/* Desktop : tableau, mois en lignes de séparation */}
+            <TableauHistorique mode={mode} groupes={groupes} multiTontines={!tontineId && tontinesDuMode.length > 1} onOpen={ouvrir} />
+
+            {/* Mobile : liste groupée par mois */}
             {groupes.map(([mois, liste]) => (
-              <section key={mois}>
+              <section key={mois} className="lg:hidden">
                 <h2 className="px-1 mb-2 text-sm font-semibold text-neutral-500 first-letter:uppercase">{mois}</h2>
                 <ul className="bg-white rounded-3xl shadow-sm divide-y divide-neutral-100 overflow-hidden">
                   {liste.map((it) => <ActiviteRow key={it.id} mode={mode} it={it} onOpen={ouvrir} />)}
@@ -216,5 +220,81 @@ export function HistoriquePage() {
         onSelect={(id) => setParam('tontine', id)}
       />
     </div>
+  )
+}
+
+/** Desktop : historique en tableau ; une ligne de séparation par mois, clic sur une ligne = détail */
+function TableauHistorique({ mode, groupes, multiTontines, onOpen }: {
+  mode: ModeAccueil
+  groupes: [string, ActiviteItem[]][]
+  multiTontines: boolean
+  onOpen: (it: ActiviteItem) => void
+}) {
+  const th = 'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500'
+  const nbCols = 5 + (mode === 'GERE' ? 1 : 0) + (multiTontines ? 1 : 0)
+  return (
+    <section className="hidden lg:block bg-white rounded-3xl shadow-sm overflow-hidden">
+      <table className="w-full text-sm">
+        <thead className="bg-neutral-50">
+          <tr>
+            <th className={th}>Date</th>
+            <th className={th}>Mouvement</th>
+            {mode === 'GERE' && <th className={th}>Membre</th>}
+            {multiTontines && <th className={th}>Tontine</th>}
+            <th className={th}>Tour</th>
+            <th className={`${th} text-right`}>Montant</th>
+            <th className={th}>Statut</th>
+          </tr>
+        </thead>
+        <tbody>
+          {groupes.map(([mois, liste]) => (
+            <Fragment key={mois}>
+              <tr className="bg-neutral-50/60 border-t border-neutral-100">
+                <th colSpan={nbCols} scope="colgroup" className="px-4 py-2 text-left text-xs font-semibold text-neutral-500 first-letter:uppercase">
+                  {mois}
+                </th>
+              </tr>
+              {liste.map((it) => {
+                const { st, gain, libelle } = affichageActivite(it)
+                return (
+                  <tr
+                    key={it.id}
+                    onClick={() => onOpen(it)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(it) } }}
+                    tabIndex={0}
+                    role="link"
+                    aria-label={`${libelle}, ${it.tontineNom}, ${formatF(it.montant)}`}
+                    className="border-t border-neutral-100 cursor-pointer hover:bg-neutral-50 focus-visible:outline-none focus-visible:bg-primary-50"
+                  >
+                    <td className="px-4 py-3 text-neutral-500 whitespace-nowrap">{formatDateHeure(it.date)}</td>
+                    <td className="px-4 py-3">
+                      <span className="flex items-center gap-2.5">
+                        <span className={clsx('w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0', gain ? 'bg-yellow-50 text-yellow-700' : 'bg-neutral-100 text-neutral-600')}>
+                          {gain ? <Trophy size={15} /> : <ArrowUpRight size={15} />}
+                        </span>
+                        <span className="font-medium text-neutral-900">{libelle}</span>
+                      </span>
+                    </td>
+                    {mode === 'GERE' && <td className="px-4 py-3 text-neutral-800">{it.membreNom ?? '—'}</td>}
+                    {multiTontines && <td className="px-4 py-3 text-neutral-600">{it.tontineNom}</td>}
+                    <td className="px-4 py-3 text-neutral-600 tabular-nums">{it.numeroCycle ?? '—'}</td>
+                    <td className={clsx('px-4 py-3 text-right font-semibold tabular-nums whitespace-nowrap', gain ? 'text-primary-700' : 'text-neutral-900')}>
+                      {gain ? '+' : ''}{formatF(it.montant)}
+                    </td>
+                    <td className="px-4 py-3">
+                      {st.label && (
+                        <span className={clsx('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold whitespace-nowrap', st.cls)}>
+                          {st.icon} {st.label}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </Fragment>
+          ))}
+        </tbody>
+      </table>
+    </section>
   )
 }

@@ -4,7 +4,7 @@
  *
  * Vue gestionnaire : Encaisser · Valider (n) ; vue membre : Payer · Mon tour ; brouillon : Lancer.
  */
-import { useMemo, useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { clsx } from 'clsx'
@@ -211,7 +211,7 @@ export function FicheTontinePage() {
   return (
     <div className="min-h-[100dvh] bg-[#f2f3f5] pb-[max(1.5rem,env(safe-area-inset-bottom))]">
       {/* En-tête */}
-      <header className="px-2 pt-[max(0.5rem,env(safe-area-inset-top))] flex items-center justify-between">
+      <header className="px-2 pt-[max(0.5rem,env(safe-area-inset-top))] flex items-center justify-between lg:max-w-[1200px] lg:mx-auto lg:px-6 lg:pt-4">
         <BackButton />
         {gerant && !brouillon ? (
           <button onClick={() => setAddOpen(true)} className="h-11 px-4 mr-2 rounded-full bg-white shadow-sm text-sm font-semibold text-neutral-800 inline-flex items-center gap-1.5">
@@ -224,10 +224,11 @@ export function FicheTontinePage() {
         )}
       </header>
 
-      <main className="px-4 max-w-lg mx-auto md:max-w-5xl md:grid md:grid-cols-2 md:gap-6 md:items-start">
+      {/* Desktop : identité + montant + boutons + rubriques à gauche, paiements en tableau à droite */}
+      <main className="px-4 max-w-lg mx-auto md:max-w-5xl md:grid md:grid-cols-2 md:gap-6 md:items-start lg:max-w-[1200px] lg:px-8 lg:pb-10 lg:grid-cols-[380px_minmax(0,1fr)]">
         <div className="space-y-4">
           {/* Identité + montant */}
-          <section className="text-center pt-2">
+          <section className="text-center pt-2 lg:bg-white lg:rounded-3xl lg:shadow-sm lg:p-5">
             <div className="flex items-center justify-center gap-2">
               <InitialsAvatar name={t.nom} size={40} />
               <h1 className="text-lg font-bold text-neutral-900 truncate max-w-[70%]">{t.nom}</h1>
@@ -283,7 +284,7 @@ export function FicheTontinePage() {
               {etat ? ` · ${etat}` : ''}
             </p>
             {pct !== null && (
-              <div className="mt-3 mx-auto max-w-xs h-2 rounded-full bg-white overflow-hidden">
+              <div className="mt-3 mx-auto max-w-xs h-2 rounded-full bg-white lg:bg-neutral-100 overflow-hidden">
                 <div className="h-full bg-primary-600 rounded-full" style={{ width: `${pct}%` }} />
               </div>
             )}
@@ -372,7 +373,22 @@ export function FicheTontinePage() {
                   : 'Aucun paiement'}
             </p>
           ) : (
-            groupes.map((g) => (
+            <>
+            {/* Desktop : tableau (rubriques de date en lignes de séparation) */}
+            <TableauPaiements
+              tontineId={id}
+              gerant={gerant}
+              cotisant={v.vue === 'COTISE'}
+              groupes={groupes}
+              cycles={cycles}
+              online={online}
+              validating={validating}
+              onValider={onValider}
+              onPayer={() => navigate(`/payer/${id}`)}
+            />
+            {/* Mobile : liste */}
+            <div className="lg:hidden">
+            {groupes.map((g) => (
             <div key={g.titre}>
             <p className="px-4 pt-3 pb-1 text-xs font-semibold tracking-[0.12em] uppercase text-neutral-500">{g.titre}</p>
             <ul className="divide-y divide-neutral-100">
@@ -424,7 +440,9 @@ export function FicheTontinePage() {
               })}
             </ul>
             </div>
-            ))
+            ))}
+            </div>
+            </>
           )}
           {cotisations.length > limite && (
             <button onClick={() => setLimite((l) => l + PAGE)} className="w-full h-12 text-sm font-semibold text-primary-800 border-t border-neutral-100">
@@ -452,6 +470,112 @@ export function FicheTontinePage() {
           </button>
         </div>
       </Modal>
+    </div>
+  )
+}
+
+/**
+ * Desktop : paiements de la tontine en tableau.
+ * Gestionnaire : membre, montant, moyen, référence, date, statut, saisi par (+ Valider sur les lignes en attente).
+ * Membre : tour, montant, moyen, référence, date, statut (+ Payer / Repayer sur un retard ou un refus).
+ */
+function TableauPaiements({ tontineId, gerant, cotisant, groupes, cycles, online, validating, onValider, onPayer }: {
+  tontineId: string
+  gerant: boolean
+  cotisant: boolean
+  groupes: { titre: string; lignes: Cotisation[] }[]
+  cycles: { id: string; numeroCycle: number }[]
+  online: boolean
+  validating: boolean
+  onValider: (c: Cotisation) => void
+  onPayer: () => void
+}) {
+  const navigate = useNavigate()
+  const th = 'px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500'
+  const td = 'px-3 py-3'
+  const nbCols = gerant ? 8 : 7
+  return (
+    <div className="hidden lg:block overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead className="bg-neutral-50 border-y border-neutral-100">
+          <tr>
+            <th className={`${th} pl-4`}>{gerant ? 'Membre' : 'Tour'}</th>
+            <th className={`${th} text-right`}>Montant</th>
+            <th className={th}>Moyen</th>
+            <th className={th}>Référence</th>
+            <th className={th}>Date</th>
+            <th className={th}>Statut</th>
+            {gerant && <th className={th}>Saisi par</th>}
+            <th className={`${th} pr-4`}><span className="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {groupes.map((g) => (
+            <Fragment key={g.titre}>
+              <tr className="border-t border-neutral-100">
+                <th colSpan={nbCols} scope="colgroup" className="px-4 pt-3 pb-1 text-left text-xs font-semibold tracking-[0.12em] uppercase text-neutral-500">
+                  {g.titre}
+                </th>
+              </tr>
+              {g.lignes.map((c) => {
+                const st = STATUT_PILL[c.statut]
+                const nom = `${c.membre.firstName} ${c.membre.lastName}`.trim()
+                const cycle = cycles.find((cy) => cy.id === c.cycleId)
+                const saisiPar = c.enregistrePar ? `${c.enregistrePar.firstName} ${c.enregistrePar.lastName}`.trim() : 'Le membre'
+                const ouvrir = () => navigate(`/recu/${tontineId}/${c.id}`)
+                return (
+                  <tr key={c.id} onClick={ouvrir} className="border-t border-neutral-100 cursor-pointer hover:bg-neutral-50">
+                    <td className={`${td} pl-4`}>
+                      {gerant ? (
+                        <span className="flex items-center gap-2.5 min-w-0">
+                          <InitialsAvatar name={nom || '?'} size={32} />
+                          <Link to={`/recu/${tontineId}/${c.id}`} onClick={(e) => e.stopPropagation()} className="font-semibold text-neutral-900 truncate hover:underline">
+                            {nom}
+                          </Link>
+                        </span>
+                      ) : (
+                        <Link to={`/recu/${tontineId}/${c.id}`} onClick={(e) => e.stopPropagation()} className="font-semibold text-neutral-900 hover:underline">
+                          {cycle ? `Tour ${cycle.numeroCycle}` : 'Cotisation'}
+                        </Link>
+                      )}
+                    </td>
+                    <td className={`${td} text-right font-semibold tabular-nums whitespace-nowrap`}>{formatF(c.montant)}</td>
+                    <td className={`${td} text-neutral-600 whitespace-nowrap`}>{paymentMethodLabel(c.methodePaiement)}</td>
+                    <td className={`${td} text-neutral-600 font-mono text-xs`}>{c.referenceTransaction || '—'}</td>
+                    <td className={`${td} text-neutral-500 whitespace-nowrap`}>{heurePaiement(c.createdAt)}</td>
+                    <td className={td}>
+                      <span className={clsx('inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold whitespace-nowrap', st.cls)}>
+                        {st.icon} {st.label}
+                      </span>
+                    </td>
+                    {gerant && <td className={`${td} text-neutral-600 truncate max-w-[10rem]`}>{saisiPar}</td>}
+                    <td className={`${td} pr-4 text-right`} onClick={(e) => e.stopPropagation()}>
+                      {gerant && c.statut === CotisationStatut.EN_ATTENTE && (
+                        <button
+                          onClick={() => onValider(c)}
+                          disabled={!online || validating}
+                          className="h-8 px-3 rounded-full bg-primary-700 text-white text-xs font-bold hover:bg-primary-800 disabled:opacity-50"
+                        >
+                          Valider
+                        </button>
+                      )}
+                      {cotisant && (c.statut === CotisationStatut.REFUSE || c.statut === CotisationStatut.EN_RETARD) && (
+                        <button
+                          onClick={onPayer}
+                          disabled={!online}
+                          className="h-8 px-3 rounded-full bg-primary-50 text-primary-800 text-xs font-bold hover:bg-primary-100 disabled:opacity-50"
+                        >
+                          {c.statut === CotisationStatut.REFUSE ? 'Repayer' : 'Payer'}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </Fragment>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 }

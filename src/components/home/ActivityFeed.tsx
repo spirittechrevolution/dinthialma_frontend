@@ -71,11 +71,18 @@ export function ActivityFeed({ mode, items, isLoading, isError, onRetry, onOpen 
   )
 }
 
+/** Libellé, pastille de statut et sens d'une activité (partagé par la liste mobile et le tableau desktop) */
+export function affichageActivite(it: ActiviteItem) {
+  return {
+    st: STATUT[it.type] ?? (it.sens === 'GAIN' ? STATUT.JACKPOT_RECU : STATUT_INCONNU),
+    gain: it.sens === 'GAIN',
+    libelle: LIBELLES[it.type] ?? it.libelle ?? 'Mouvement',
+  }
+}
+
 /** Ligne d'activité (accueil, historique) : libellé, date, montant à droite, statut toujours visible */
 export function ActiviteRow({ mode, it, onOpen }: { mode: ModeAccueil; it: ActiviteItem; onOpen: (item: ActiviteItem) => void }) {
-  const st = STATUT[it.type] ?? (it.sens === 'GAIN' ? STATUT.JACKPOT_RECU : STATUT_INCONNU)
-  const gain = it.sens === 'GAIN'
-  const libelle = LIBELLES[it.type] ?? it.libelle ?? 'Mouvement'
+  const { st, gain, libelle } = affichageActivite(it)
   const titre = mode === 'GERE' && it.membreNom ? it.membreNom : `${libelle} · ${it.tontineNom}`
   const sous = mode === 'GERE' ? `${it.tontineNom} · ${formatDateHeure(it.date)}` : formatDateHeure(it.date)
   return (

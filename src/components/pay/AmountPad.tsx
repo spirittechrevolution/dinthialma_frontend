@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { Delete } from 'lucide-react'
 import { formatF } from '@/lib/format'
 
@@ -10,7 +11,10 @@ interface AmountPadProps {
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '000', '0', 'del'] as const
 
-/** Pavé numérique pour saisir un montant en FCFA (touches 64 px, séparateur de milliers à l'affichage). */
+/**
+ * Pavé numérique pour saisir un montant en FCFA (touches 64 px, séparateur de milliers à l'affichage).
+ * Desktop : le clavier physique fonctionne aussi (chiffres, Retour arrière), sauf si un champ de saisie a le focus.
+ */
 export function AmountPad({ value, onChange, max = 100_000_000 }: AmountPadProps) {
   const press = (k: (typeof KEYS)[number]) => {
     if (k === 'del') {
@@ -20,6 +24,21 @@ export function AmountPad({ value, onChange, max = 100_000_000 }: AmountPadProps
     const next = Number(`${value || ''}${k}`)
     if (Number.isFinite(next) && next <= max) onChange(next)
   }
+
+  // Référence à jour pour l'écouteur clavier (évite de le réabonner à chaque frappe)
+  const pressRef = useRef(press)
+  pressRef.current = press
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return
+      const el = e.target as HTMLElement | null
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return
+      if (/^[0-9]$/.test(e.key)) { e.preventDefault(); pressRef.current(e.key as (typeof KEYS)[number]) }
+      else if (e.key === 'Backspace') { e.preventDefault(); pressRef.current('del') }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   return (
     <div className="grid grid-cols-3 gap-2" aria-label="Pavé numérique">

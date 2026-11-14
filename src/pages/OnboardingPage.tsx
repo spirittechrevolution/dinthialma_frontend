@@ -48,7 +48,7 @@ function LogoSlide() {
       <div className="relative flex items-center justify-center">
         <div className="absolute w-44 h-44 rounded-full bg-primary-500/15 blur-3xl" />
         <div className="absolute w-28 h-28 rounded-full bg-primary-400/20 blur-xl" />
-        <LogoIcon size={96} className="relative drop-shadow-[0_0_24px_rgba(34,197,94,0.55)]" />
+        <LogoIcon size={96} variant="white" className="relative drop-shadow-[0_0_24px_rgba(34,197,94,0.55)]" />
       </div>
       <div className="text-center mt-1">
         <p className="text-white text-2xl font-bold tracking-wide leading-none">Dinthialma</p>

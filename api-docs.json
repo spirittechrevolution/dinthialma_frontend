@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Dinthialma API",
-    "description": "# Dinthialma API – Gestion de tontines et d'épargne collective\n\nDinthialma digitalise la pratique de la **tontine** (épargne rotative communautaire) en\noffrant une plateforme transparente, traçable et accessible depuis tout appareil.\n\n---\n\n## 🔐 Authentification\n\nTous les endpoints sécurisés nécessitent un **JWT Keycloak** dans le header :\n```\nAuthorization: Bearer <access_token>\n```\n\n**Flux de connexion :**\n1. `POST /v1/auth/login` → renvoie `access_token` + `refresh_token`\n2. Coller l'`access_token` dans le bouton **Authorize** en haut de cette page\n3. Quand le token expire, utiliser `POST /v1/auth/refresh`\n\n---\n\n## 👥 Rôles et accès\n\n| Rôle Keycloak | Description | Portée |\n|---|---|---|\n| `DINTHIALMA_SUPER_ADMIN` | Équipe Dinthialma | Accès total plateforme |\n| `DINTHIALMA_ADMIN` | Créateur d'une tontine | Gère ses propres tontines |\n| `DINTHIALMA_MEMBER` | Cotisant d'une tontine | Accès lecture + ses cotisations |\n| `DINTHIALMA_USER` | Tout compte inscrit | Rôle de base attribué à l'inscription |\n\n> **Important :** Les rôles se cumulent. La logique d'accès par tontine est applicative :\n> être ADMIN ne suffit pas — il faut être le **créateur de cette tontine spécifique**.\n\n---\n\n## 📦 Format des réponses\n\nToutes les réponses sont enveloppées dans un objet `CustomResponse` :\n```json\n{\n  \"status\": \"success\",\n  \"statusCode\": 200,\n  \"message\": \"Opération réussie\",\n  \"data\": { ... }\n}\n```\n\nLes listes paginées retournent dans `data` un objet `Page` Spring Data :\n```json\n{\n  \"data\": {\n    \"content\": [ ... ],\n    \"totalElements\": 42,\n    \"totalPages\": 3,\n    \"size\": 20,\n    \"number\": 0,\n    \"first\": true,\n    \"last\": false\n  }\n}\n```\n\n---\n\n## 📄 Pagination\n\nTous les endpoints de liste acceptent les query params suivants :\n- `page` — numéro de page (base 0, défaut 0)\n- `size` — taille de page (défaut 20)\n- `sort` — champ de tri (ex: `createdAt,desc`)\n\n**Defaults par domaine :**\n\n| Endpoint | Tri par défaut |\n|---|---|\n| `GET /v1/tontines` | `createdAt DESC` |\n| `GET .../cycles` | `numeroCycle ASC` |\n| `GET .../membres` | `ordreJackpot ASC` |\n| `GET .../cotisations` | `createdAt DESC` |\n| `GET .../commissions` | `createdAt ASC` |\n| `GET /v1/admin/dashboard/users` | `createdAt DESC` |\n| `GET /v1/notifications` | `createdAt DESC` |\n\n---\n\n## ⚠️ Codes d'erreur\n\n| Code HTTP | Signification |\n|---|---|\n| 400 | Données invalides (validation) |\n| 401 | Token JWT manquant ou expiré |\n| 403 | Accès interdit (mauvais rôle ou pas le créateur) |\n| 404 | Ressource introuvable |\n| 409 | Conflit (ex: téléphone déjà utilisé, cycle déjà ouvert) |\n| 429 | Trop de tentatives PIN (lockout 30 min) |\n| 500 | Erreur serveur interne |\n\n---\n\n## 💡 Concepts clés\n\n### Tontine ROTATIVE (classique)\n- **Tontine** : groupe d'épargne rotative. Chaque membre cotise périodiquement et, à tour\n  de rôle, reçoit le jackpot collecté (= la mise de tous les membres sur un cycle).\n- **Cycle** : période pendant laquelle les cotisations sont collectées et le jackpot remis.\n- **Bénéficiaire** : membre qui reçoit le jackpot du cycle en cours.\n- **Mode AUTOMATIQUE** : les cycles sont générés à l'activation de la tontine, chacun\n  démarrant automatiquement quand le précédent est clôturé.\n- **Mode MANUEL** : le gestionnaire ouvre chaque cycle manuellement au moment voulu.\n\n### Tontine EVENEMENTIELLE (nouveau)\n- **Tontine événementielle** : groupe d'épargne collective vers un événement (Tabaski, Korité,\n  mariage, baptême…). Pas de rotation — chaque membre récupère sa propre mise à la clôture.\n- **Date d'échéance** (`dateEcheance`) : date cible de l'événement. Les sous-cycles sont\n  générés automatiquement entre `dateDebut` et `dateEcheance` selon la `frequence`.\n- **Cotisation libre** (`montantLibre=true`) : chaque membre cotise le montant qu'il veut\n  (avec plancher optionnel `montantMinimum`). Sinon, le montant fixe est imposé à tous.\n- **Distribution finale** : à la clôture du dernier sous-cycle, `CycleResponse.distributionParMembre`\n  indique pour chaque membre : montantCotise, montantCommission (proportionnel), montantNet.\n- **Fréquence** : utilisée à titre informatif pour structurer les sous-cycles et planifier\n  les rappels WhatsApp. Aucune pénalité si un sous-cycle est sauté.\n\n### Communs aux deux types\n- **Commission** : frais de gestion configurés par le gestionnaire (POURCENTAGE_JACKPOT,\n  FRAIS_FIXES_PAR_CYCLE, FRAIS_ADHESION). Déduits automatiquement à la clôture.\n\n---\n\n## 📋 Référentiels de valeurs (Code Lists)\n\nEndpoint public (aucun token requis) : `GET /v1/code-list/type/{type}`\n\n| Type | Valeurs disponibles | Description |\n|------|---------------------|-------------|\n| `FREQUENCE_TONTINE` | `JOURNALIERE` · `HEBDOMADAIRE` · `BIMENSUEL` · `MENSUEL` · `TRIMESTRIEL` | Rythme de cotisation d'une tontine |\n| `METHODE_PAIEMENT` | `WAVE` · `ORANGE_MONEY` · `FREE_MONEY` · `CASH` | Moyen de paiement d'une cotisation |\n| `STATUT_COTISATION` | `EN_ATTENTE` · `VALIDE` · `EN_RETARD` | Cycle de vie d'une cotisation |\n| `ORDRE_BENEFICIAIRE` | `ALEATOIRE` · `MANUEL` · `ROTATION` | Règle de désignation du bénéficiaire |\n\n### Statuts métier (enums Java)\n\n| Enum | Valeurs |\n|------|---------|\n| `TontineType` | `ROTATIVE` · `EVENEMENTIELLE` |\n| `TontineStatut` | `BROUILLON` → `ACTIVE` → `SUSPENDUE` / `TERMINEE` |\n| `CycleStatut` | `EN_ATTENTE` → `EN_COURS` → `TERMINE` |\n| `ModeCycle` | `AUTOMATIQUE` · `MANUEL` (ROTATIVE uniquement) |\n| `CommissionType` | `POURCENTAGE_JACKPOT` · `FRAIS_FIXES_PAR_CYCLE` · `FRAIS_ADHESION` |\n| `MembreStatut` | `ACTIF` · `SUSPENDU` · `SORTI` |\n| `CotisationStatut` | `EN_ATTENTE` · `VALIDE` · `EN_RETARD` |\n| `ClientType` | `WEB` (TTL 24 h) · `MOBILE` (TTL 30 jours) |\n| `UserRole` | `USER` · `MEMBER` · `ADMIN` · `SUPER_ADMIN` |\n| `NotificationType` | `PAIEMENT_RECU` · `COTISATION_SOUMISE` · `COTISATION_VALIDEE` · `JACKPOT_DISTRIBUE` · `DISTRIBUTION_FINALE` · `PAIEMENT_EN_RETARD` · `RAPPEL_COTISATION` · `TOUR_PROCHE` · `CYCLE_BIENTOT_CLOTURE` · `CYCLE_OUVERT` · `INVITATION_TONTINE` · `STATUT_MEMBRE` |\n",
+    "description": "# Dinthialma API – Gestion de tontines et d'épargne collective\n\nDinthialma digitalise la pratique de la **tontine** (épargne rotative communautaire) en\noffrant une plateforme transparente, traçable et accessible depuis tout appareil.\n\n---\n\n## 🔐 Authentification\n\nTous les endpoints sécurisés nécessitent un **JWT Keycloak** dans le header :\n```\nAuthorization: Bearer <access_token>\n```\n\n**Flux de connexion :**\n1. `POST /v1/auth/login` → renvoie `access_token` + `refresh_token`\n2. Coller l'`access_token` dans le bouton **Authorize** en haut de cette page\n3. Quand le token expire, utiliser `POST /v1/auth/refresh`\n\n---\n\n## 👥 Rôles et accès\n\n| Rôle Keycloak | Description | Portée |\n|---|---|---|\n| `DINTHIALMA_SUPER_ADMIN` | Équipe Dinthialma | Accès total plateforme |\n| `DINTHIALMA_ADMIN` | Créateur d'une tontine | Gère ses propres tontines |\n| `DINTHIALMA_MEMBER` | Cotisant d'une tontine | Accès lecture + ses cotisations |\n| `DINTHIALMA_USER` | Tout compte inscrit | Rôle de base attribué à l'inscription |\n\n> **Important :** Les rôles se cumulent. La logique d'accès par tontine est applicative :\n> être ADMIN ne suffit pas — il faut être le **créateur de cette tontine spécifique**.\n\n---\n\n## 📦 Format des réponses\n\nToutes les réponses sont enveloppées dans un objet `CustomResponse` :\n```json\n{\n  \"status\": \"success\",\n  \"statusCode\": 200,\n  \"message\": \"Opération réussie\",\n  \"data\": { ... }\n}\n```\n\nLes listes paginées retournent dans `data` un objet `Page` Spring Data :\n```json\n{\n  \"data\": {\n    \"content\": [ ... ],\n    \"totalElements\": 42,\n    \"totalPages\": 3,\n    \"size\": 20,\n    \"number\": 0,\n    \"first\": true,\n    \"last\": false\n  }\n}\n```\n\n---\n\n## 📄 Pagination\n\nTous les endpoints de liste acceptent les query params suivants :\n- `page` — numéro de page (base 0, défaut 0)\n- `size` — taille de page (défaut 20)\n- `sort` — champ de tri (ex: `createdAt,desc`)\n\n**Defaults par domaine :**\n\n| Endpoint | Tri par défaut |\n|---|---|\n| `GET /v1/tontines` | `createdAt DESC` |\n| `GET .../cycles` | `numeroCycle ASC` |\n| `GET .../membres` | `ordreJackpot ASC` |\n| `GET .../cotisations` | `createdAt DESC` |\n| `GET .../commissions` | `createdAt ASC` |\n| `GET /v1/admin/dashboard/users` | `createdAt DESC` |\n| `GET /v1/notifications` | `createdAt DESC` |\n\n---\n\n## ⚠️ Codes d'erreur\n\n| Code HTTP | Signification |\n|---|---|\n| 400 | Données invalides (validation) |\n| 401 | Token JWT manquant ou expiré |\n| 403 | Accès interdit (mauvais rôle ou pas le créateur) |\n| 404 | Ressource introuvable |\n| 409 | Conflit (ex: téléphone déjà utilisé, cycle déjà ouvert) |\n| 429 | Trop de tentatives PIN (lockout 30 min) |\n| 500 | Erreur serveur interne |\n\n---\n\n## 💡 Concepts clés\n\n### Tontine ROTATIVE (classique)\n- **Tontine** : groupe d'épargne rotative. Chaque membre cotise périodiquement et, à tour\n  de rôle, reçoit le jackpot collecté (= la mise de tous les membres sur un cycle).\n- **Cycle** : période pendant laquelle les cotisations sont collectées et le jackpot remis.\n- **Bénéficiaire** : membre qui reçoit le jackpot du cycle en cours.\n- **Mode AUTOMATIQUE** : les cycles sont générés à l'activation de la tontine, chacun\n  démarrant automatiquement quand le précédent est clôturé.\n- **Mode MANUEL** : le gestionnaire ouvre chaque cycle manuellement au moment voulu.\n\n### Tontine EVENEMENTIELLE (nouveau)\n- **Tontine événementielle** : groupe d'épargne collective vers un événement (Tabaski, Korité,\n  mariage, baptême…). Pas de rotation — chaque membre récupère sa propre mise à la clôture.\n- **Date d'échéance** (`dateEcheance`) : date cible de l'événement. Les sous-cycles sont\n  générés automatiquement entre `dateDebut` et `dateEcheance` selon la `frequence`.\n- **Cotisation libre** (`montantLibre=true`) : chaque membre cotise le montant qu'il veut\n  (avec plancher optionnel `montantMinimum`). Sinon, le montant fixe est imposé à tous.\n- **Distribution finale** : à la clôture du dernier sous-cycle, `CycleResponse.distributionParMembre`\n  indique pour chaque membre : montantCotise, montantCommission (proportionnel), montantNet.\n- **Fréquence** : utilisée à titre informatif pour structurer les sous-cycles et planifier\n  les rappels WhatsApp. Aucune pénalité si un sous-cycle est sauté.\n\n### Communs aux deux types\n- **Commission** : frais de gestion configurés par le gestionnaire (POURCENTAGE_JACKPOT,\n  FRAIS_FIXES_PAR_CYCLE, FRAIS_ADHESION). Déduits automatiquement à la clôture.\n\n---\n\n## 📋 Référentiels de valeurs (Code Lists)\n\nEndpoint public (aucun token requis) : `GET /v1/code-list/type/{type}`\n\n| Type | Valeurs disponibles | Description |\n|------|---------------------|-------------|\n| `FREQUENCE_TONTINE` | `JOURNALIERE` · `HEBDOMADAIRE` · `BIMENSUEL` · `MENSUEL` · `TRIMESTRIEL` | Rythme de cotisation d'une tontine |\n| `METHODE_PAIEMENT` | `WAVE` · `ORANGE_MONEY` · `FREE_MONEY` · `PI_SPI` · `CASH` | Moyen de paiement d'une cotisation |\n| `STATUT_COTISATION` | `EN_ATTENTE` · `VALIDE` · `EN_RETARD` | Cycle de vie d'une cotisation |\n| `ORDRE_BENEFICIAIRE` | `ALEATOIRE` · `HYBRIDE` · `MANUEL` · `ROTATION` | Règle de désignation du bénéficiaire |\n\n### Statuts métier (enums Java)\n\n| Enum | Valeurs |\n|------|---------|\n| `TontineType` | `ROTATIVE` · `EVENEMENTIELLE` |\n| `TontineStatut` | `BROUILLON` → `ACTIVE` → `SUSPENDUE` / `TERMINEE` |\n| `CycleStatut` | `EN_ATTENTE` → `EN_COURS` → `TERMINE` |\n| `ModeCycle` | `AUTOMATIQUE` · `MANUEL` (ROTATIVE uniquement) |\n| `CommissionType` | `POURCENTAGE_JACKPOT` · `FRAIS_FIXES_PAR_CYCLE` · `FRAIS_ADHESION` |\n| `MembreStatut` | `ACTIF` · `SUSPENDU` · `SORTI` |\n| `CotisationStatut` | `EN_ATTENTE` · `VALIDE` · `EN_RETARD` |\n| `ClientType` | `WEB` (TTL 24 h) · `MOBILE` (TTL 30 jours) |\n| `UserRole` | `USER` · `MEMBER` · `ADMIN` · `SUPER_ADMIN` |\n| `NotificationType` | `PAIEMENT_RECU` · `COTISATION_SOUMISE` · `COTISATION_VALIDEE` · `JACKPOT_DISTRIBUE` · `DISTRIBUTION_FINALE` · `PAIEMENT_EN_RETARD` · `RAPPEL_COTISATION` · `TOUR_PROCHE` · `CYCLE_BIENTOT_CLOTURE` · `CYCLE_OUVERT` · `INVITATION_TONTINE` · `STATUT_MEMBRE` |\n",
     "contact": {
       "name": "Spirit Tech Revolution",
       "email": "spirittechrevolution@gmail.com"
@@ -27,6 +27,10 @@
     {
       "name": "Membres",
       "description": "Gestion des cotisants d'une tontine"
+    },
+    {
+      "name": "Priorités de jackpot",
+      "description": "Exception ponctuelle à l'ordre convenu : un membre reçoit le prochain jackpot, puis la règle reprend"
     },
     {
       "name": "Mon espace",
@@ -122,6 +126,109 @@
     }
   ],
   "paths": {
+    "/v1/tontines/{tontineId}/priorites/{prioriteId}/refuser": {
+      "put": {
+        "tags": [
+          "Priorités de jackpot"
+        ],
+        "summary": "Refuser une demande de priorité",
+        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN. EN_ATTENTE → REFUSEE, motif optionnel ; le membre est notifié (`PRIORITE_JACKPOT_REFUSEE`).",
+        "operationId": "refuser",
+        "parameters": [
+          {
+            "name": "tontineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "prioriteId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Refuser"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/v1/tontines/{tontineId}/priorites/{prioriteId}/accepter": {
+      "put": {
+        "tags": [
+          "Priorités de jackpot"
+        ],
+        "summary": "Accepter une demande de priorité",
+        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN. EN_ATTENTE → ACCEPTEE ; le membre et les autres membres actifs sont notifiés.",
+        "operationId": "accepter",
+        "parameters": [
+          {
+            "name": "tontineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "prioriteId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/v1/tontines/{tontineId}/demandes/{demandeId}/refuser": {
       "put": {
         "tags": [
@@ -129,7 +236,7 @@
         ],
         "summary": "Refuser une demande d'adhésion",
         "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN. `motif` optionnel, notifié au demandeur (`ADHESION_REFUSEE`). Erreur : `DEMANDE_NOT_PENDING`.",
-        "operationId": "refuser",
+        "operationId": "refuser_1",
         "parameters": [
           {
             "name": "tontineId",
@@ -185,7 +292,7 @@
         ],
         "summary": "Accepter une demande d'adhésion",
         "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN.\n\nAjoute le demandeur comme membre, avec les mêmes règles que l'ajout manuel (`ordreJackpot` optionnel, `JACKPOT_POSITION_TAKEN`, notification `INVITATION_TONTINE`). Erreurs : `DEMANDE_NOT_PENDING`, `TONTINE_FULL`.",
-        "operationId": "accepter",
+        "operationId": "accepter_1",
         "parameters": [
           {
             "name": "tontineId",
@@ -1686,6 +1793,232 @@
           },
           "401": {
             "description": "JWT manquant ou expiré",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/v1/tontines/{tontineId}/priorites": {
+      "get": {
+        "tags": [
+          "Priorités de jackpot"
+        ],
+        "summary": "Lister les priorités de la tontine",
+        "description": "🔒 Membres de la tontine, créateur, SUPER_ADMIN. Le `motif` (raison du besoin) n'est visible que du gestionnaire et du membre concerné. Filtre `?statut=`.",
+        "operationId": "lister",
+        "parameters": [
+          {
+            "name": "tontineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "statut",
+            "in": "query",
+            "description": "Filtre de statut (optionnel)",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "EN_ATTENTE = demande du membre à traiter ; ACCEPTEE = passera en premier au prochain tour désigné ; REFUSEE = refusée par le gestionnaire ; ANNULEE = annulée ; SERVIE = le membre a reçu le jackpot",
+              "enum": [
+                "EN_ATTENTE",
+                "ACCEPTEE",
+                "REFUSEE",
+                "ANNULEE",
+                "SERVIE"
+              ]
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Priorités de jackpot"
+        ],
+        "summary": "Demander la priorité sur le prochain jackpot",
+        "description": "🔒 Membre ACTIF de la tontine, sans jackpot reçu. Tontine ROTATIVE ACTIVE ou SUSPENDUE. La demande part EN_ATTENTE et le gestionnaire est notifié (`PRIORITE_JACKPOT_DEMANDEE`).",
+        "operationId": "demander",
+        "parameters": [
+          {
+            "name": "tontineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Demander"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Demande envoyée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrioriteJackpotResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "PRIORITE_NON_DISPONIBLE, MEMBRE_NON_ELIGIBLE_JACKPOT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Pas membre de la tontine",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "PRIORITE_DEJA_ACTIVE",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/v1/tontines/{tontineId}/priorites/attribuer": {
+      "post": {
+        "tags": [
+          "Priorités de jackpot"
+        ],
+        "summary": "Attribuer directement la priorité à un membre",
+        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN. Pour un accord pris avec le groupe hors application. La priorité est ACCEPTEE immédiatement ; le membre et les autres membres actifs sont notifiés (`PRIORITE_JACKPOT_ACCORDEE`).",
+        "operationId": "attribuer",
+        "parameters": [
+          {
+            "name": "tontineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Attribuer"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Priorité attribuée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrioriteJackpotResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "PRIORITE_NON_DISPONIBLE, MEMBRE_NON_ELIGIBLE_JACKPOT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Accès interdit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Membre introuvable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "PRIORITE_DEJA_ACTIVE",
             "content": {
               "application/json": {
                 "schema": {
@@ -4253,6 +4586,54 @@
         ]
       }
     },
+    "/v1/tontines/{id}/ordre-beneficiaire": {
+      "patch": {
+        "tags": [
+          "Tontines"
+        ],
+        "summary": "Changer l'ordre des bénéficiaires (y compris en cours de tontine)",
+        "description": "🔒 Rôles : créateur de la tontine, SUPER_ADMIN. Tontine ROTATIVE BROUILLON, ACTIVE ou SUSPENDUE. Effet à la prochaine clôture de tour ; les gagnants déjà désignés ne changent pas. Vers ROTATION ou ALEATOIRE : refusé (409 `DESIGNATION_EN_ATTENTE`) tant qu'un tour clôturé attend ses gagnants. Membres actifs notifiés (`ORDRE_BENEFICIAIRE_MODIFIE`).",
+        "operationId": "changerOrdreBeneficiaire",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangerOrdreBeneficiaireRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/v1/notifications/{id}/read": {
       "patch": {
         "tags": [
@@ -4865,7 +5246,7 @@
           "Invitations"
         ],
         "summary": "Aperçu public d'une invitation",
-        "description": "🌐 Public (sans JWT).\n\nInfos minimales pour la page d'invitation : nom, type, montant, fréquence, événement, places restantes, prénom du gestionnaire et `ouverte`. Aucune donnée des membres. Code insensible à la casse, tiret facultatif. Code inconnu ou révoqué → 404.",
+        "description": "🌐 Public (JWT facultatif).\n\nInfos minimales pour la page d'invitation : nom, type, montant, fréquence, événement, places restantes, prénom du gestionnaire et `ouverte`. Aucune donnée des membres. Code insensible à la casse, tiret facultatif. Code inconnu ou révoqué → 404.\n\n**Avec un JWT valide** (en-tête `Authorization: Bearer …`) : ajoute `dejaMembre`, `estGestionnaire`, `demandeEnAttente` et `tontineId` (ce dernier seulement si membre ou gestionnaire). Sans JWT, ou JWT expiré / invalide : ces champs sont absents et la réponse reste celle d'un visiteur (jamais de 401).",
         "operationId": "apercu",
         "parameters": [
           {
@@ -4915,7 +5296,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PublicConfig"
+                  "$ref": "#/components/schemas/PublicConfigResponse"
                 }
               }
             }
@@ -5337,19 +5718,23 @@
           {
             "name": "type",
             "in": "query",
-            "description": "Filtrer par type d'événement",
+            "description": "Filtrer par type d'événement, répétable : `?type=A&type=B` (OU logique). Absent = tous les types.",
             "required": false,
             "schema": {
-              "type": "string",
-              "description": "COTISATION_DECLAREE (en attente), COTISATION_VALIDEE (déclarée par le membre puis validée), COTISATION_ENCAISSEE (saisie par le gestionnaire), COTISATION_EN_RETARD, COTISATION_REFUSEE, JACKPOT_RECU",
-              "enum": [
-                "COTISATION_DECLAREE",
-                "COTISATION_VALIDEE",
-                "COTISATION_ENCAISSEE",
-                "COTISATION_EN_RETARD",
-                "COTISATION_REFUSEE",
-                "JACKPOT_RECU"
-              ]
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": "COTISATION_DECLAREE (en attente), COTISATION_VALIDEE (déclarée par le membre puis validée), COTISATION_ENCAISSEE (saisie par le gestionnaire), COTISATION_EN_RETARD, COTISATION_REFUSEE, JACKPOT_RECU, DISTRIBUTION_RECUE",
+                "enum": [
+                  "COTISATION_DECLAREE",
+                  "COTISATION_VALIDEE",
+                  "COTISATION_ENCAISSEE",
+                  "COTISATION_EN_RETARD",
+                  "COTISATION_REFUSEE",
+                  "JACKPOT_RECU",
+                  "DISTRIBUTION_RECUE"
+                ]
+              }
             }
           },
           {
@@ -5462,16 +5847,20 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string",
-              "description": "COTISATION_DECLAREE (en attente), COTISATION_VALIDEE (déclarée par le membre puis validée), COTISATION_ENCAISSEE (saisie par le gestionnaire), COTISATION_EN_RETARD, COTISATION_REFUSEE, JACKPOT_RECU",
-              "enum": [
-                "COTISATION_DECLAREE",
-                "COTISATION_VALIDEE",
-                "COTISATION_ENCAISSEE",
-                "COTISATION_EN_RETARD",
-                "COTISATION_REFUSEE",
-                "JACKPOT_RECU"
-              ]
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": "COTISATION_DECLAREE (en attente), COTISATION_VALIDEE (déclarée par le membre puis validée), COTISATION_ENCAISSEE (saisie par le gestionnaire), COTISATION_EN_RETARD, COTISATION_REFUSEE, JACKPOT_RECU, DISTRIBUTION_RECUE",
+                "enum": [
+                  "COTISATION_DECLAREE",
+                  "COTISATION_VALIDEE",
+                  "COTISATION_ENCAISSEE",
+                  "COTISATION_EN_RETARD",
+                  "COTISATION_REFUSEE",
+                  "JACKPOT_RECU",
+                  "DISTRIBUTION_RECUE"
+                ]
+              }
             }
           },
           {
@@ -5516,7 +5905,7 @@
           "CodeList"
         ],
         "summary": "Valeurs d'un type de code list (public)",
-        "description": "🌐 **Public** — Retourne toutes les entrées d'un type donné. Aucun token requis.\n\n---\n\n### Référentiels disponibles\n\n| Type | Valeurs | Usage |\n|------|---------|-------|\n| `FREQUENCE_TONTINE` | `JOURNALIERE` · `HEBDOMADAIRE` · `BIMENSUEL` · `MENSUEL` · `TRIMESTRIEL` | Fréquence de cotisation lors de la création d'une tontine |\n| `METHODE_PAIEMENT` | `WAVE` · `ORANGE_MONEY` · `FREE_MONEY` · `CASH` | Moyen de paiement d'une cotisation |\n| `STATUT_COTISATION` | `EN_ATTENTE` · `VALIDE` · `EN_RETARD` | Cycle de vie d'une cotisation |\n| `ORDRE_BENEFICIAIRE` | `ALEATOIRE` · `MANUEL` · `ROTATION` | Règle de désignation du bénéficiaire du jackpot |\n\n> ⚠️ **`ROLE_INTERNE`** est restreint — utiliser `GET /v1/code-list/admin/type/ROLE_INTERNE`.",
+        "description": "🌐 **Public** — Retourne toutes les entrées d'un type donné. Aucun token requis.\n\n---\n\n### Référentiels disponibles\n\n| Type | Valeurs | Usage |\n|------|---------|-------|\n| `FREQUENCE_TONTINE` | `JOURNALIERE` · `HEBDOMADAIRE` · `BIMENSUEL` · `MENSUEL` · `TRIMESTRIEL` | Fréquence de cotisation lors de la création d'une tontine |\n| `METHODE_PAIEMENT` | `WAVE` · `ORANGE_MONEY` · `FREE_MONEY` · `PI_SPI` · `CASH` | Moyen de paiement d'une cotisation |\n| `STATUT_COTISATION` | `EN_ATTENTE` · `VALIDE` · `EN_RETARD` | Cycle de vie d'une cotisation |\n| `ORDRE_BENEFICIAIRE` | `ALEATOIRE` · `HYBRIDE` · `MANUEL` · `ROTATION` | Règle de désignation du bénéficiaire du jackpot |\n\n> ⚠️ **`ROLE_INTERNE`** est restreint — utiliser `GET /v1/code-list/admin/type/ROLE_INTERNE`.",
         "operationId": "findAllByType",
         "parameters": [
           {
@@ -6042,6 +6431,53 @@
         ]
       }
     },
+    "/v1/tontines/{tontineId}/priorites/{prioriteId}": {
+      "delete": {
+        "tags": [
+          "Priorités de jackpot"
+        ],
+        "summary": "Annuler une priorité",
+        "description": "🔒 Créateur de la tontine, SUPER_ADMIN, ou le membre concerné. Priorité EN_ATTENTE ou ACCEPTEE → ANNULEE.",
+        "operationId": "annuler",
+        "parameters": [
+          {
+            "name": "tontineId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "prioriteId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/v1/tontines/{tontineId}/membres/{membreId}": {
       "delete": {
         "tags": [
@@ -6177,12 +6613,12 @@
     "schemas": {
       "Refuser": {
         "type": "object",
-        "description": "Refus d'une demande",
+        "description": "Refus ou annulation d'une priorité",
         "properties": {
           "motif": {
             "type": "string",
-            "description": "Motif communiqué au demandeur (optionnel)",
-            "example": "Tontine complète",
+            "description": "Motif communiqué au membre (optionnel)",
+            "example": "Tour déjà promis",
             "maxLength": 500,
             "minLength": 0
           }
@@ -6238,6 +6674,7 @@
               "MEMBER_ALREADY_IN_TONTINE",
               "JACKPOT_POSITION_TAKEN",
               "MEMBER_NAME_REQUIRED",
+              "MEMBER_IDENTIFIER_REQUIRED",
               "TONTINE_FULL",
               "TONTINE_NOT_OPEN",
               "DEMANDE_DEJA_EN_ATTENTE",
@@ -6249,7 +6686,14 @@
               "COTISATION_NOT_EDITABLE",
               "COTISATION_NOT_PENDING",
               "CODE_LIST_SYSTEM_VALUE",
-              "CYCLE_ALREADY_IN_PROGRESS"
+              "CYCLE_ALREADY_IN_PROGRESS",
+              "DESIGNATION_EN_ATTENTE",
+              "PRIORITE_NON_DISPONIBLE",
+              "MEMBRE_NON_ELIGIBLE_JACKPOT",
+              "PRIORITE_DEJA_ACTIVE",
+              "PRIORITE_NOT_PENDING",
+              "COMMISSION_ALREADY_EXISTS",
+              "COMMISSION_PERCENTAGE_TOO_HIGH"
             ]
           },
           "message": {
@@ -6550,6 +6994,20 @@
             "format": "date-time",
             "description": "Date d'enregistrement de la cotisation"
           },
+          "datePaiement": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date du paiement remis en main propre (encaissement admin), sinon null"
+          },
+          "ponctualite": {
+            "type": "string",
+            "description": "Ponctualité : payée avant l'échéance du tour ou non (distincte du statut, dont EN_RETARD signifie « non validée à la clôture »)",
+            "enum": [
+              "A_TEMPS",
+              "EN_RETARD",
+              "NON_DECLAREE"
+            ]
+          },
           "updatedAt": {
             "type": "string",
             "format": "date-time",
@@ -6738,8 +7196,14 @@
           },
           "ordreBeneficiaire": {
             "type": "string",
-            "description": "Nouvel ordre des bénéficiaires (code ORDRE_BENEFICIAIRE, null = inchangé)",
-            "example": "ALEATOIRE"
+            "description": "Nouvel ordre des bénéficiaires : ROTATION, ALEATOIRE, MANUEL ou HYBRIDE (null = inchangé ; autre valeur → 400 INVALID_PARAMETER)",
+            "enum": [
+              "ROTATION",
+              "ALEATOIRE",
+              "MANUEL",
+              "HYBRIDE"
+            ],
+            "example": "HYBRIDE"
           },
           "dateDebut": {
             "type": "string",
@@ -7012,6 +7476,11 @@
             "example": "WAVE",
             "maxLength": 50,
             "minLength": 0
+          },
+          "derniereTontineGeree": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Dernière tontine choisie dans l'espace Gestionnaire de l'accueil. Une tontine dont l'utilisateur n'est pas (ou plus) gestionnaire est ramenée à null, sans refuser les autres préférences."
           }
         }
       },
@@ -7168,9 +7637,40 @@
           }
         }
       },
+      "CreateCommissionRequest": {
+        "type": "object",
+        "description": "Corps de la requête de création d'une commission sur une tontine. Maximum 1 commission par type (POURCENTAGE_JACKPOT, FRAIS_FIXES_PAR_CYCLE, FRAIS_ADHESION).",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Type de commission :\n- POURCENTAGE_JACKPOT : taux en % déduit de chaque jackpot à la clôture\n- FRAIS_FIXES_PAR_CYCLE : montant fixe FCFA déduit de chaque jackpot\n- FRAIS_ADHESION : montant fixe FCFA prélevé à l'entrée du membre (ne réduit pas le jackpot)",
+            "enum": [
+              "POURCENTAGE_JACKPOT",
+              "FRAIS_FIXES_PAR_CYCLE",
+              "FRAIS_ADHESION"
+            ],
+            "example": "POURCENTAGE_JACKPOT"
+          },
+          "valeur": {
+            "type": "number",
+            "description": "Valeur de la commission :\n- Pour POURCENTAGE_JACKPOT : taux en % (ex : 4.00 = 4 %)\n- Pour les autres types : montant en FCFA (ex : 1000.00)\nDoit être strictement positif.",
+            "example": 4.0,
+            "minimum": 0.01
+          },
+          "description": {
+            "type": "string",
+            "description": "Note optionnelle affichée aux membres",
+            "example": "Frais de gestion du groupe"
+          }
+        },
+        "required": [
+          "type",
+          "valeur"
+        ]
+      },
       "CreateTontineRequest": {
         "type": "object",
-        "description": "Corps de la requête de création d'une tontine. L'utilisateur appelant devient automatiquement l'administrateur (créateur) de la tontine. La tontine est créée en statut BROUILLON.\n\n**ROTATIVE** : ordreBeneficiaire, nombreMembres, modeCycle et montant sont obligatoires.\n**EVENEMENTIELLE** : dateEcheance est obligatoire ; montant est obligatoire si montantLibre=false ; ordreBeneficiaire et nombreMembres sont ignorés.",
+        "description": "Corps de la requête de création d'une tontine. L'utilisateur appelant devient automatiquement l'administrateur (créateur) de la tontine. La tontine est créée en statut BROUILLON.\n\n**ROTATIVE** : ordreBeneficiaire, nombreMembres, modeCycle et montant sont obligatoires.\n**EVENEMENTIELLE** : dateEcheance est obligatoire ; montant est obligatoire si montantLibre=false ; ordreBeneficiaire et nombreMembres sont ignorés.\n\n**commissions** (optionnel) : enregistrées dans la même transaction que la tontine ; si l'une est refusée, rien n'est créé.",
         "properties": {
           "tontineType": {
             "type": "string",
@@ -7206,8 +7706,14 @@
           },
           "ordreBeneficiaire": {
             "type": "string",
-            "description": "Ordre de désignation des bénéficiaires (ROTATIVE uniquement). Codes ORDRE_BENEFICIAIRE : FIXE, ALEATOIRE, ROTATION, MANUEL.",
-            "example": "FIXE"
+            "description": "Désignation des gagnants (ROTATIVE, obligatoire) : ROTATION (ordre des membres, automatique à la clôture), ALEATOIRE (tirage automatique à la clôture), MANUEL (choisis par le gestionnaire après la clôture), HYBRIDE (à chaque tour, le gestionnaire choisit après la clôture : tirage au sort ou choix manuel). Autre valeur → 400 INVALID_PARAMETER.",
+            "enum": [
+              "ROTATION",
+              "ALEATOIRE",
+              "MANUEL",
+              "HYBRIDE"
+            ],
+            "example": "ROTATION"
           },
           "modeCycle": {
             "type": "string",
@@ -7261,6 +7767,13 @@
             "type": "number",
             "description": "Montant minimum de cotisation (EVENEMENTIELLE + montantLibre=true uniquement). Null = aucun plancher.",
             "example": 500
+          },
+          "commissions": {
+            "type": "array",
+            "description": "Commissions du gestionnaire, enregistrées avec la tontine (mêmes règles que POST /v1/tontines/{id}/commissions). Absent ou vide = aucune commission. Un type au plus une fois (409 COMMISSION_ALREADY_EXISTS) ; POURCENTAGE_JACKPOT ≤ 100 (400 COMMISSION_PERCENTAGE_TOO_HIGH) ; valeur ≤ 0 → 400 VALIDATION_ERROR.",
+            "items": {
+              "$ref": "#/components/schemas/CreateCommissionRequest"
+            }
           }
         },
         "required": [
@@ -7268,15 +7781,129 @@
           "tontineType"
         ]
       },
+      "Demander": {
+        "type": "object",
+        "description": "Demande du membre : recevoir le prochain jackpot en priorité",
+        "properties": {
+          "motif": {
+            "type": "string",
+            "description": "Raison du besoin, lue par le gestionnaire (optionnel)",
+            "example": "Frais d'hospitalisation de ma mère",
+            "maxLength": 500,
+            "minLength": 0
+          }
+        }
+      },
+      "PrioriteJackpotResponse": {
+        "type": "object",
+        "description": "Priorité de jackpot d'un membre",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID de la priorité"
+          },
+          "tontineId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID de la tontine"
+          },
+          "membreId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID du membership bénéficiaire"
+          },
+          "userId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID de l'utilisateur bénéficiaire"
+          },
+          "firstName": {
+            "type": "string",
+            "description": "Prénom du membre"
+          },
+          "lastName": {
+            "type": "string",
+            "description": "Nom du membre"
+          },
+          "statut": {
+            "type": "string",
+            "description": "Statut",
+            "enum": [
+              "EN_ATTENTE",
+              "ACCEPTEE",
+              "REFUSEE",
+              "ANNULEE",
+              "SERVIE"
+            ]
+          },
+          "origine": {
+            "type": "string",
+            "description": "Origine",
+            "enum": [
+              "DEMANDE_MEMBRE",
+              "GESTIONNAIRE"
+            ]
+          },
+          "motif": {
+            "type": "string",
+            "description": "Raison du besoin : visible du gestionnaire et du membre concerné uniquement (null pour les autres membres)"
+          },
+          "motifRefus": {
+            "type": "string",
+            "description": "Motif du refus ou de l'annulation"
+          },
+          "cycleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tour où la priorité a été servie"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la demande ou de l'attribution"
+          },
+          "dateTraitement": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'acceptation, de refus ou d'annulation"
+          }
+        }
+      },
+      "Attribuer": {
+        "type": "object",
+        "description": "Attribution directe par le gestionnaire (accord pris avec le groupe)",
+        "properties": {
+          "membreId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID du membership bénéficiaire"
+          },
+          "motif": {
+            "type": "string",
+            "description": "Raison (optionnel)",
+            "example": "Décidé en réunion du 12/11",
+            "maxLength": 500,
+            "minLength": 0
+          }
+        },
+        "required": [
+          "membreId"
+        ]
+      },
       "AddMembreRequest": {
         "type": "object",
-        "description": "Corps de la requête d'ajout d'un cotisant à une tontine.\n\n**Flux recommandé (2 étapes) :**\n1. `GET /v1/users/search?phone=xxx` pour vérifier si le numéro existe.\n2a. Numéro **trouvé** → envoyer uniquement `phone` (+ `ordreJackpot`). Le nom est déjà connu du système.\n2b. Numéro **introuvable** → envoyer `phone` + `firstName` + `lastName` (+ `ordreJackpot`). Un compte PRE_ENROLLED est créé avec ces informations.",
+        "description": "Corps de la requête d'ajout d'un cotisant à une tontine.\n\n**Flux recommandé (2 étapes) :**\n1. `GET /v1/users/search?phone=xxx` pour vérifier si le numéro existe.\n2a. Numéro **trouvé** → envoyer uniquement `phone` (+ `ordreJackpot`). Le nom est déjà connu du système.\n2b. Numéro **introuvable** → envoyer `phone` + `firstName` + `lastName` (+ `ordreJackpot`). Un compte PRE_ENROLLED est créé avec ces informations.\n\n**Ajout depuis un QR scanné :** envoyer `qrToken` (`m_…`, tel que lu dans le QR) **à la place** de `phone`. Le numéro n'est jamais exposé au gestionnaire avant l'ajout. Exactement un des deux est requis (`MEMBER_IDENTIFIER_REQUIRED`).",
         "properties": {
           "phone": {
             "type": "string",
-            "description": "Numéro de téléphone (format international, avec ou sans le +).",
-            "example": 221770000001,
-            "minLength": 1
+            "description": "Numéro de téléphone (format international, avec ou sans le +). Obligatoire sauf si `qrToken` est fourni.",
+            "example": 221770000001
+          },
+          "qrToken": {
+            "type": "string",
+            "description": "Jeton du QR membre scanné (`m_…`), alternative à `phone`. QR inconnu ou révoqué → 404. Le compte doit déjà exister (pas de création PRE_ENROLLED par QR).",
+            "example": "m_Q2hhbmdlTWVQbGVhc2U"
           },
           "firstName": {
             "type": "string",
@@ -7455,7 +8082,7 @@
           },
           "methodePaiement": {
             "type": "string",
-            "description": "Méthode de paiement – code de la liste METHODE_PAIEMENT. Exemples : WAVE, ORANGE_MONEY, FREE_MONEY, CASH. Voir GET /v1/code-list/type/METHODE_PAIEMENT.",
+            "description": "Méthode de paiement – code de la liste METHODE_PAIEMENT. Exemples : WAVE, ORANGE_MONEY, FREE_MONEY, PI_SPI, CASH. Voir GET /v1/code-list/type/METHODE_PAIEMENT.",
             "example": "WAVE"
           },
           "referenceTransaction": {
@@ -7497,7 +8124,7 @@
           },
           "methodePaiement": {
             "type": "string",
-            "description": "Méthode de paiement – code METHODE_PAIEMENT. Exemples : CASH, WAVE, ORANGE_MONEY, FREE_MONEY. Voir GET /v1/code-list/type/METHODE_PAIEMENT.",
+            "description": "Méthode de paiement – code METHODE_PAIEMENT. Exemples : CASH, WAVE, ORANGE_MONEY, FREE_MONEY, PI_SPI. Voir GET /v1/code-list/type/METHODE_PAIEMENT.",
             "example": "CASH"
           },
           "referenceTransaction": {
@@ -7509,43 +8136,18 @@
             "type": "string",
             "description": "Note libre de l'admin",
             "example": "Reçu cash le 01/06/2026"
+          },
+          "datePaiement": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date réelle du paiement remis en main propre (optionnel, défaut : maintenant). Compte pour la ponctualité ; ≤ maintenant et ≥ début du tour.",
+            "example": "2026-11-10T18:30:00"
           }
         },
         "required": [
           "cycleId",
           "membreId",
           "montant"
-        ]
-      },
-      "CreateCommissionRequest": {
-        "type": "object",
-        "description": "Corps de la requête de création d'une commission sur une tontine. Maximum 1 commission par type (POURCENTAGE_JACKPOT, FRAIS_FIXES_PAR_CYCLE, FRAIS_ADHESION).",
-        "properties": {
-          "type": {
-            "type": "string",
-            "description": "Type de commission :\n- POURCENTAGE_JACKPOT : taux en % déduit de chaque jackpot à la clôture\n- FRAIS_FIXES_PAR_CYCLE : montant fixe FCFA déduit de chaque jackpot\n- FRAIS_ADHESION : montant fixe FCFA prélevé à l'entrée du membre (ne réduit pas le jackpot)",
-            "enum": [
-              "POURCENTAGE_JACKPOT",
-              "FRAIS_FIXES_PAR_CYCLE",
-              "FRAIS_ADHESION"
-            ],
-            "example": "POURCENTAGE_JACKPOT"
-          },
-          "valeur": {
-            "type": "number",
-            "description": "Valeur de la commission :\n- Pour POURCENTAGE_JACKPOT : taux en % (ex : 4.00 = 4 %)\n- Pour les autres types : montant en FCFA (ex : 1000.00)\nDoit être strictement positif.",
-            "example": 4.0,
-            "minimum": 0.01
-          },
-          "description": {
-            "type": "string",
-            "description": "Note optionnelle affichée aux membres",
-            "example": "Frais de gestion du groupe"
-          }
-        },
-        "required": [
-          "type",
-          "valeur"
         ]
       },
       "PhoneChangeVerifyRequest": {
@@ -7695,6 +8297,7 @@
               "MEMBER_ALREADY_IN_TONTINE",
               "JACKPOT_POSITION_TAKEN",
               "MEMBER_NAME_REQUIRED",
+              "MEMBER_IDENTIFIER_REQUIRED",
               "TONTINE_FULL",
               "TONTINE_NOT_OPEN",
               "DEMANDE_DEJA_EN_ATTENTE",
@@ -7706,7 +8309,14 @@
               "COTISATION_NOT_EDITABLE",
               "COTISATION_NOT_PENDING",
               "CODE_LIST_SYSTEM_VALUE",
-              "CYCLE_ALREADY_IN_PROGRESS"
+              "CYCLE_ALREADY_IN_PROGRESS",
+              "DESIGNATION_EN_ATTENTE",
+              "PRIORITE_NON_DISPONIBLE",
+              "MEMBRE_NON_ELIGIBLE_JACKPOT",
+              "PRIORITE_DEJA_ACTIVE",
+              "PRIORITE_NOT_PENDING",
+              "COMMISSION_ALREADY_EXISTS",
+              "COMMISSION_PERCENTAGE_TOO_HIGH"
             ]
           },
           "message": {
@@ -8281,6 +8891,24 @@
           }
         }
       },
+      "ChangerOrdreBeneficiaireRequest": {
+        "type": "object",
+        "description": "Changement de la règle de désignation des gagnants, y compris en cours",
+        "properties": {
+          "ordreBeneficiaire": {
+            "type": "string",
+            "description": "Nouvel ordre : ROTATION, ALEATOIRE, MANUEL ou HYBRIDE. S'applique à la prochaine clôture de tour ; les gagnants déjà désignés ne changent pas.",
+            "enum": [
+              "ROTATION",
+              "ALEATOIRE",
+              "MANUEL",
+              "HYBRIDE"
+            ],
+            "example": "HYBRIDE",
+            "minLength": 1
+          }
+        }
+      },
       "Pageable": {
         "type": "object",
         "properties": {
@@ -8433,6 +9061,15 @@
               "VALIDE",
               "EN_RETARD",
               "REFUSE"
+            ]
+          },
+          "ponctualite": {
+            "type": "string",
+            "description": "Ponctualité du membre sur ce tour : A_TEMPS, EN_RETARD ou NON_DECLAREE (aucune déclaration retenue)",
+            "enum": [
+              "A_TEMPS",
+              "EN_RETARD",
+              "NON_DECLAREE"
             ]
           },
           "dateValidation": {
@@ -8679,10 +9316,27 @@
           "ouverte": {
             "type": "boolean",
             "description": "true si l'on peut encore demander à rejoindre (tontine BROUILLON ou ACTIVE, non complète)"
+          },
+          "dejaMembre": {
+            "type": "boolean",
+            "description": "Appelant déjà membre de la tontine (actif ou suspendu). Absent sans JWT valide."
+          },
+          "estGestionnaire": {
+            "type": "boolean",
+            "description": "Appelant gestionnaire (créateur) de la tontine. Absent sans JWT valide."
+          },
+          "demandeEnAttente": {
+            "type": "boolean",
+            "description": "Appelant ayant déjà une demande d'adhésion EN_ATTENTE sur cette tontine. Absent sans JWT valide."
+          },
+          "tontineId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant de la tontine, renseigné seulement si l'appelant en est membre ou gestionnaire (pour ouvrir sa fiche). Absent sinon."
           }
         }
       },
-      "PublicConfig": {
+      "PublicConfigResponse": {
         "type": "object",
         "description": "Configuration publique de la plateforme",
         "properties": {
@@ -8696,8 +9350,13 @@
           },
           "versionMinimaleApp": {
             "type": "string",
-            "description": "Version minimale de l'app supportée",
-            "example": "2.0.0"
+            "description": "Version minimale du front (SemVer MAJEUR.MINEUR.CORRECTIF). Version du front strictement inférieure → écran bloquant « Mise à jour requise ». Absent → aucun contrôle.",
+            "example": "1.0.0"
+          },
+          "versionRecommandeeApp": {
+            "type": "string",
+            "description": "Version recommandée du front (SemVer, ≥ versionMinimaleApp). Version du front strictement inférieure → simple bandeau « Nouvelle version disponible », non bloquant. Absent → aucun bandeau.",
+            "example": "1.2.0"
           }
         }
       },
@@ -8728,7 +9387,12 @@
               "COTISATION_SOUMISE",
               "DEMANDE_ADHESION",
               "ADHESION_REFUSEE",
-              "RAPPEL_COTISATION"
+              "RAPPEL_COTISATION",
+              "PRIORITE_JACKPOT_DEMANDEE",
+              "PRIORITE_JACKPOT_ACCORDEE",
+              "PRIORITE_JACKPOT_REFUSEE",
+              "ORDRE_BENEFICIAIRE_MODIFIE",
+              "GAGNANTS_A_DESIGNER"
             ]
           },
           "title": {
@@ -8759,6 +9423,11 @@
             "type": "string",
             "format": "uuid",
             "description": "Membership concerné (tontine_membres.id, fiche membre) – null si aucun"
+          },
+          "demandeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Demande d'adhésion concernée (DEMANDE_ADHESION, ADHESION_REFUSEE) – null sinon"
           },
           "createdAt": {
             "type": "string",
@@ -8807,6 +9476,15 @@
             "type": "string",
             "format": "uuid",
             "description": "UUID de ma cotisation sur ce tour – null si A_PAYER"
+          },
+          "ponctualite": {
+            "type": "string",
+            "description": "Ponctualité de ma cotisation sur ce tour (NON_DECLAREE si A_PAYER)",
+            "enum": [
+              "A_TEMPS",
+              "EN_RETARD",
+              "NON_DECLAREE"
+            ]
           },
           "motifDernierRefus": {
             "type": "string",
@@ -8882,7 +9560,7 @@
           },
           "totalJackpotsRecus": {
             "type": "number",
-            "description": "Total des jackpots que j'ai reçus, toutes tontines, en FCFA"
+            "description": "Total que j'ai reçu, toutes tontines, en FCFA : jackpots (ROTATIVE) + distributions finales (EVENEMENTIELLE)"
           },
           "nombreCotisationsDues": {
             "type": "integer",
@@ -8976,6 +9654,17 @@
           "totalEnAttente": {
             "type": "number",
             "description": "Mes cotisations EN_ATTENTE dans cette tontine, en FCFA"
+          },
+          "totalJackpotsRecus": {
+            "type": "number",
+            "description": "Total reçu dans cette tontine (FCFA) : jackpots (ROTATIVE) ou part de la distribution finale (EVENEMENTIELLE, mise moins commission). 0 si rien.",
+            "example": 50000
+          },
+          "nombreJackpotsRecus": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre de jackpots reçus (ROTATIVE) ou 1 si la distribution finale est faite (EVENEMENTIELLE). 0 si rien.",
+            "example": 1
           },
           "toursPayes": {
             "type": "integer",
@@ -9134,6 +9823,11 @@
             "type": "number",
             "description": "Montant net reçu, en FCFA",
             "example": 57000
+          },
+          "nature": {
+            "type": "string",
+            "description": "JACKPOT (tour d'une tontine ROTATIVE) ou DISTRIBUTION_FINALE (part reçue à la clôture d'une tontine EVENEMENTIELLE : mise moins commission)",
+            "example": "JACKPOT"
           }
         }
       },
@@ -9358,6 +10052,12 @@
             "description": "Nombre total de cotisations EN_RETARD sur toutes les tontines gérées",
             "example": 2
           },
+          "totalDemandesEnAttente": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Demandes d'adhésion EN_ATTENTE sur toutes mes tontines (badge « À valider »). 0 si aucune.",
+            "example": 2
+          },
           "totalCollecteToursEnCours": {
             "type": "number",
             "description": "Somme VALIDÉE sur les tours EN_COURS de toutes les tontines gérées, en FCFA",
@@ -9510,6 +10210,18 @@
             "type": "boolean",
             "description": "ROTATIVE à ordre MANUEL : au moins un tour TERMINÉ attend la désignation de ses gagnants",
             "example": false
+          },
+          "demandesEnAttente": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Demandes d'adhésion EN_ATTENTE sur cette tontine. 0 si aucune.",
+            "example": 1
+          },
+          "prioritesEnAttente": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Demandes de priorité sur le jackpot EN_ATTENTE (à accepter ou refuser). 0 si aucune.",
+            "example": 0
           }
         }
       },

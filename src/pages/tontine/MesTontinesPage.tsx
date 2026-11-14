@@ -24,6 +24,9 @@ const STATUT_LABEL: Partial<Record<TontineStatut, string>> = {
   TERMINEE: 'Terminée',
 }
 
+/** Mobile : liste dans une carte ; desktop : grille de cartes (2 colonnes en lg, 3 en xl) */
+const LISTE = 'bg-white rounded-3xl shadow-sm divide-y divide-neutral-100 lg:bg-transparent lg:shadow-none lg:rounded-none lg:divide-y-0 lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-4'
+
 export function MesTontinesPage() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -63,8 +66,8 @@ export function MesTontinesPage() {
     const n = jeGere(t) ? aValider(t.id) : 0
     const payer = jeCotise(t) && aPayer(t.id)
     return (
-      <li key={t.id} className="flex items-center">
-        <Link to={`/tontine/${t.id}`} className="flex flex-1 min-w-0 items-center gap-3 pl-4 py-3 min-h-[68px]">
+      <li key={t.id} className="flex items-center lg:items-start lg:bg-white lg:rounded-3xl lg:shadow-sm lg:hover:shadow-md lg:transition-shadow">
+        <Link to={`/tontine/${t.id}`} className="flex flex-1 min-w-0 items-center gap-3 pl-4 py-3 min-h-[68px] lg:py-4 lg:min-h-[104px]">
           <InitialsAvatar name={t.nom} size={44} />
           <span className="min-w-0 flex-1">
             <span className="flex items-center gap-2">
@@ -81,13 +84,14 @@ export function MesTontinesPage() {
               </span>
             )}
           </span>
-          <ChevronRight size={18} className="text-neutral-300" />
+          <ChevronRight size={18} className="text-neutral-300 lg:hidden" />
         </Link>
         <button
           onClick={() => basculer(t.id)}
           aria-pressed={estFavori(t.id)}
           aria-label={estFavori(t.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'}
-          className="w-12 h-12 mr-1 flex items-center justify-center"
+          title={estFavori(t.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+          className="w-12 h-12 mr-1 flex items-center justify-center lg:mt-2 lg:rounded-full lg:hover:bg-neutral-100"
         >
           <Star size={20} className={estFavori(t.id) ? 'fill-yellow-400 text-yellow-500' : 'text-neutral-300'} />
         </button>
@@ -106,7 +110,7 @@ export function MesTontinesPage() {
           </button>
         }
       />
-      <main className="px-4 pb-10 max-w-lg mx-auto md:max-w-3xl space-y-5">
+      <main className="px-4 pb-10 max-w-lg mx-auto md:max-w-3xl lg:max-w-[1200px] lg:px-8 space-y-5">
         {bienvenue && (
           <div role="status" className="rounded-3xl bg-primary-50 p-4 flex gap-3">
             <PartyPopper size={22} className="text-primary-700 flex-shrink-0" />
@@ -135,7 +139,7 @@ export function MesTontinesPage() {
         )}
 
         {tontines.length > 6 && (
-          <div className="relative">
+          <div className="relative lg:max-w-md">
             <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Chercher une tontine"
               className="w-full h-12 pl-11 pr-4 rounded-2xl bg-white shadow-sm text-[16px] outline-none focus:ring-2 focus:ring-primary-600" />
@@ -161,7 +165,7 @@ export function MesTontinesPage() {
             {fav.length > 0 && (
               <section>
                 <h2 className="px-1 mb-2 text-sm font-semibold text-neutral-500">Favoris</h2>
-                <div className="bg-white rounded-3xl shadow-sm p-3 grid grid-cols-4 gap-y-3">
+                <div className="bg-white rounded-3xl shadow-sm p-3 grid grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-y-3 lg:p-4">
                   {fav.map((t) => (
                     <Link key={t.id} to={`/tontine/${t.id}`} className="flex flex-col items-center gap-1.5 min-w-0">
                       <InitialsAvatar name={t.nom} size={56} />
@@ -175,7 +179,7 @@ export function MesTontinesPage() {
             {sections.map((s) => s.items.length > 0 && (
               <section key={s.id}>
                 <h2 className="px-1 mb-2 text-sm font-semibold text-neutral-500">{s.titre} ({s.items.length})</h2>
-                <ul className="bg-white rounded-3xl shadow-sm divide-y divide-neutral-100">
+                <ul className={LISTE}>
                   {s.items.map(ligne)}
                 </ul>
               </section>
@@ -188,7 +192,7 @@ export function MesTontinesPage() {
                   Terminées ({terminees.length}) <ChevronDown size={16} className={clsx('transition', terminéesOuvertes && 'rotate-180')} />
                 </button>
                 {terminéesOuvertes && (
-                  <ul className="bg-white rounded-3xl shadow-sm divide-y divide-neutral-100">
+                  <ul className={LISTE}>
                     {terminees.map(ligne)}
                   </ul>
                 )}

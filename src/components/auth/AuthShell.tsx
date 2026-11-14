@@ -41,7 +41,7 @@ export function AuthShell({
           <div className="pointer-events-none absolute -top-16 -right-12 w-48 h-48 rounded-full bg-white/10" />
           <div className="relative flex items-center gap-2.5">
             <span className="w-10 h-10 rounded-2xl bg-white/15 flex items-center justify-center">
-              <LogoIcon size={24} />
+              <LogoIcon size={24} variant="white" />
             </span>
             <span className="font-bold text-[15px]">Dinthialma</span>
           </div>
@@ -76,7 +76,7 @@ export function AuthBrandPanel({
       <div className="pointer-events-none absolute -top-24 -right-24 w-96 h-96 rounded-full bg-white/10" />
       <div className="pointer-events-none absolute -bottom-32 -left-20 w-80 h-80 rounded-full bg-white/5" />
       <div className="relative flex items-center gap-3">
-        <LogoIcon size={36} />
+        <LogoIcon size={36} variant="white" />
         <div>
           <p className="text-lg font-bold leading-none">Dinthialma</p>
           <p className="text-white/70 text-xs mt-1">Gestion de tontines</p>
