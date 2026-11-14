@@ -2,6 +2,8 @@ import { lazy, Suspense, ReactNode } from 'react'
 import { createBrowserRouter, RouterProvider, Navigate, useParams } from 'react-router-dom'
 import { Spinner } from '@/components/ui/Spinner'
 import { ProtectedRoute } from './ProtectedRoute'
+import { DesktopShell } from '@/components/layout/DesktopShell'
+import { useIsDesktop } from '@/hooks/useMediaQuery'
 import { RoleRoute } from './RoleRoute'
 import { UserRole } from '@/types/common'
 import { getAccessToken, getUserPhone, getPinConfigured, isTokenExpired, getAuthUser } from '@/lib/tokenStorage'
@@ -19,6 +21,26 @@ function S({ children }: { children: ReactNode }) {
       {children}
     </Suspense>
   )
+}
+
+/**
+ * Écran connecté membre / gestionnaire : protection + coque desktop (barre latérale ≥ 1024 px).
+ * Le Suspense est à l'intérieur de la coque : la barre latérale reste affichée pendant le chargement d'un écran.
+ */
+function P({ children }: { children: ReactNode }) {
+  return (
+    <ProtectedRoute>
+      <DesktopShell><S>{children}</S></DesktopShell>
+    </ProtectedRoute>
+  )
+}
+
+/**
+ * Même URL, écran différent selon la largeur : sur desktop, un détail (membre, tour) s'ouvre
+ * dans le panneau de droite de sa liste ; sur mobile / PWA, en plein écran.
+ */
+function SelonEcran({ desktop, mobile }: { desktop: ReactNode; mobile: ReactNode }) {
+  return <>{useIsDesktop() ? desktop : mobile}</>
 }
 
 /**
@@ -142,84 +164,84 @@ const router = createBrowserRouter([
   // Accueil-hub : membres, gestionnaires, nouveaux inscrits
   {
     path: '/accueil',
-    element: <ProtectedRoute><S><HomePage /></S></ProtectedRoute>,
+    element: <P><HomePage /></P>,
   },
   {
     path: '/jackpots',
-    element: <ProtectedRoute><S><MesJackpotsPage /></S></ProtectedRoute>,
+    element: <P><MesJackpotsPage /></P>,
   },
   {
     path: '/payer',
-    element: <ProtectedRoute><S><PayerPage /></S></ProtectedRoute>,
+    element: <P><PayerPage /></P>,
   },
   {
     path: '/payer/:tontineId',
-    element: <ProtectedRoute><S><PayerPage /></S></ProtectedRoute>,
+    element: <P><PayerPage /></P>,
   },
   {
     path: '/recu/:tontineId/:cotisationId',
-    element: <ProtectedRoute><S><RecuPage /></S></ProtectedRoute>,
+    element: <P><RecuPage /></P>,
   },
   // Gestionnaire : le rôle se vérifie par tontine (créateur), pas par le rôle global du jeton
   {
     path: '/a-valider',
-    element: <ProtectedRoute><S><AValiderPage /></S></ProtectedRoute>,
+    element: <P><AValiderPage /></P>,
   },
   {
     path: '/encaisser',
-    element: <ProtectedRoute><S><EncaisserPage /></S></ProtectedRoute>,
+    element: <P><EncaisserPage /></P>,
   },
   {
     path: '/encaisser/:tontineId',
-    element: <ProtectedRoute><S><EncaisserPage /></S></ProtectedRoute>,
+    element: <P><EncaisserPage /></P>,
   },
   {
     path: '/creer',
-    element: <ProtectedRoute><S><CreerTontinePage /></S></ProtectedRoute>,
+    element: <P><CreerTontinePage /></P>,
   },
   // QR : scanner, partager, liens encodés dans les QR (ouvrables par l'appareil photo du téléphone)
   {
     path: '/scanner',
-    element: <ProtectedRoute><S><ScannerPage /></S></ProtectedRoute>,
+    element: <P><ScannerPage /></P>,
   },
   {
     path: '/partager',
-    element: <ProtectedRoute><S><PartagerPage /></S></ProtectedRoute>,
+    element: <P><PartagerPage /></P>,
   },
   {
     path: '/q/:token',
-    element: <ProtectedRoute><S><MembreQrPage /></S></ProtectedRoute>,
+    element: <P><MembreQrPage /></P>,
   },
   // Invitation : publique (ouverte depuis un QR même sans compte)
   { path: '/q/t/:id', element: <S><InvitationPage /></S> },
   // Fiche tontine (vue gestionnaire / membre / lecture selon la tontine)
   {
     path: '/tontine/:id',
-    element: <ProtectedRoute><S><FicheTontinePage /></S></ProtectedRoute>,
+    element: <P><FicheTontinePage /></P>,
   },
   {
     path: '/tontine/:id/tours',
-    element: <ProtectedRoute><S><ToursPage /></S></ProtectedRoute>,
+    element: <P><ToursPage /></P>,
   },
   {
     path: '/tontine/:id/tours/:cycleId',
-    element: <ProtectedRoute><S><TourPage /></S></ProtectedRoute>,
+    element: <P><SelonEcran desktop={<ToursPage />} mobile={<TourPage />} /></P>,
   },
   {
     path: '/tontine/:id/membres',
-    element: <ProtectedRoute><S><MembresTontinePage /></S></ProtectedRoute>,
+    element: <P><MembresTontinePage /></P>,
   },
   {
     path: '/tontine/:id/membres/:membreId',
-    element: <ProtectedRoute><S><MembreFichePage /></S></ProtectedRoute>,
+    element: <P><SelonEcran desktop={<MembresTontinePage />} mobile={<MembreFichePage />} /></P>,
   },
   {
     path: '/tontine/:id/reglages',
-    element: <ProtectedRoute><S><ReglagesTontinePage /></S></ProtectedRoute>,
+    element: <P><ReglagesTontinePage /></P>,
   },
   {
     path: '/tontine/:id/modifier',
-    element: <ProtectedRoute><S><ModifierTontinePage /></S></ProtectedRoute>,
+    element: <P><ModifierTontinePage /></P>,
   },
 
   // Super Admin
@@ -283,17 +305,17 @@ const router = createBrowserRouter([
   // Listes (brief v2)
   {
     path: '/tontines',
-    element: <ProtectedRoute><S><MesTontinesPage /></S></ProtectedRoute>,
+    element: <P><MesTontinesPage /></P>,
   },
   {
     path: '/historique',
-    element: <ProtectedRoute><S><HistoriquePage /></S></ProtectedRoute>,
+    element: <P><HistoriquePage /></P>,
   },
 
   // Profil
   {
     path: '/parametres',
-    element: <ProtectedRoute><S><ParametresPage /></S></ProtectedRoute>,
+    element: <P><ParametresPage /></P>,
   },
   // Ancienne page profil → Paramètres
   { path: '/profile', element: <Navigate to="/parametres" replace /> },
@@ -301,7 +323,7 @@ const router = createBrowserRouter([
   // Notifications (toutes les rôles)
   {
     path: '/notifications',
-    element: <ProtectedRoute><S><NotificationsPage /></S></ProtectedRoute>,
+    element: <P><NotificationsPage /></P>,
   },
 
   // Catch-all → démarrage (accueil si connecté, PIN ou connexion sinon)

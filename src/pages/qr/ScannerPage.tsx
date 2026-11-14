@@ -119,7 +119,7 @@ export function ScannerPage() {
   }
 
   return (
-    <div className="fixed inset-0 bg-black text-white flex flex-col">
+    <div className="fixed inset-0 lg:left-64 bg-black text-white flex flex-col">
       <video ref={videoRef} playsInline muted className="absolute inset-0 w-full h-full object-cover" aria-hidden="true" />
       <canvas ref={canvasRef} className="hidden" />
 

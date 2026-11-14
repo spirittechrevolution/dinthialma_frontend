@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'icons/*.png'],
+      includeAssets: ['icons/*.png'],
       manifest: {
         name: 'Dinthialma',
         short_name: 'Dinthialma',
@@ -20,9 +20,9 @@ export default defineConfig({
         start_url: '/',
         lang: 'fr',
         icons: [
-          { src: '/icons/pwa-192x192.svg', sizes: '192x192', type: 'image/svg+xml' },
-          { src: '/icons/pwa-512x512.svg', sizes: '512x512', type: 'image/svg+xml' },
-          { src: '/icons/pwa-512x512.svg', sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable' },
+          { src: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: '/icons/icon-maskable-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
       workbox: {

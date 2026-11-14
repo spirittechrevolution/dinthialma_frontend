@@ -2,9 +2,14 @@
  * T3 — Membres d'une tontine, par ordre de passage.
  * Gestionnaire : « + Ajouter », situation de paiement du tour en cours, tap → fiche membre (T4).
  * Membre / lecture : liste en consultation.
+ * Desktop (gestionnaire) : fiche du membre (T4) dans un panneau à droite ; /tontine/:id/membres/:membreId
+ * ouvre cette page avec le panneau.
  */
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Panneau, PanneauVide } from '@/components/layout/Panneau'
+import { useIsDesktop } from '@/hooks/useMediaQuery'
+import { MembreFichePage } from '@/pages/tontine/MembreFichePage'
 import { clsx } from 'clsx'
 import { Search, UserPlus, ChevronRight, Trophy, RotateCw, Users } from 'lucide-react'
 import { ScreenHeader } from '@/components/layout/ScreenHeader'
@@ -24,9 +29,12 @@ const STATUT_MEMBRE: Record<MembreStatut, { label: string; cls: string } | null>
 }
 
 export function MembresTontinePage() {
-  const { id = '' } = useParams()
+  const { id = '', membreId } = useParams()
+  const navigate = useNavigate()
   const v = useTontineVue(id)
   const gerant = v.vue === 'GERE'
+  // Desktop : liste à gauche, fiche du membre à droite (gestionnaire seulement : le membre n'a pas de fiche)
+  const avecPanneau = useIsDesktop() && gerant
   const { data, isLoading, isError, refetch } = useMembres(id, 0, 200)
   const { data: cyclesData } = useCycles(id, 0, 200)
   const cycleEnCours = cyclesData?.content.find((c) => c.statut === CycleStatut.EN_COURS)
@@ -52,7 +60,8 @@ export function MembresTontinePage() {
           </button>
         ) : undefined}
       />
-      <main className="px-4 pb-6 max-w-lg mx-auto space-y-3">
+      <main className={clsx('px-4 pb-6 mx-auto', avecPanneau ? 'max-w-[1200px] lg:px-8 grid grid-cols-[minmax(0,1fr)_440px] gap-6 items-start' : 'max-w-lg')}>
+        <div className="space-y-3 min-w-0">
         {(data?.content.length ?? 0) > 6 && (
           <div className="relative">
             <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" />
@@ -115,7 +124,17 @@ export function MembresTontinePage() {
               return (
                 <li key={m.id}>
                   {gerant ? (
-                    <Link to={`/tontine/${id}/membres/${m.id}`} className="flex items-center gap-3 px-3 py-3 min-h-[64px] hover:bg-neutral-50">{contenu}</Link>
+                    <Link
+                      to={`/tontine/${id}/membres/${m.id}`}
+                      replace={avecPanneau}
+                      aria-current={m.id === membreId ? 'true' : undefined}
+                      className={clsx(
+                        'flex items-center gap-3 px-3 py-3 min-h-[64px]',
+                        m.id === membreId ? 'bg-primary-50' : 'hover:bg-neutral-50',
+                      )}
+                    >
+                      {contenu}
+                    </Link>
                   ) : (
                     <div className="flex items-center gap-3 px-3 py-3 min-h-[64px]">{contenu}</div>
                   )}
@@ -124,6 +143,18 @@ export function MembresTontinePage() {
             })}
             {membres.length === 0 && <li className="px-4 py-6 text-center text-sm text-neutral-500">Aucun membre ne correspond.</li>}
           </ul>
+        )}
+        </div>
+
+        {/* Desktop, gestionnaire : fiche du membre choisi à droite */}
+        {avecPanneau && (
+          membreId ? (
+            <Panneau label="Fiche du membre" onClose={() => navigate(`/tontine/${id}/membres`, { replace: true })}>
+              <MembreFichePage />
+            </Panneau>
+          ) : (
+            <PanneauVide icon={<Users size={26} />} title="Choisissez un membre" text="Sa situation, ses paiements et les actions s'afficheront ici." />
+          )
         )}
       </main>
       {gerant && <AddMembreModal tontineId={id} isOpen={addOpen} onClose={() => setAddOpen(false)} />}

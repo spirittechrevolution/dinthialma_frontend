@@ -161,7 +161,7 @@ export function RecuPage() {
         </div>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-20 bg-[#f2f3f5]/95 backdrop-blur px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <div className="fixed inset-x-0 bottom-0 lg:left-64 z-20 bg-[#f2f3f5]/95 backdrop-blur px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <div className="max-w-lg mx-auto">
           {peutValider ? (
             <div className="space-y-2">

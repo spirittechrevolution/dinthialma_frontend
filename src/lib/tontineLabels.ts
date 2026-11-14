@@ -97,6 +97,36 @@ export function dureeRythme(r: Rythme): string {
   return `${r.intervalle} ${r.intervalle > 1 ? mots[1] : mots[0]}`
 }
 
+/** Rythme après « une cotisation » : « par semaine », « tous les 3 jours », « toutes les 2 semaines » */
+export function parRythme(r: Rythme): string {
+  if (r.intervalle === 1) return `par ${{ JOUR: 'jour', SEMAINE: 'semaine', MOIS: 'mois' }[r.unite]}`
+  return `${r.unite === 'SEMAINE' ? 'toutes' : 'tous'} les ${dureeRythme(r)}`
+}
+
+/**
+ * Rythme du jackpot (B32) : le jackpot est versé toutes les N cotisations, pas forcément à chaque cotisation.
+ * Exprimé en nombre de cotisations pour que le jackpot reste fixe (pas de mois à 4 ou 5 semaines).
+ */
+export const COTISATIONS_PAR_TOUR_MAX = 12
+/** Passer à true quand le backend accepte `cotisationsParTour` (B32) ; d'ici là, 1 cotisation = 1 tour */
+export const COTISATIONS_PAR_TOUR_DISPONIBLE = false
+
+/** Durée d'un tour de N cotisations : « 4 semaines (environ 1 mois) », « 6 jours », « 3 mois » */
+export function dureeTour(r: Rythme, n: number): string {
+  if (r.unite === 'MOIS') {
+    const m = r.intervalle * n
+    return `${m} mois`
+  }
+  const jours = r.intervalle * n * (r.unite === 'SEMAINE' ? 7 : 1)
+  if (jours % 7 !== 0) return `${jours} jour${jours > 1 ? 's' : ''}`
+  const semaines = jours / 7
+  const base = `${semaines} semaine${semaines > 1 ? 's' : ''}`
+  // Repère en mois à partir de 4 semaines (arrondi : 4 sem ≈ 1 mois, 9 sem ≈ 2 mois)
+  if (semaines < 4) return base
+  const mois = Math.round(jours / 30)
+  return `${base} (environ ${mois} mois)`
+}
+
 /** Date + un intervalle de rythme */
 export function ajouterRythme(d: Date, r: Rythme, fois = 1): Date {
   const n = new Date(d)

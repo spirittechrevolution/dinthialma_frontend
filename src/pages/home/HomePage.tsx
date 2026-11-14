@@ -24,6 +24,8 @@ import { QrCard } from '@/components/home/QrCard'
 import { ActionCard, ActionCardSkeleton } from '@/components/home/ActionCard'
 import { ServiceGrid, type ServiceItem } from '@/components/home/ServiceGrid'
 import { ActivityFeed } from '@/components/home/ActivityFeed'
+import { HomeDesktop } from '@/components/home/HomeDesktop'
+import { useIsDesktop } from '@/hooks/useMediaQuery'
 import { TontinePickerSheet, MontantsSheet, PlusSheet, dueDetail, type PlusItem } from '@/components/home/HomeSheets'
 import { formatF, safeGet } from '@/lib/format'
 import { INVITATION_EN_ATTENTE_KEY } from '@/lib/share'
@@ -38,6 +40,7 @@ const MODES = ['COTISE', 'GERE'] as const
 export function HomePage() {
   const navigate = useNavigate()
   const online = useOnline()
+  const desktop = useIsDesktop()
   const { user } = useAuth()
   const { canInstall, triggerInstall } = usePWA()
   const { data: unread = 0 } = useUnreadCount()
@@ -124,8 +127,11 @@ export function HomePage() {
   // ─── Carte d'action (une seule, la plus urgente) ─────────────────────────
   const offlineReason = online ? undefined : 'Connexion requise'
   let actionCard: JSX.Element | null
+  /** Desktop : la carte n'apparaît que s'il y a une action à faire (les chiffres clés disent déjà « tout est à jour ») */
+  let actionAFaire = true
   if (roles.isLoading || (mode === 'COTISE' && roles.cotise && cotisant.isLoading) || (mode === 'GERE' && gestion.isLoading)) {
     actionCard = <ActionCardSkeleton />
+    actionAFaire = false
   } else if (nouvelInscrit) {
     actionCard = (
       <ActionCard
@@ -200,8 +206,10 @@ export function HomePage() {
       )
     } else if (enAttente.length > 0) {
       actionCard = <ActionCard icon={<Clock size={22} />} tone="neutral" title="Paiement en attente de validation" subtitle={enAttente.map((t) => t.nom).join(', ')} />
+      actionAFaire = false
     } else {
       actionCard = <ActionCard icon={<PartyPopper size={22} />} tone="ok" title="Tout est à jour ✓" subtitle="Aucune cotisation à payer" />
+      actionAFaire = false
     }
   }
 
@@ -287,6 +295,40 @@ export function HomePage() {
     detail: `${t.cotisationDue?.montant != null ? formatF(t.cotisationDue.montant) : 'Montant libre'} · ${dueDetail(t.cotisationDue?.dateLimite)}`,
   }))
 
+  // ─── Desktop (≥ 1024 px) : tableau de bord web ───────────────────────────
+  if (desktop) {
+    return (
+      <HomeDesktop
+        prenom={prenom}
+        online={online}
+        mode={mode}
+        onModeChange={setSavedMode}
+        deuxModes={roles.deuxModes}
+        pastilles={{ COTISE: aPayerTotal, GERE: aValiderTotal }}
+        nouvelInscrit={nouvelInscrit}
+        tontines={tontinesDuMode}
+        tontineId={tontineId}
+        onTontineChange={(id) => {
+          setTontineId(id)
+          if (mode === 'GERE' && id) { choixManuel.current = true; setDerniereGeree(id) }
+        }}
+        hidden={hidden}
+        onToggleHidden={() => setHiddenPref(hidden ? '0' : '1')}
+        cotisant={cotisant.data}
+        gestion={gestion.data}
+        chargement={roles.isLoading || (mode === 'GERE' ? gestion.isLoading : roles.cotise && cotisant.isLoading)}
+        activite={{ items: activite.data, isLoading: activite.isLoading || roles.isLoading, isError: activite.isError, onRetry: () => activite.refetch() }}
+        onOpenActivite={openActivite}
+        actionCard={actionAFaire || nouvelInscrit ? actionCard : null}
+        qr={qr}
+        onPayer={() => (aPayerTotal > 1 && !tontineId ? navigate('/payer') : openPay(tontineId ?? cotisant.data?.aPayer[0]?.tontineId))}
+        aPayerTotal={aPayerTotal}
+        aValiderTotal={aValiderTotal}
+      />
+    )
+  }
+
+  // ─── Mobile / PWA / tablette : accueil-hub façon Wave ────────────────────
   return (
     <div className="min-h-[100dvh] bg-[#f2f3f5] pb-[max(1.5rem,env(safe-area-inset-bottom))]">
       {!online && (
@@ -295,8 +337,10 @@ export function HomePage() {
         </div>
       )}
 
+      {/* Mobile : une colonne. Tablette (md) : 2 colonnes. */}
       <div className="md:max-w-5xl md:mx-auto md:px-6 md:pt-6 md:grid md:grid-cols-2 md:gap-6 md:items-start">
         <div>
+          <h1 className="sr-only">Accueil</h1>
           <HomeHeader
             mode={mode}
             onModeChange={setSavedMode}
@@ -329,7 +373,7 @@ export function HomePage() {
           </div>
         </div>
 
-        <div className="px-4 mt-4 md:px-0 md:mt-0">
+        <div className="px-4 mt-4 md:px-0 md:mt-0 min-w-0">
           {nouvelInscrit ? (
             <section className="bg-white rounded-3xl shadow-sm p-4">
               <h2 className="text-[17px] font-semibold text-neutral-900">Comment ça marche ?</h2>
@@ -350,6 +394,7 @@ export function HomePage() {
             />
           )}
         </div>
+
       </div>
 
       {/* Feuilles */}

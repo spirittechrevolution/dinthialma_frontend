@@ -244,16 +244,49 @@ export function CreerTontinePage() {
         ? `Vous prenez ${formatF(commissionNombre)} par tour, déduits du jackpot.`
         : `Chaque membre paie ${formatF(commissionNombre)} de frais d'adhésion en rejoignant la tontine.`
 
+  // Phrase du récapitulatif (étape 4, et panneau « en direct » sur desktop)
+  const phrase = isEvent ? (
+    <>
+      Chacun cotise <b>{montantLibre ? (Number(minimum) > 0 ? `librement (minimum ${formatF(Number(minimum))})` : 'librement') : `${formatF(montant)} ${rythmeTexte}`}</b>
+      {dateEvenement ? <> jusqu'au <b>{formatDateCourte(dateEvenement)}</b></> : null}.
+      La cagnotte est partagée entre tous à la fin.
+    </>
+  ) : (
+    <>
+      <b>{membres} membres</b> cotisent <b>{formatF(montant)}</b> {rythmeTexte}. {capital(rythmeTexte)}, <b>{gagnants} membre{gagnants > 1 ? 's' : ''}</b> reçoi{gagnants > 1 ? 'vent' : 't'} <b>{formatF(jackpot)}</b>.
+    </>
+  )
+
+  const boutonPrincipal = etape === 4 ? (
+    <button onClick={creerTontine} disabled={!online || isPending} className="w-full h-14 rounded-full bg-primary-700 text-white text-[17px] font-bold hover:bg-primary-800 disabled:opacity-50">
+      {isPending ? 'Création…' : !online ? 'Connexion requise' : 'Créer la tontine'}
+    </button>
+  ) : (
+    <button onClick={suivant} disabled={etape === 1 && !objectif} className="w-full h-14 rounded-full bg-primary-700 text-white text-[17px] font-bold hover:bg-primary-800 disabled:opacity-50">
+      Continuer
+    </button>
+  )
+
+  const TITRES_ETAPES: Record<number, string> = {
+    1: 'Objectif',
+    2: isEvent ? 'Montant et date' : 'Montant et rythme',
+    3: 'Membres',
+    4: 'Récapitulatif',
+  }
+
   return (
     <div className="min-h-[100dvh] bg-[#f2f3f5]">
       <ScreenHeader title="Créer une tontine" onBack={precedent} />
-      <div className="px-4 max-w-lg mx-auto">
+      {/* Grand écran (xl) : questions à gauche, récapitulatif en direct + bouton à droite */}
+      <div className="xl:max-w-[1200px] xl:mx-auto xl:px-8 xl:grid xl:grid-cols-[minmax(0,1fr)_360px] xl:gap-8 xl:items-start">
+      <div className="min-w-0">
+      <div className="px-4 max-w-lg mx-auto xl:max-w-none xl:px-0">
         <div className="flex gap-1.5" aria-label={`Étape ${indexEtape + 1} sur ${etapes.length}`}>
           {etapes.map((e, i) => <span key={e} className={clsx('h-1.5 flex-1 rounded-full', i <= indexEtape ? 'bg-primary-700' : 'bg-neutral-200')} />)}
         </div>
       </div>
 
-      <main className={clsx('px-4 pt-5 max-w-lg mx-auto', etape === 1 && objectifChoisi ? 'pb-44' : 'pb-32')}>
+      <main className={clsx('px-4 pt-5 max-w-lg mx-auto xl:max-w-none xl:px-0 xl:pb-10', etape === 1 && objectifChoisi ? 'pb-44' : 'pb-32')}>
         {etape === 1 && (
           <>
             <h2 className="text-center text-[22px] font-bold text-neutral-900">Pour quoi cotisez-vous ?</h2>
@@ -261,7 +294,7 @@ export function CreerTontinePage() {
               {RUBRIQUES.map((r) => (
                 <section key={r.id} className="bg-white rounded-3xl shadow-sm px-3 pt-4 pb-5">
                   <h3 className="px-1 text-xs font-semibold tracking-[0.12em] uppercase text-neutral-500">{r.titre}</h3>
-                  <div className="mt-4 grid grid-cols-3 gap-y-5 gap-x-2">
+                  <div className="mt-4 grid grid-cols-3 xl:grid-cols-5 gap-y-5 gap-x-2">
                     {OBJECTIFS.filter((o) => o.rubrique === r.id).map((o) => {
                       const selected = objectif === o.id
                       return (
@@ -429,18 +462,7 @@ export function CreerTontinePage() {
           <div className="space-y-4">
             <h2 className="text-center text-[22px] font-bold text-neutral-900">Récapitulatif</h2>
             <section className="bg-white rounded-3xl shadow-sm p-5">
-              <p className="text-[17px] leading-relaxed text-neutral-900">
-                {isEvent ? (
-                  <>
-                    Chacun cotise <b>{montantLibre ? (Number(minimum) > 0 ? `librement (minimum ${formatF(Number(minimum))})` : 'librement') : `${formatF(montant)} ${rythmeTexte}`}</b> jusqu'au <b>{formatDateCourte(dateEvenement)}</b>.
-                    La cagnotte est partagée entre tous à la fin.
-                  </>
-                ) : (
-                  <>
-                    <b>{membres} membres</b> cotisent <b>{formatF(montant)}</b> {rythmeTexte}. {capital(rythmeTexte)}, <b>{gagnants} membre{gagnants > 1 ? 's' : ''}</b> reçoi{gagnants > 1 ? 'vent' : 't'} <b>{formatF(jackpot)}</b>.
-                  </>
-                )}
-              </p>
+              <p className="text-[17px] leading-relaxed text-neutral-900">{phrase}</p>
               <p className="mt-2 text-sm text-neutral-500">
                 Début le {formatDateCourte(dateDebut)}
                 {!isEvent && ` · ${ORDRE_LABEL[ordre] ?? ordre} · tours ${modeCycle === ModeCycle.MANUEL ? 'démarrés par vous' : 'automatiques'}`}
@@ -479,27 +501,103 @@ export function CreerTontinePage() {
           </div>
         )}
 
-        {error && <p role="alert" className="mt-4 px-1 text-sm font-medium text-red-700">{error}</p>}
+        {error && <p role="alert" className="mt-4 px-1 text-sm font-medium text-red-700 xl:hidden">{error}</p>}
       </main>
+      </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-20 bg-[#f2f3f5]/95 backdrop-blur px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
+      {/* Grand écran (xl) : récapitulatif en direct */}
+      <aside className="hidden xl:block sticky top-20 space-y-4" aria-label="Récapitulatif">
+        <nav aria-label="Étapes" className="bg-white rounded-3xl shadow-sm p-2">
+          <ol>
+            {etapes.map((e, i) => {
+              const faite = i < indexEtape
+              const courante = i === indexEtape
+              return (
+                <li key={e}>
+                  <button
+                    onClick={() => { if (faite) { setError(null); setEtape(e) } }}
+                    disabled={!faite}
+                    aria-current={courante ? 'step' : undefined}
+                    className={clsx(
+                      'w-full flex items-center gap-3 px-3 h-11 rounded-2xl text-left text-sm',
+                      courante ? 'bg-primary-50 text-primary-800 font-semibold' : faite ? 'text-neutral-700 hover:bg-neutral-50' : 'text-neutral-400 cursor-default',
+                    )}
+                  >
+                    <span className={clsx(
+                      'w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0',
+                      faite ? 'bg-primary-700 text-white' : courante ? 'bg-primary-700 text-white' : 'bg-neutral-100 text-neutral-500',
+                    )}>
+                      {faite ? <CheckCircle2 size={14} /> : i + 1}
+                    </span>
+                    {TITRES_ETAPES[e]}
+                  </button>
+                </li>
+              )
+            })}
+          </ol>
+        </nav>
+
+        <section className="bg-white rounded-3xl shadow-sm p-5">
+          <h2 className="text-xs font-semibold tracking-[0.14em] uppercase text-neutral-500">Votre tontine</h2>
+          {objectifChoisi ? (
+            <>
+              <div className="mt-3 flex items-center gap-3">
+                <span className={clsx('w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 [&>svg]:w-5 [&>svg]:h-5', objectifChoisi.tone)}>{objectifChoisi.icon}</span>
+                <span className="min-w-0">
+                  <span className="block font-bold text-neutral-900 truncate">{nom.trim() || objectifChoisi.nom}</span>
+                  <span className="block text-sm text-neutral-500">{isEvent ? 'Pour un événement' : 'Chacun son tour'}</span>
+                </span>
+              </div>
+              {etape === 1 ? (
+                <p className="mt-3 text-sm text-neutral-600">{objectifChoisi.description}</p>
+              ) : (
+                <>
+                  <p className="mt-4 text-[15px] leading-relaxed text-neutral-800">{phrase}</p>
+                  <dl className="mt-4 space-y-2 text-sm">
+                    <LigneRecap label="Début" value={formatDateCourte(dateDebut)} />
+                    {isEvent && <LigneRecap label="Événement" value={dateEvenement ? formatDateCourte(dateEvenement) : '—'} />}
+                    {!isEvent && etape >= 3 && <LigneRecap label="Ordre" value={ORDRE_LABEL[ordre] ?? ordre} />}
+                    {!isEvent && etape >= 3 && <LigneRecap label="Tours" value={modeCycle === ModeCycle.MANUEL ? 'Démarrés par vous' : 'Automatiques'} />}
+                    {etape === 4 && (
+                      <LigneRecap
+                        label="Commission"
+                        value={commissionType && commissionNombre > 0 ? (commissionType === 'POURCENTAGE_JACKPOT' ? `${commissionNombre} %` : formatF(commissionNombre)) : 'Aucune'}
+                      />
+                    )}
+                  </dl>
+                </>
+              )}
+            </>
+          ) : (
+            <p className="mt-3 text-sm text-neutral-500">Choisissez un objectif pour commencer. Le résumé se met à jour à chaque réponse.</p>
+          )}
+        </section>
+
+        {error && <p role="alert" className="px-1 text-sm font-medium text-red-700">{error}</p>}
+        {boutonPrincipal}
+      </aside>
+      </div>
+
+      {/* Mobile, PWA et desktop étroit : bouton fixé en bas */}
+      <div className="xl:hidden fixed inset-x-0 bottom-0 lg:left-64 z-20 bg-[#f2f3f5]/95 backdrop-blur px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <div className="max-w-lg mx-auto">
           {etape === 1 && objectifChoisi && (
             <p className="mb-3 px-1 text-sm text-neutral-600" aria-live="polite">
               <span className="font-semibold text-neutral-900">{objectifChoisi.label}</span> · {objectifChoisi.description}
             </p>
           )}
-          {etape === 4 ? (
-            <button onClick={creerTontine} disabled={!online || isPending} className="w-full h-14 rounded-full bg-primary-700 text-white text-[17px] font-bold disabled:opacity-50">
-              {isPending ? 'Création…' : !online ? 'Connexion requise' : 'Créer la tontine'}
-            </button>
-          ) : (
-            <button onClick={suivant} disabled={etape === 1 && !objectif} className="w-full h-14 rounded-full bg-primary-700 text-white text-[17px] font-bold disabled:opacity-50">
-              Continuer
-            </button>
-          )}
+          {boutonPrincipal}
         </div>
       </div>
+    </div>
+  )
+}
+
+function LigneRecap({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <dt className="text-neutral-500">{label}</dt>
+      <dd className="font-medium text-neutral-900 text-right truncate">{value}</dd>
     </div>
   )
 }
